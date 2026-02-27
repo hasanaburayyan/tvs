@@ -15,7 +15,7 @@
 DB_NAME       := tvs
 MODULE_PATH   := ./spacetimedb
 DOCS_DIR      := ./docs
-BINDINGS_DIR  := ./client-unity/Assets/SpacetimeDB
+BINDINGS_DIR  := ./src/module_bindings
 
 # ─── SpacetimeDB ──────────────────────────────────────────────────────────────
 
@@ -26,23 +26,23 @@ build:
 	dotnet build $(MODULE_PATH)/StdbModule.csproj
 
 ## Publish the module to the configured server
-publish:
+publish-remote:
 	spacetime publish $(DB_NAME) --module-path $(MODULE_PATH)
 
 ## Clear the database and republish from scratch
-publish-clean:
+publish-remote-clean:
 	spacetime publish $(DB_NAME) --clear-database -y --module-path $(MODULE_PATH)
 
-publish-local:
+publish:
 	spacetime publish $(DB_NAME) --module-path $(MODULE_PATH) --server local
 
-publish-local-clean:
+publish-clean:
 	spacetime publish $(DB_NAME) --clear-database -y --module-path $(MODULE_PATH) --server local
 
 ## Generate client bindings (C# for Unity by default)
 generate:
 	@mkdir -p $(BINDINGS_DIR)
-	spacetime generate --lang csharp --out-dir $(BINDINGS_DIR) --module-path $(MODULE_PATH)
+	spacetime generate --lang csharp --out-dir $(BINDINGS_DIR) -p $(MODULE_PATH)
 
 ## Tail the module logs
 logs:
@@ -50,6 +50,10 @@ logs:
 
 logs-local:
 	spacetime logs $(DB_NAME) --server local
+
+## Run a SQL query locally (usage: make sql Q="SELECT * FROM player")
+sql:
+	spacetime sql $(DB_NAME) "$(Q)" --server local
 
 ## Start a local SpacetimeDB server
 server:

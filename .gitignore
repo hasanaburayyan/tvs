@@ -1,11 +1,23 @@
-# Node.js
-node_modules
+# .NET build output
+bin/
+obj/
 
+# Generated client bindings
+src/module_bindings/
+
+# Node.js
+node_modules/
+
+# Docusaurus
+docs/build/
+docs/.docusaurus/
 
 # Unity
-client-unity/Library
-client-unity/Temp
-client-unity/UserSettings
-client-unity/Logs
-client-unity/UserSettings
+client-unity/Library/
+client-unity/Temp/
+client-unity/UserSettings/
+client-unity/Logs/
 
+# OS
+.DS_Store
+Thumbs.db
