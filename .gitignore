@@ -1,0 +1,11 @@
+# Node.js
+node_modules
+
+
+# Unity
+client-unity/Library
+client-unity/Temp
+client-unity/UserSettings
+client-unity/Logs
+client-unity/UserSettings
+
