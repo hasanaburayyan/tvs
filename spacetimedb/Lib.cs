@@ -25,6 +25,7 @@ public static partial class Module
 [SpacetimeDB.Reducer]
 public static void CreateGame(ReducerContext ctx, uint maxPlayers) {
   ctx.Db.game_session.Insert(new GameSession {
+    OwnerIdentity = ctx.Sender,
     State = SessionState.Lobby,
     MaxPlayers = maxPlayers,
     CreatedAt = ctx.Timestamp,
@@ -61,5 +62,31 @@ public static void DeleteGame(ReducerContext ctx, ulong gameId) {
   [SpacetimeDB.Reducer]
   public static void LeaveGame(ReducerContext ctx, ulong gameId) {
     ctx.Db.game_player.GameSessionId.Delete(gameId);
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void ClearData(ReducerContext ctx)
+  {
+    var player = ctx.Db.player.Identity.Find(ctx.Sender);
+    if (player is null) {
+      return;
+    }
+
+    // leave any games player is in
+    foreach (var gamePlayer in ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender)) {
+      ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+    }
+
+    // delete game sessions owned by player, if any
+    // but remove all players in that game session first
+    foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender)) {
+      foreach (var gamePlayer in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id)) {
+        ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+      }
+      ctx.Db.game_session.Id.Delete(gameSession.Id);
+    }
+
+    // now delete the player
+    ctx.Db.player.Identity.Delete(ctx.Sender);
   }
 }

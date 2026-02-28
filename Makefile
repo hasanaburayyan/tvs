@@ -83,6 +83,14 @@ docs-serve:
 docs-clean:
 	cd $(DOCS_DIR) && npm run clear
 
+# ─── Testing ─────────────────────────────────────────────────────────────────
+
+.PHONY: test
+
+## Run integration tests against an ephemeral SpacetimeDB instance
+test:
+	bash scripts/test.sh
+
 # ─── Convenience ──────────────────────────────────────────────────────────────
 
 .PHONY: setup clean help

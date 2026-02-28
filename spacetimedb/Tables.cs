@@ -25,9 +25,12 @@ public static partial class Module {
     [SpacetimeDB.AutoInc]
     public ulong Id;
 
+    [SpacetimeDB.Index.BTree]
+    public Identity OwnerIdentity;
     public SessionState State;
     public uint MaxPlayers;
     public Timestamp CreatedAt;
+
   }
 
   [SpacetimeDB.Table(Accessor = "game_player", Public = true)]
