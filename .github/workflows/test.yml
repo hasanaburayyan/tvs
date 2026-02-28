@@ -19,10 +19,12 @@ jobs:
         run: dotnet workload install wasi-experimental
 
       - name: Install SpacetimeDB CLI
-        run: curl -sSf https://install.spacetimedb.com | sh
+        run: yes | curl -sSf https://install.spacetimedb.com | sh
 
       - name: Add SpacetimeDB to PATH
-        run: echo "$HOME/.local/share/spacetime/bin" >> $GITHUB_PATH
+        run: |
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/spacetime/bin" >> $GITHUB_PATH
 
       - name: Run tests
         run: make test
