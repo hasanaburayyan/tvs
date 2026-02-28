@@ -29,7 +29,7 @@ public class PlayerTests : IDisposable
     public void CreatePlayer_DuplicateIdentityRejected()
     {
         _client.CallReducerExpectSuccess("create_player", "First");
-        _client.CallReducerExpectSuccess("create_player", "Second");
+        _client.CallReducerExpectFailure("create_player", "Second");
     }
 
     [Fact]
