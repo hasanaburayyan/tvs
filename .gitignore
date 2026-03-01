@@ -4,6 +4,7 @@ obj/
 
 # Generated client bindings
 src/module_bindings/
+tests/src/bindings/
 
 # Node.js
 node_modules/
