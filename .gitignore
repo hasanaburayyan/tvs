@@ -22,3 +22,7 @@ client-unity/Logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Rider
+tests/.idea/
+.idea

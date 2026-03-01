@@ -45,6 +45,14 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnJoinGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnLeaveGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnClearData += (ctx) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateChatSession += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnRemoveChatSessionByName += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnRemoveChatSessionById += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnJoinChatSession += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnLeaveChatSession += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSendMessage += (ctx, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSoftDeleteMessage += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnHardDeleteMessage += (ctx, _) => HandleReducerEvent(ctx);
     }
 
     private void HandleReducerEvent(ReducerEventContext ctx)
