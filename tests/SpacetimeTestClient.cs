@@ -1,12 +1,13 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using Xunit;
-
-/// Wrapper for values that should be passed as-is into the JSON args array (no re-serialization).
-public record RawJson(string Json);
+using System.Threading;
+using SpacetimeDB;
+using SpacetimeDB.ClientApi;
+using SpacetimeDB.Types;
 
 public class SpacetimeTestClient : IDisposable
 {
@@ -15,80 +16,128 @@ public class SpacetimeTestClient : IDisposable
     private static readonly string DefaultDb =
         Environment.GetEnvironmentVariable("STDB_TEST_DB") ?? "tvs";
 
+    private readonly DbConnection _conn;
     private readonly HttpClient _http;
     private readonly string _dbName;
 
-    public string Token { get; }
-    public string IdentityHex { get; }
+    private bool _reducerComplete;
+    private Status? _lastReducerStatus;
 
-    private SpacetimeTestClient(string dbName, string token, string identityHex)
+    /// The client cache — read tables directly: Db.Player.Iter(), Db.GameSession.Id.Find(id), etc.
+    public RemoteTables Db => _conn.Db;
+
+    /// Call reducers directly: Reducers.CreatePlayer("Alice"), Reducers.JoinGame(id), etc.
+    public RemoteReducers Reducers => _conn.Reducers;
+
+    /// The identity assigned to this connection (each Create() gets a unique one).
+    public Identity Identity => _conn.Identity!.Value;
+
+    private SpacetimeTestClient(DbConnection conn, HttpClient http, string dbName)
     {
+        _conn = conn;
+        _http = http;
         _dbName = dbName;
-        Token = token;
-        IdentityHex = identityHex;
-        _http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
-        _http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        conn.Reducers.OnCreatePlayer += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnDeletePlayer += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnDeleteGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnJoinGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnLeaveGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnClearData += (ctx) => HandleReducerEvent(ctx);
     }
 
-    /// Creates a test client with a fresh identity. Each client is a unique "player."
-    public static SpacetimeTestClient Create(string? dbName = null)
+    private void HandleReducerEvent(ReducerEventContext ctx)
     {
-        dbName ??= DefaultDb;
-        using var http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
-
-        var response = http.PostAsync("/v1/identity", null).Result;
-        response.EnsureSuccessStatusCode();
-
-        var json = JsonDocument.Parse(response.Content.ReadAsStringAsync().Result);
-        var token = json.RootElement.GetProperty("token").GetString()!;
-        var identity = json.RootElement.GetProperty("identity").GetString()!;
-
-        return new SpacetimeTestClient(dbName, token, identity);
-    }
-
-    /// Call a reducer by name. Arguments are a JSON array string, e.g. "[\"Alice\"]" or "[1]".
-    /// Returns the raw HttpResponseMessage so tests can assert on status codes.
-    public HttpResponseMessage CallReducer(string reducerName, string argsJson = "[]")
-    {
-        var content = new ByteArrayContent(Encoding.UTF8.GetBytes(argsJson));
-        content.Headers.ContentType =
-            System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
-        var response = _http.PostAsync($"/v1/database/{_dbName}/call/{reducerName}", content).Result;
-        return response;
-    }
-
-    /// Call a reducer and assert that it succeeded (2xx status).
-    /// Pass C# values directly — strings, numbers, booleans are serialized to JSON for you.
-    public void CallReducerExpectSuccess(string reducerName, params object[] args)
-    {
-        var response = CallReducer(reducerName, ArgsToJson(args));
-        if (!response.IsSuccessStatusCode)
+        if (ctx.Event.CallerIdentity == _conn.Identity)
         {
-            var body = response.Content.ReadAsStringAsync().Result;
-            throw new Exception(
-                $"Reducer '{reducerName}' failed with {(int)response.StatusCode}: {body}");
+            _lastReducerStatus = ctx.Event.Status;
+            _reducerComplete = true;
         }
     }
 
-    /// Call a reducer and assert that it failed (non-2xx status).
-    /// Returns the response body for further assertions.
-    public string CallReducerExpectFailure(string reducerName, params object[] args)
+    /// Creates a test client with a fresh anonymous identity.
+    /// Connects, subscribes to all tables, and blocks until ready.
+    public static SpacetimeTestClient Create(string? dbName = null)
     {
-        var response = CallReducer(reducerName, ArgsToJson(args));
-        var body = response.Content.ReadAsStringAsync().Result;
-        Assert.False(response.IsSuccessStatusCode,
-            $"Expected reducer '{reducerName}' to fail but got {(int)response.StatusCode}: {body}");
-        return body;
+        dbName ??= DefaultDb;
+        bool subscribed = false;
+        string? token = null;
+
+        var conn = DbConnection.Builder()
+            .WithUri(BaseUrl)
+            .WithDatabaseName(dbName)
+            .OnConnect((c, identity, tok) =>
+            {
+                token = tok;
+                c.SubscriptionBuilder()
+                    .OnApplied(_ => { subscribed = true; })
+                    .SubscribeToAllTables();
+            })
+            .OnConnectError(err => throw new Exception($"SpacetimeDB connect failed: {err}"))
+            .OnDisconnect((c, err) => { })
+            .Build();
+
+        PumpUntil(conn, () => subscribed);
+
+        var http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        if (token != null)
+        {
+            http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
+
+        return new SpacetimeTestClient(conn, http, dbName);
     }
 
-    private static string ArgsToJson(object[] args)
+    // ── Call & CallExpectFailure ─────────────────────────────────────────────
+
+    /// Call a reducer and wait for it to commit. Throws if the reducer fails.
+    public void Call(Action<RemoteReducers> action)
     {
-        var elements = args.Select(a => a is RawJson raw ? raw.Json : JsonSerializer.Serialize(a));
-        return $"[{string.Join(",", elements)}]";
+        _lastReducerStatus = null;
+        _reducerComplete = false;
+        action(Reducers);
+        PumpUntil(_conn, () => _reducerComplete);
+        var status = _lastReducerStatus!;
+        if (status is Status.Failed(var reason))
+            throw new Exception($"Reducer failed: {reason}");
+        if (status is not Status.Committed)
+            throw new Exception($"Reducer unexpected status: {status}");
     }
 
-    /// Run a SQL query against the test database. Returns the raw JSON response body.
+    /// Call a reducer and wait for it to fail. Throws if the reducer succeeds.
+    /// Returns the failure reason string.
+    public string CallExpectFailure(Action<RemoteReducers> action)
+    {
+        _lastReducerStatus = null;
+        _reducerComplete = false;
+        action(Reducers);
+        PumpUntil(_conn, () => _reducerComplete);
+        var status = _lastReducerStatus!;
+        if (status is Status.Failed(var reason)) return reason;
+        throw new Exception($"Expected reducer to fail, but got: {status}");
+    }
+
+    // ── Convenience helpers ─────────────────────────────────────────────────
+
+    /// Creates a game and returns its ID by finding the session owned by this client.
+    public ulong CreateGame(uint maxPlayers)
+    {
+        Call(r => r.CreateGame(maxPlayers));
+        var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
+        if (game == null) throw new Exception("CreateGame succeeded but game not found in client cache");
+        return game.Id;
+    }
+
+    /// Calls ClearData and waits for it to commit.
+    public void ClearData()
+    {
+        Call(r => r.ClearData());
+    }
+
+    // ── SQL (escape hatch for assertions the SDK can't express) ─────────────
+
     public string Sql(string query)
     {
         var content = new StringContent(query, Encoding.UTF8, "text/plain");
@@ -97,62 +146,35 @@ public class SpacetimeTestClient : IDisposable
         return response.Content.ReadAsStringAsync().Result;
     }
 
-    /// Run a SQL query and parse the result rows from the first statement.
-    /// Returns the rows as a JsonElement array.
     public JsonElement[] SqlRows(string query)
     {
         var json = JsonDocument.Parse(Sql(query));
         var results = json.RootElement;
-
-        if (results.GetArrayLength() == 0)
-            return Array.Empty<JsonElement>();
-
+        if (results.GetArrayLength() == 0) return Array.Empty<JsonElement>();
         var firstStatement = results[0];
-        if (!firstStatement.TryGetProperty("rows", out var rows))
-            return Array.Empty<JsonElement>();
-
+        if (!firstStatement.TryGetProperty("rows", out var rows)) return Array.Empty<JsonElement>();
         var list = new JsonElement[rows.GetArrayLength()];
-        for (int i = 0; i < list.Length; i++)
-            list[i] = rows[i];
+        for (int i = 0; i < list.Length; i++) list[i] = rows[i];
         return list;
     }
 
-    /// Assert that a SQL query returns exactly the expected number of rows.
-    public void AssertRowCount(string table, int expected)
-    {
-        var rows = SqlRows($"SELECT * FROM {table}");
-        Assert.Equal(expected, rows.Length);
-    }
+    // ── Internals ───────────────────────────────────────────────────────────
 
-    /// Assert that a SQL query with a WHERE clause returns exactly the expected number of rows.
-    public void AssertRowCount(string table, string where, int expected)
+    private static void PumpUntil(DbConnection conn, Func<bool> condition, int timeoutMs = 10_000)
     {
-        var rows = SqlRows($"SELECT * FROM {table} WHERE {where}");
-        Assert.Equal(expected, rows.Length);
-    }
-
-    /// Creates a game and returns its ID by looking up the session owned by this client's identity.
-    public ulong CreateGame(uint maxPlayers)
-    {
-        CallReducerExpectSuccess("create_game", maxPlayers);
-        var rows = SqlRows($"SELECT Id FROM game_session WHERE OwnerIdentity = x'{IdentityHex}'");
-        return rows[^1][0].GetUInt64();
-    }
-
-    public void ClearData()
-    {
-        CallReducerExpectSuccess("clear_data");
-    }
-
-    /// Returns this client's identity as a reducer argument.
-    /// SpacetimeDB expects Identity as a 1-element tuple containing a hex-formatted 256-bit integer.
-    public RawJson IdentityArg()
-    {
-        return new RawJson($"[\"0x{IdentityHex}\"]");
+        var sw = Stopwatch.StartNew();
+        while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
+        {
+            conn.FrameTick();
+            Thread.Sleep(1);
+        }
+        if (!condition())
+            throw new TimeoutException($"SpacetimeDB operation timed out after {timeoutMs}ms");
     }
 
     public void Dispose()
     {
+        if (_conn.IsActive) _conn.Disconnect();
         _http.Dispose();
     }
 }
