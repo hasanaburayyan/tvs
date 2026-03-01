@@ -85,10 +85,14 @@ docs-clean:
 
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
-.PHONY: test
+.PHONY: test generate-test-bindings
+
+## Generate C# client bindings for the test project
+generate-test-bindings:
+	spacetime generate --lang csharp --out-dir ./tests/src/bindings -p $(MODULE_PATH)
 
 ## Run integration tests against an ephemeral SpacetimeDB instance
-test:
+test: generate-test-bindings
 	bash scripts/test.sh
 
 # ─── Convenience ──────────────────────────────────────────────────────────────
