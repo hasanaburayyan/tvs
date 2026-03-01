@@ -1,8 +1,12 @@
+using System.Diagnostics.Contracts;
+using Microsoft.VisualBasic;
 using SpacetimeDB;
 
-public static partial class Module {
+public static partial class Module
+{
   [SpacetimeDB.Table(Accessor = "player", Public = true)]
-  public partial struct Player {
+  public partial struct Player
+  {
 
     [SpacetimeDB.PrimaryKey]
     public Identity Identity;
@@ -13,14 +17,16 @@ public static partial class Module {
   }
 
   [SpacetimeDB.Type]
-  public enum SessionState : byte {
+  public enum SessionState : byte
+  {
     Lobby,
     InProgress,
     Ended,
   }
 
   [SpacetimeDB.Table(Accessor = "game_session", Public = true)]
-  public partial struct GameSession {
+  public partial struct GameSession
+  {
     [SpacetimeDB.PrimaryKey]
     [SpacetimeDB.AutoInc]
     public ulong Id;
@@ -34,7 +40,8 @@ public static partial class Module {
   }
 
   [SpacetimeDB.Table(Accessor = "game_player", Public = true)]
-  public partial struct GamePlayer {
+  public partial struct GamePlayer
+  {
     [SpacetimeDB.PrimaryKey]
     [SpacetimeDB.AutoInc]
     public ulong Id;
@@ -45,5 +52,48 @@ public static partial class Module {
     public Identity PlayerIdentity;
     public byte TeamSlot;
 
+  }
+
+  [Table(Name = "chat_session", Public = true)]
+  public partial struct ChatSession
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+
+    public Timestamp TimeCreated;
+
+    [SpacetimeDB.Index.BTree]
+    public Identity Owner;
+    [SpacetimeDB.Index.BTree]
+    public string Name;
+    public bool Active;
+  }
+
+  [Table(Name = "message", Public = true)]
+  public partial struct Message
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+    public string Body;
+    [SpacetimeDB.Index.BTree]
+    public ulong SessionId;
+    [SpacetimeDB.Index.BTree]
+    public Identity Sender;
+    public bool Deleted;
+    public Timestamp TimeSent;
+  }
+
+  [Table(Name = "chat_session_player", Public = true)]
+  public partial struct ChatSessionPlayer
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+    [SpacetimeDB.Index.BTree]
+    public Identity PlayerIdentity;
+    [SpacetimeDB.Index.BTree]
+    public ulong SessionId;
   }
 }

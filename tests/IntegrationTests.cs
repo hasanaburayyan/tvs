@@ -140,3 +140,189 @@ public class JoinGameTests : IDisposable
     Assert.Empty(_client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList());
   }
 }
+public class ChatTests: IDisposable{
+    private readonly SpacetimeTestClient _client;
+    public ChatTests()
+  {
+    _client = SpacetimeTestClient.Create();
+  }
+
+  public void Dispose()
+  {
+    _client.ClearData();
+    _client.Dispose();
+  }
+  [Fact]
+  public void CreateChatSessionTest(){
+    _client.Call(r => r.CreateChatSession("TestChat"));
+    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat");
+    Assert.Single(chatLookup);
+  }
+  [Fact]
+  public void RemoveSessionTest(){
+    _client.Call(r => r.CreateChatSession("TestChat2"));
+    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat2");
+    Assert.Single(chatLookup);
+    _client.Call(r => r.RemoveChatSessionByName("TestChat2"));
+    chatLookup = _client.Db.ChatSession.Name.Filter("TestChat2");
+    Assert.False(chatLookup.First().Active);
+  }
+  [Fact]
+  public void RemoveSessionTestById(){
+    _client.Call(r => r.CreateChatSession("TestChat2"));
+    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat2");
+    Assert.Single(chatLookup);
+    var chatId = chatLookup.First().Id;
+    _client.Call(r => r.RemoveChatSessionById(chatId));
+    var chat = _client.Db.ChatSession.Id.Find(chatId);
+    Assert.NotNull(chat);
+    Assert.False(chat.Active);
+  }
+  [Fact]
+  public void JoinChatSessionTest(){
+    _client.Call(r => r.CreatePlayer("TestName"));
+    _client.Call(r => r.CreateChatSession("TestChat4"));
+    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat4");
+    _client.Call(r => r.JoinChatSession(chatLookup.First().Id));
+    var membershipLookup = _client.Db.ChatSessionPlayer.SessionId.Filter(chatLookup.First().Id);
+    Assert.Single(membershipLookup);
+  }
+  [Fact]
+  public void JoinChatSessionTest2()
+  {
+    _client.Call(r => r.CreateChatSession("TestChat5"));
+    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat5");
+    _client.CallExpectFailure(r => r.JoinChatSession(chatLookup.First().Id));
+  }
+  [Fact]
+  public void LeaveChatSessionTest()
+  {
+    _client.Call(r => r.CreatePlayer("TestName2"));
+    _client.Call(r => r.CreateChatSession("TestChat6"));
+    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat6");
+    _client.Call(r => r.JoinChatSession(chatLookup.First().Id));
+    var membershipLookup = _client.Db.ChatSessionPlayer.SessionId.Filter(chatLookup.First().Id);
+    Assert.Single(membershipLookup);
+    _client.Call(r => r.LeaveChatSession(chatLookup.First().Id));
+    membershipLookup = _client.Db.ChatSessionPlayer.SessionId.Filter(chatLookup.First().Id);
+    Assert.Empty(membershipLookup);
+  }
+
+  [Fact]
+  public void RemoveChatSession_CleansMemberships()
+  {
+    _client.Call(r => r.CreatePlayer("CleanupHost"));
+    _client.Call(r => r.CreateChatSession("CleanupChat"));
+    var chatId = _client.Db.ChatSession.Name.Filter("CleanupChat").First().Id;
+    _client.Call(r => r.JoinChatSession(chatId));
+    Assert.Single(_client.Db.ChatSessionPlayer.SessionId.Filter(chatId));
+
+    _client.Call(r => r.RemoveChatSessionById(chatId));
+    Assert.Empty(_client.Db.ChatSessionPlayer.SessionId.Filter(chatId));
+    Assert.False(_client.Db.ChatSession.Id.Find(chatId)!.Active);
+  }
+
+  [Fact]
+  public void SendMessage_InsertsRow()
+  {
+    _client.Call(r => r.CreatePlayer("Sender"));
+    _client.Call(r => r.CreateChatSession("MsgChat"));
+    var chatId = _client.Db.ChatSession.Name.Filter("MsgChat").First().Id;
+    _client.Call(r => r.JoinChatSession(chatId));
+
+    _client.Call(r => r.SendMessage("Hello world", chatId));
+
+    var messages = _client.Db.Message.SessionId.Filter(chatId).ToList();
+    var msg = Assert.Single(messages);
+    Assert.Equal("Hello world", msg.Body);
+    Assert.Equal(_client.Identity, msg.Sender);
+    Assert.False(msg.Deleted);
+  }
+
+  [Fact]
+  public void SendMessage_MultipleMessages()
+  {
+    _client.Call(r => r.CreatePlayer("Chatter"));
+    _client.Call(r => r.CreateChatSession("MultiMsgChat"));
+    var chatId = _client.Db.ChatSession.Name.Filter("MultiMsgChat").First().Id;
+    _client.Call(r => r.JoinChatSession(chatId));
+
+    _client.Call(r => r.SendMessage("First", chatId));
+    _client.Call(r => r.SendMessage("Second", chatId));
+    _client.Call(r => r.SendMessage("Third", chatId));
+
+    var messages = _client.Db.Message.SessionId.Filter(chatId).ToList();
+    Assert.Equal(3, messages.Count);
+  }
+
+  [Fact]
+  public void SoftDeleteMessage_SetsDeletedFlag()
+  {
+    _client.Call(r => r.CreatePlayer("Deleter"));
+    _client.Call(r => r.CreateChatSession("SoftDelChat"));
+    var chatId = _client.Db.ChatSession.Name.Filter("SoftDelChat").First().Id;
+    _client.Call(r => r.JoinChatSession(chatId));
+    _client.Call(r => r.SendMessage("Delete me softly", chatId));
+
+    var msgId = _client.Db.Message.SessionId.Filter(chatId).First().Id;
+    _client.Call(r => r.SoftDeleteMessage(msgId));
+
+    var msg = _client.Db.Message.Id.Find(msgId);
+    Assert.NotNull(msg);
+    Assert.True(msg.Deleted);
+  }
+
+  [Fact]
+  public void SoftDeleteMessage_NonexistentFails()
+  {
+    _client.CallExpectFailure(r => r.SoftDeleteMessage(999999));
+  }
+
+  [Fact]
+  public void HardDeleteMessage_RemovesRow()
+  {
+    _client.Call(r => r.CreatePlayer("HardDeleter"));
+    _client.Call(r => r.CreateChatSession("HardDelChat"));
+    var chatId = _client.Db.ChatSession.Name.Filter("HardDelChat").First().Id;
+    _client.Call(r => r.JoinChatSession(chatId));
+    _client.Call(r => r.SendMessage("Delete me forever", chatId));
+
+    var msgId = _client.Db.Message.SessionId.Filter(chatId).First().Id;
+    _client.Call(r => r.HardDeleteMessage(msgId));
+
+    Assert.Null(_client.Db.Message.Id.Find(msgId));
+  }
+
+  [Fact]
+  public void RemoveChatSessionByName_NonexistentFails()
+  {
+    _client.Call(r => r.RemoveChatSessionByName("DoesNotExist"));
+    // No-op — no sessions match, nothing should change
+  }
+
+  [Fact]
+  public void RemoveChatSessionById_NonexistentFails()
+  {
+    _client.CallExpectFailure(r => r.RemoveChatSessionById(999999));
+  }
+
+  [Fact]
+  public void MultiClient_JoinSameSession()
+  {
+    using var other = SpacetimeTestClient.Create();
+
+    _client.Call(r => r.CreatePlayer("HostMulti"));
+    other.Call(r => r.CreatePlayer("GuestMulti"));
+
+    _client.Call(r => r.CreateChatSession("SharedChat"));
+    var chatId = _client.Db.ChatSession.Name.Filter("SharedChat").First().Id;
+
+    _client.Call(r => r.JoinChatSession(chatId));
+    other.Call(r => r.JoinChatSession(chatId));
+
+    var members = other.Db.ChatSessionPlayer.SessionId.Filter(chatId).ToList();
+    Assert.Equal(2, members.Count);
+
+    other.ClearData();
+  }
+}
