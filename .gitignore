@@ -19,6 +19,17 @@ client-unity/Temp/
 client-unity/UserSettings/
 client-unity/Logs/
 
+# Unity
+unity/tvs/Assets/module_bindings/
+unity/tvs/Assets/Scripts/module_bindings/
+unity/tvs/Assets/TextMesh Pro/
+unity/tvs/Library/
+unity/tvs/Logs/
+unity/tvs/Temp/
+unity/tvs/UserSettings/
+unity/tvs/UserSettings/
+
+
 # OS
 .DS_Store
 Thumbs.db
