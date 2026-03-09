@@ -1,0 +1,52 @@
+[gd_scene format=3 uid="uid://cnhn06ejmdvu3"]
+
+[ext_resource type="Script" uid="uid://dkqmg4ol2hwej" path="res://Main.cs" id="1_ig7tw"]
+[ext_resource type="Script" uid="uid://cap4imph7274m" path="res://scenes/hud/Hud.cs" id="2_1bvp3"]
+[ext_resource type="PackedScene" uid="uid://bhvtg2wc5eyn8" path="res://scenes/menus/lobby/ServerSelect.tscn" id="3_1bvp3"]
+[ext_resource type="PackedScene" uid="uid://cv4m8dalp2j7j" path="res://scenes/menus/player_creation/PlayerCreation.tscn" id="3_h2yge"]
+[ext_resource type="Script" uid="uid://c7c4etvmmbjkc" path="res://managers/player/PlayerManager.cs" id="5_lquwl"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lquwl"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_7mycd"]
+
+[node name="Main" type="Node3D" unique_id=115939296 node_paths=PackedStringArray("PlayerManager", "Hud")]
+script = ExtResource("1_ig7tw")
+PlayerManager = NodePath("PlayerManager")
+Hud = NodePath("HUD")
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1523776012]
+script = ExtResource("2_1bvp3")
+
+[node name="PlayerCreation" parent="HUD" unique_id=455517294 node_paths=PackedStringArray("hud") instance=ExtResource("3_h2yge")]
+unique_name_in_owner = true
+hud = NodePath("..")
+
+[node name="ServerSelect" parent="HUD" unique_id=2022991667 node_paths=PackedStringArray("hud") instance=ExtResource("3_1bvp3")]
+unique_name_in_owner = true
+visible = false
+hud = NodePath("..")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1775772858]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=279912995]
+shape = SubResource("BoxShape3D_1bvp3")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D" unique_id=1521590559]
+mesh = SubResource("BoxMesh_lquwl")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1371688607]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.59427, 7.6981573)
+mesh = SubResource("CylinderMesh_7mycd")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=364786149]
+transform = Transform3D(1, 0, 0, 0, -0.960318, 0.27890733, 0, -0.27890733, -0.960318, 0, 5.475296, 0)
+shadow_enabled = true
+
+[node name="PlayerManager" type="Node" parent="." unique_id=1091122836 node_paths=PackedStringArray("PlayerSpawnPath")]
+script = ExtResource("5_lquwl")
+PlayerSpawnPath = NodePath("..")

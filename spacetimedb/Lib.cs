@@ -43,6 +43,8 @@ public static partial class Module
     ctx.Db.game_session.Id.Delete(gameId);
   }
 
+  const int floor_height = 2;
+
   [SpacetimeDB.Reducer]
   public static void JoinGame(ReducerContext ctx, ulong gameId)
   {
@@ -62,11 +64,49 @@ public static partial class Module
       throw new Exception("Game session is full!");
     }
 
+
+    var desired_spawn_location = new DbVector3(0, floor_height + 1, 0);
+
+    var try_spawn_location = bool () =>
+    {
+      var other_players = ctx.Db.game_player.GameSessionId.Filter(gameId);
+      foreach(var other_player in other_players) {
+        if (other_player.Position == desired_spawn_location) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+
+    while(!try_spawn_location()) {
+      desired_spawn_location = desired_spawn_location * 2;
+    }
+
     ctx.Db.game_player.Insert(new GamePlayer
     {
       GameSessionId = gameSession.Value.Id,
       PlayerIdentity = ctx.Sender,
+      Position = desired_spawn_location
     });
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition)
+  {
+    var gamePlayer = ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender).FirstOrDefault();
+    if (gamePlayer == null)
+    {
+      throw new Exception("Game player not found!");
+    }
+
+    if (gamePlayer.Position == newPosition)
+    {
+      return;
+    }
+
+    gamePlayer.Position = newPosition;
+    ctx.Db.game_player.Id.Update(gamePlayer);
   }
 
   [SpacetimeDB.Reducer]
@@ -117,6 +157,5 @@ public static partial class Module
       foreach (var chatSession in chatSessions) {
         ctx.Db.ChatSession.Id.Delete(chatSession.Id);
       }
-
   }
 }

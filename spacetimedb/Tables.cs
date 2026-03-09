@@ -52,6 +52,7 @@ public static partial class Module
     public Identity PlayerIdentity;
     public byte TeamSlot;
 
+    public DbVector3 Position;
   }
 
   [Table(Name = "chat_session", Public = true)]
