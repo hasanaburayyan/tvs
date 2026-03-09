@@ -15,10 +15,11 @@ size = Vector3(60, 2, 60)
 [sub_resource type="CylinderMesh" id="CylinderMesh_wiwsh"]
 
 [node name="Main3d" type="Node3D" unique_id=1755635558]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.163538, 0)
 script = ExtResource("1_pt58c")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=987135285]
-transform = Transform3D(0.9993587, 2.0463025e-09, -0.035806414, 0.023000117, 0.7664144, 0.6419344, 0.027442558, -0.64234626, 0.76592296, -0.4955479, 2.1288834, -1.4098943)
+transform = Transform3D(0.9993587, 8.2252827e-10, -0.035806417, 0.01948742, 0.8389271, 0.54389477, 0.030038975, -0.5442437, 0.8383891, -0.4955479, 3.240388, -1.4098943)
 shadow_enabled = true
 
 [node name="Hud" type="CanvasLayer" parent="." unique_id=965655011]

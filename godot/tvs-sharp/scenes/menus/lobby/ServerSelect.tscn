@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://bhvtg2wc5eyn8"]
+
+[ext_resource type="Script" uid="uid://st0jgbrvvka1" path="res://scenes/menus/lobby/ServerSelect.cs" id="1_bnpxb"]
+
+[node name="ServerSelect" type="Control" unique_id=2022991667]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_bnpxb")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=668695936]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=439204763]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1001371725]
+layout_mode = 2
+text = "Server Selection"
+
+[node name="Key" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1580694891]
+layout_mode = 2
+
+[node name="ServerListContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=220283509]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ButtonContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1108411656]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RefreshButton" type="Button" parent="MarginContainer/VBoxContainer/ButtonContainer" unique_id=112641560]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Refresh"
