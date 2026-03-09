@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://m4u3y805kmqj"]
+
+[ext_resource type="Script" uid="uid://bo710bamwg2jx" path="res://scenes/menus/lobby_scene.gd" id="1_tnkqd"]
+
+[node name="LobbyScene" type="Control" unique_id=1097984770]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_tnkqd")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=2086550112]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Body" type="VBoxContainer" parent="MarginContainer" unique_id=1388489555]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="Label" type="Label" parent="MarginContainer/Body" unique_id=1657185670]
+layout_mode = 2
+text = "Server List"
+
+[node name="Key" type="Label" parent="MarginContainer/Body" unique_id=718785077]
+layout_mode = 2
+text = "Owner | player_count | id | state"
+
+[node name="ServerListContainer" type="VBoxContainer" parent="MarginContainer/Body" unique_id=2101173296]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ButtonContainer" type="HBoxContainer" parent="MarginContainer/Body" unique_id=1465528799]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RefreshButton" type="Button" parent="MarginContainer/Body/ButtonContainer" unique_id=1478659998]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Refresh"

@@ -16,7 +16,7 @@ DB_NAME       := tvs
 MODULE_PATH   := ./spacetimedb
 DOCS_DIR      := ./docs
 BINDINGS_DIR  := ./src/module_bindings
-
+UNITY_BINDINGS_DIR := ./unity/tvs/Assets/module_bindings
 # ─── SpacetimeDB ──────────────────────────────────────────────────────────────
 
 .PHONY: build publish publish-clean generate logs server
@@ -43,6 +43,10 @@ publish-clean:
 generate:
 	@mkdir -p $(BINDINGS_DIR)
 	spacetime generate --lang csharp --out-dir $(BINDINGS_DIR) -p $(MODULE_PATH)
+
+generate-unity-bindings:
+	@mkdir -p $(UNITY_BINDINGS_DIR)
+	spacetime generate --lang csharp --out-dir $(UNITY_BINDINGS_DIR) -p $(MODULE_PATH)
 
 ## Tail the module logs
 logs:
