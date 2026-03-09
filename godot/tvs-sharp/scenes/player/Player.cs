@@ -8,9 +8,10 @@ public partial class Player : CharacterBody3D
 
   public Camera3D Camera;
 
-  public const float SYNC_INTERVAL = 0.016f;
+  public const float SYNC_INTERVAL = 0.05f;
   public const float Speed = 5.0f;
   public const float JumpVelocity = 4.5f;
+  public const float LERP_DURATION = 0.1f;
 
   public Identity OwnerIdentity;
 
@@ -20,9 +21,15 @@ public partial class Player : CharacterBody3D
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
 
+  private float _lerpTime;
+  private Vector3 _lerpStart;
+  private Vector3 _lerpTarget;
+
   public override void _Ready()
   {
 	Camera = GetNode<Camera3D>("%Camera3D");
+	_lerpStart = Position;
+	_lerpTarget = Position;
 
 	IsLocal = OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity;
 	if (IsLocal)
@@ -31,10 +38,19 @@ public partial class Player : CharacterBody3D
 	}
   }
 
+  public void OnPositionUpdated(Vector3 newPosition)
+  {
+	_lerpTime = 0.0f;
+	_lerpStart = Position;
+	_lerpTarget = newPosition;
+  }
+
   public override void _PhysicsProcess(double delta)
   {
 	if (!IsLocal)
 	{
+	  _lerpTime = Mathf.Min(_lerpTime + (float)delta, LERP_DURATION);
+	  Position = _lerpStart.Lerp(_lerpTarget, _lerpTime / LERP_DURATION);
 	  return;
 	}
 

@@ -71,7 +71,7 @@ public partial class PlayerManager : Node
 	if (oldGamePlayer.GameSessionId == GameId && newGamePlayer.GameSessionId == GameId) {
 	  var player = PlayerSpawnPath.GetNode<Player>(oldGamePlayer.PlayerIdentity.ToString());
 	  if (player != null) {
-		player.Position = new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z);
+		player.OnPositionUpdated(new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z));
 	  }
 	}
   }
