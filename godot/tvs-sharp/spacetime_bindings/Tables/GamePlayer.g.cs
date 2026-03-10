@@ -35,14 +35,14 @@ namespace SpacetimeDB.Types
 
             public readonly IdUniqueIndex Id;
 
-            public sealed class PlayerIdentityIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            public sealed class PlayerIdentityUniqueIndex : UniqueIndexBase<SpacetimeDB.Identity>
             {
                 protected override SpacetimeDB.Identity GetKey(GamePlayer row) => row.PlayerIdentity;
 
-                public PlayerIdentityIndex(GamePlayerHandle table) : base(table) { }
+                public PlayerIdentityUniqueIndex(GamePlayerHandle table) : base(table) { }
             }
 
-            public readonly PlayerIdentityIndex PlayerIdentity;
+            public readonly PlayerIdentityUniqueIndex PlayerIdentity;
 
             internal GamePlayerHandle(DbConnection conn) : base(conn)
             {

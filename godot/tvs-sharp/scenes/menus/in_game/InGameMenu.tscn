@@ -1,0 +1,70 @@
+[gd_scene format=3 uid="uid://87xl435yk7b4"]
+
+[ext_resource type="Script" uid="uid://dxige2bmeyr2d" path="res://scenes/menus/in_game/InGameMenu.cs" id="1_e2ua4"]
+
+[node name="InGameMenu" type="MarginContainer" unique_id=1594831292]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+script = ExtResource("1_e2ua4")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1452842521]
+layout_mode = 2
+
+[node name="Left" type="VBoxContainer" parent="HBoxContainer" unique_id=1365460762]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Upper" type="VBoxContainer" parent="HBoxContainer/Left" unique_id=1357523576]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Lower" type="VBoxContainer" parent="HBoxContainer/Left" unique_id=118724780]
+layout_mode = 2
+size_flags_vertical = 3
+alignment = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/Left/Lower" unique_id=1376763742]
+layout_mode = 2
+
+[node name="LeaveGameButton" type="Button" parent="HBoxContainer/Left/Lower/HBoxContainer" unique_id=1422322427]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Leave Game"
+
+[node name="Middle" type="VBoxContainer" parent="HBoxContainer" unique_id=1715076498]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="HBoxContainer/Middle" unique_id=1542241242]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Game Menu"
+horizontal_alignment = 1
+
+[node name="PlayerListLabel" type="Label" parent="HBoxContainer/Middle" unique_id=210021876]
+layout_mode = 2
+text = "Player List:"
+
+[node name="PlayerListContainer" type="VBoxContainer" parent="HBoxContainer/Middle" unique_id=1806573401]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Right" type="VBoxContainer" parent="HBoxContainer" unique_id=930330424]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/Right" unique_id=638825316]
+layout_mode = 2
+alignment = 2
+
+[node name="StuckButton" type="Button" parent="HBoxContainer/Right/HBoxContainer" unique_id=1436764485]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Stuck?"

@@ -19,11 +19,7 @@ public static partial class Module
   [SpacetimeDB.Reducer]
   public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition)
   {
-    var gamePlayer = ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender).FirstOrDefault();
-    if (gamePlayer.Id == 0 && gamePlayer.PlayerIdentity == default)
-    {
-      throw new Exception("Game player not found!");
-    }
+    var gamePlayer = ctx.Db.game_player.PlayerIdentity.Find(ctx.Sender) ?? throw new Exception("Game player not found!");
 
     ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition });
   }
@@ -31,26 +27,19 @@ public static partial class Module
   [SpacetimeDB.Reducer]
   public static void TeleportPlayer(ReducerContext ctx, ulong gameSessionId, string playerName, DbVector3 position)
   {
-    Player? matchedPlayer = null;
-    foreach (var p in ctx.Db.player.Name.Filter(playerName))
-    {
-      matchedPlayer = p;
-      break;
-    }
-    if (matchedPlayer is not Player player)
+    if (ctx.Db.player.Name.Find(playerName) is not Player player)
     {
       throw new Exception($"Player '{playerName}' not found!");
     }
 
     GamePlayer? found = null;
-    foreach (var gp in ctx.Db.game_player.PlayerIdentity.Filter(player.Identity))
+    var gp = ctx.Db.game_player.PlayerIdentity.Find(player.Identity) ?? throw new Exception("Game player not found!");
+    
+    if (gp.GameSessionId == gameSessionId)
     {
-      if (gp.GameSessionId == gameSessionId)
-      {
-        found = gp;
-        break;
-      }
+      found = gp;
     }
+
     if (found is not GamePlayer gamePlayer)
     {
       throw new Exception($"Player '{playerName}' is not in game session {gameSessionId}!");
