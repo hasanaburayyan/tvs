@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://cap4imph7274m" path="res://scenes/hud/Hud.cs" id="2_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bhvtg2wc5eyn8" path="res://scenes/menus/lobby/ServerSelect.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://cv4m8dalp2j7j" path="res://scenes/menus/player_creation/PlayerCreation.tscn" id="3_h2yge"]
+[ext_resource type="PackedScene" uid="uid://87xl435yk7b4" path="res://scenes/menus/in_game/InGameMenu.tscn" id="5_7mycd"]
 [ext_resource type="Script" uid="uid://c7c4etvmmbjkc" path="res://managers/player/PlayerManager.cs" id="5_lquwl"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
@@ -21,6 +22,11 @@ Hud = NodePath("HUD")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1523776012]
 script = ExtResource("2_1bvp3")
+
+[node name="InGameMenu" parent="HUD" unique_id=1594831292 node_paths=PackedStringArray("hud") instance=ExtResource("5_7mycd")]
+unique_name_in_owner = true
+visible = false
+hud = NodePath("..")
 
 [node name="PlayerCreation" parent="HUD" unique_id=455517294 node_paths=PackedStringArray("hud") instance=ExtResource("3_h2yge")]
 unique_name_in_owner = true

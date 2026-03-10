@@ -43,6 +43,7 @@ public static partial class Module
     ctx.Db.game_session.Id.Delete(gameId);
   }
 
+
   const int floor_height = 2;
 
   [SpacetimeDB.Reducer]
@@ -92,14 +93,22 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
+  public static void KickPlayerFromGame(ReducerContext ctx, ulong gameId, String playerName) {
+    var player = ctx.Db.player.Name.Find(playerName) ?? throw new Exception("Cannot find player to kick");
+    var gamePlayer = ctx.Db.game_player.PlayerIdentity.Find(player.Identity) ?? throw new Exception("Player is not in any games to kick");
+
+    if (gamePlayer.GameSessionId == gameId) {
+      ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+    }
+  }
+
+  [SpacetimeDB.Reducer]
   public static void LeaveGame(ReducerContext ctx, ulong gameId)
   {
-    foreach (var gp in ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender))
+    var gp = ctx.Db.game_player.PlayerIdentity.Find(ctx.Sender) ?? throw new Exception("cannot find a game to leave");
+    if (gp.GameSessionId == gameId)
     {
-      if (gp.GameSessionId == gameId)
-      {
-        ctx.Db.game_player.Id.Delete(gp.Id);
-      }
+      ctx.Db.game_player.Id.Delete(gp.Id);
     }
     CleanupPositionOverrides(ctx, ctx.Sender);
   }
@@ -110,19 +119,16 @@ public static partial class Module
     var player = ctx.Db.player.Identity.Find(ctx.Sender);
     if (player != null)
     {
-      // leave any games player is in
-      foreach (var gamePlayer in ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender))
-      {
-        ctx.Db.game_player.Id.Delete(gamePlayer.Id);
-      }
+      var gamePlayer = ctx.Db.game_player.PlayerIdentity.Find(ctx.Sender) ?? throw new Exception("Cannot find game player");
+      ctx.Db.game_player.Id.Delete(gamePlayer.Id);
 
       // delete game sessions owned by player, if any
       // but remove all players in that game session first
       foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender))
       {
-        foreach (var gamePlayer in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
+        foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
         {
-          ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+          ctx.Db.game_player.Id.Delete(gp.Id);
         }
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }

@@ -25,8 +25,14 @@ public partial class PlayerManager : Node
   }
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
-	var player = PlayerScene.Instantiate<Player>();
 	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Identity.Find(gamePlayer.PlayerIdentity);
+	if (owner is null)
+	{
+	  GD.PrintErr($"SpawnPlayer: Player record not found for identity {gamePlayer.PlayerIdentity}, skipping spawn");
+	  return;
+	}
+
+	var player = PlayerScene.Instantiate<Player>();
 	player.Name = gamePlayer.PlayerIdentity.ToString();
 	player.OwnerIdentity = gamePlayer.PlayerIdentity;
 	player.GameId = GameId;
@@ -53,6 +59,9 @@ public partial class PlayerManager : Node
 	var player = PlayerSpawnPath.GetNode<Player>(gamePlayer.PlayerIdentity.ToString());
 	if (player != null) {
 	  player.QueueFree();
+    if (player.OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity) {
+        DestroyLobby();
+      }
 	}
   }
 
@@ -95,5 +104,13 @@ public partial class PlayerManager : Node
 	}
 
 	conn.Reducers.AckPositionOverride(posOverride.Id);
+  }
+
+  public void DestroyLobby() {
+	foreach (var player in PlayerSpawnPath.GetChildren()) {
+	  if (player is Player) {
+		PlayerSpawnPath.RemoveChild(player);
+	  }
+	}
   }
 }

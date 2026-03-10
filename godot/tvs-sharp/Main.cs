@@ -19,7 +19,17 @@ public partial class Main : Node3D
 	  PlayerManager.GameId = (ulong)id;
 	  PlayerManager.LoadLobby();
 	};
-	}
+
+	Hud.LeaveLobby += (id) =>
+	{
+	  if (PlayerManager.GameId == (ulong)id)
+	  {
+		PlayerManager.GameId = 0;
+	  }
+
+	  PlayerManager.DestroyLobby();
+	};
+  }
 
 	public override void _Process(double delta)
 	{

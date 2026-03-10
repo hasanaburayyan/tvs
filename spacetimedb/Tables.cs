@@ -10,7 +10,7 @@ public static partial class Module
 
     [SpacetimeDB.PrimaryKey]
     public Identity Identity;
-    [SpacetimeDB.Index.BTree]
+    [SpacetimeDB.Unique]
     public string Name;
     public bool Online;
 
@@ -48,7 +48,7 @@ public static partial class Module
 
     [SpacetimeDB.Index.BTree]
     public ulong GameSessionId;
-    [SpacetimeDB.Index.BTree]
+    [SpacetimeDB.Unique]
     public Identity PlayerIdentity;
     public byte TeamSlot;
 
