@@ -92,27 +92,16 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition)
-  {
-    var gamePlayer = ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender).FirstOrDefault();
-    if (gamePlayer == null)
-    {
-      throw new Exception("Game player not found!");
-    }
-
-    if (gamePlayer.Position == newPosition)
-    {
-      return;
-    }
-
-    gamePlayer.Position = newPosition;
-    ctx.Db.game_player.Id.Update(gamePlayer);
-  }
-
-  [SpacetimeDB.Reducer]
   public static void LeaveGame(ReducerContext ctx, ulong gameId)
   {
-    ctx.Db.game_player.GameSessionId.Delete(gameId);
+    foreach (var gp in ctx.Db.game_player.PlayerIdentity.Filter(ctx.Sender))
+    {
+      if (gp.GameSessionId == gameId)
+      {
+        ctx.Db.game_player.Id.Delete(gp.Id);
+      }
+    }
+    CleanupPositionOverrides(ctx, ctx.Sender);
   }
 
   [SpacetimeDB.Reducer]
@@ -141,6 +130,8 @@ public static partial class Module
       // now delete the player
       ctx.Db.player.Identity.Delete(ctx.Sender);
     }
+
+    CleanupPositionOverrides(ctx, ctx.Sender);
 
     // Find chat sessions player owns
       var chatSessions = ctx.Db.ChatSession.Owner.Filter(ctx.Sender);

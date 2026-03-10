@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using SpacetimeDB;
 using SpacetimeDB.Types;
 
 public partial class PlayerManager : Node
@@ -20,6 +21,7 @@ public partial class PlayerManager : Node
 	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
 	conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
 	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
+	conn.Db.PositionOverride.OnInsert += OnPositionOverrideInsert;
   }
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
@@ -76,5 +78,22 @@ public partial class PlayerManager : Node
 		player.OnPositionUpdated(new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z));
 	  }
 	}
+  }
+
+  public void OnPositionOverrideInsert(EventContext ctx, PositionOverride posOverride) {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	if (posOverride.PlayerIdentity != conn.Identity) {
+	  return;
+	}
+	if (posOverride.GameSessionId != GameId) {
+	  return;
+	}
+
+	var player = PlayerSpawnPath.GetNode<Player>(posOverride.PlayerIdentity.ToString());
+	if (player != null) {
+	  player.ApplyPositionOverride(new Vector3(posOverride.Position.X, posOverride.Position.Y, posOverride.Position.Z));
+	}
+
+	conn.Reducers.AckPositionOverride(posOverride.Id);
   }
 }

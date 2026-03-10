@@ -50,6 +50,15 @@ public partial class Player : CharacterBody3D
 	_lerpTarget = newPosition;
   }
 
+  public void ApplyPositionOverride(Vector3 position)
+  {
+	Position = position;
+	_lerpStart = position;
+	_lerpTarget = position;
+	_lerpTime = LERP_DURATION;
+	Velocity = Vector3.Zero;
+  }
+
   public override void _PhysicsProcess(double delta)
   {
 	if (!IsLocal)
