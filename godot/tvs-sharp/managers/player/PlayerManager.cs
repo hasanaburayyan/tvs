@@ -59,9 +59,9 @@ public partial class PlayerManager : Node
 	var player = PlayerSpawnPath.GetNode<Player>(gamePlayer.PlayerIdentity.ToString());
 	if (player != null) {
 	  player.QueueFree();
-    if (player.OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity) {
-        DestroyLobby();
-      }
+	if (player.OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity) {
+		DestroyLobby();
+	  }
 	}
   }
 

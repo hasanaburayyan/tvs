@@ -4,9 +4,9 @@
 [ext_resource type="Script" uid="uid://cap4imph7274m" path="res://scenes/hud/Hud.cs" id="2_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://bhvtg2wc5eyn8" path="res://scenes/menus/lobby/ServerSelect.tscn" id="3_1bvp3"]
 [ext_resource type="PackedScene" uid="uid://cv4m8dalp2j7j" path="res://scenes/menus/player_creation/PlayerCreation.tscn" id="3_h2yge"]
-[ext_resource type="PackedScene" uid="uid://2xasqahl2hcj" path="res://scenes/hud/hud elements/Targeting.tscn" id="5_7mycd"]
 [ext_resource type="PackedScene" uid="uid://87xl435yk7b4" path="res://scenes/menus/in_game/InGameMenu.tscn" id="5_7mycd"]
 [ext_resource type="Script" uid="uid://c7c4etvmmbjkc" path="res://managers/player/PlayerManager.cs" id="5_lquwl"]
+[ext_resource type="PackedScene" uid="uid://2xasqahl2hcj" path="res://scenes/hud/hud elements/Targeting.tscn" id="6_272bh"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
 size = Vector3(60, 2, 60)
@@ -38,7 +38,7 @@ unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
 
-[node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("5_7mycd")]
+[node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("6_272bh")]
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1775772858]
 
