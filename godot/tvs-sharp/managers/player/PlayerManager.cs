@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using SpacetimeDB;
 using SpacetimeDB.Types;
 
 public partial class PlayerManager : Node
@@ -20,14 +21,17 @@ public partial class PlayerManager : Node
 	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
 	conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
 	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
+	conn.Db.PositionOverride.OnInsert += OnPositionOverrideInsert;
   }
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
 	var player = PlayerScene.Instantiate<Player>();
+	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Identity.Find(gamePlayer.PlayerIdentity);
 	player.Name = gamePlayer.PlayerIdentity.ToString();
 	player.OwnerIdentity = gamePlayer.PlayerIdentity;
 	player.GameId = GameId;
 	player.Position = new Vector3(gamePlayer.Position.X, gamePlayer.Position.Y, gamePlayer.Position.Z);
+	player.username = owner.Name;
 	PlayerSpawnPath.AddChild(player);
   }
 
@@ -74,5 +78,22 @@ public partial class PlayerManager : Node
 		player.OnPositionUpdated(new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z));
 	  }
 	}
+  }
+
+  public void OnPositionOverrideInsert(EventContext ctx, PositionOverride posOverride) {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	if (posOverride.PlayerIdentity != conn.Identity) {
+	  return;
+	}
+	if (posOverride.GameSessionId != GameId) {
+	  return;
+	}
+
+	var player = PlayerSpawnPath.GetNode<Player>(posOverride.PlayerIdentity.ToString());
+	if (player != null) {
+	  player.ApplyPositionOverride(new Vector3(posOverride.Position.X, posOverride.Position.Y, posOverride.Position.Z));
+	}
+
+	conn.Reducers.AckPositionOverride(posOverride.Id);
   }
 }

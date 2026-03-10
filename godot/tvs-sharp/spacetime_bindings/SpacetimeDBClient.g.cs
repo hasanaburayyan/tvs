@@ -30,6 +30,7 @@ namespace SpacetimeDB.Types
             AddTable(ChatSession = new(conn));
             AddTable(ChatSessionPlayer = new(conn));
             AddTable(Message = new(conn));
+            AddTable(PositionOverride = new(conn));
             AddTable(GamePlayer = new(conn));
             AddTable(GameSession = new(conn));
             AddTable(Player = new(conn));
@@ -532,6 +533,7 @@ namespace SpacetimeDB.Types
             new QueryBuilder().From.ChatSession().ToSql(),
             new QueryBuilder().From.ChatSessionPlayer().ToSql(),
             new QueryBuilder().From.Message().ToSql(),
+            new QueryBuilder().From.PositionOverride().ToSql(),
             new QueryBuilder().From.GamePlayer().ToSql(),
             new QueryBuilder().From.GameSession().ToSql(),
             new QueryBuilder().From.Player().ToSql(),
@@ -544,6 +546,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Table<ChatSession, ChatSessionCols, ChatSessionIxCols> ChatSession() => new("chat_session", new ChatSessionCols("chat_session"), new ChatSessionIxCols("chat_session"));
         public global::SpacetimeDB.Table<ChatSessionPlayer, ChatSessionPlayerCols, ChatSessionPlayerIxCols> ChatSessionPlayer() => new("chat_session_player", new ChatSessionPlayerCols("chat_session_player"), new ChatSessionPlayerIxCols("chat_session_player"));
         public global::SpacetimeDB.Table<Message, MessageCols, MessageIxCols> Message() => new("message", new MessageCols("message"), new MessageIxCols("message"));
+        public global::SpacetimeDB.Table<PositionOverride, PositionOverrideCols, PositionOverrideIxCols> PositionOverride() => new("position_override", new PositionOverrideCols("position_override"), new PositionOverrideIxCols("position_override"));
         public global::SpacetimeDB.Table<GamePlayer, GamePlayerCols, GamePlayerIxCols> GamePlayer() => new("game_player", new GamePlayerCols("game_player"), new GamePlayerIxCols("game_player"));
         public global::SpacetimeDB.Table<GameSession, GameSessionCols, GameSessionIxCols> GameSession() => new("game_session", new GameSessionCols("game_session"), new GameSessionIxCols("game_session"));
         public global::SpacetimeDB.Table<Player, PlayerCols, PlayerIxCols> Player() => new("player", new PlayerCols("player"), new PlayerIxCols("player"));
@@ -628,6 +631,7 @@ namespace SpacetimeDB.Types
             var eventContext = (ReducerEventContext)context;
             return reducer switch
             {
+                Reducer.AckPositionOverride args => Reducers.InvokeAckPositionOverride(eventContext, args),
                 Reducer.ClearData args => Reducers.InvokeClearData(eventContext, args),
                 Reducer.CreateChatSession args => Reducers.InvokeCreateChatSession(eventContext, args),
                 Reducer.CreateGame args => Reducers.InvokeCreateGame(eventContext, args),
@@ -644,6 +648,7 @@ namespace SpacetimeDB.Types
                 Reducer.RemoveChatSessionByName args => Reducers.InvokeRemoveChatSessionByName(eventContext, args),
                 Reducer.SendMessage args => Reducers.InvokeSendMessage(eventContext, args),
                 Reducer.SoftDeleteMessage args => Reducers.InvokeSoftDeleteMessage(eventContext, args),
+                Reducer.TeleportPlayer args => Reducers.InvokeTeleportPlayer(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")
             };
         }

@@ -17,6 +17,7 @@ public partial class Player : CharacterBody3D
 
   public ulong GameId;
   public bool IsLocal;
+  public String username;
 
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
@@ -24,18 +25,22 @@ public partial class Player : CharacterBody3D
   private float _lerpTime;
   private Vector3 _lerpStart;
   private Vector3 _lerpTarget;
+  private Label3D _nametag;
 
   public override void _Ready()
   {
 	Camera = GetNode<Camera3D>("%Camera3D");
 	_lerpStart = Position;
 	_lerpTarget = Position;
+	_nametag = GetNode<Label3D>("%NameTag");
+	
 
 	IsLocal = OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity;
 	if (IsLocal)
 	{
 	  Camera.MakeCurrent();
 	}
+	_nametag.Text = username;
   }
 
   public void OnPositionUpdated(Vector3 newPosition)
@@ -43,6 +48,15 @@ public partial class Player : CharacterBody3D
 	_lerpTime = 0.0f;
 	_lerpStart = Position;
 	_lerpTarget = newPosition;
+  }
+
+  public void ApplyPositionOverride(Vector3 position)
+  {
+	Position = position;
+	_lerpStart = position;
+	_lerpTarget = position;
+	_lerpTime = LERP_DURATION;
+	Velocity = Vector3.Zero;
   }
 
   public override void _PhysicsProcess(double delta)
