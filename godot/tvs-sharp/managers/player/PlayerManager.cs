@@ -24,10 +24,12 @@ public partial class PlayerManager : Node
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
 	var player = PlayerScene.Instantiate<Player>();
+	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Identity.Find(gamePlayer.PlayerIdentity);
 	player.Name = gamePlayer.PlayerIdentity.ToString();
 	player.OwnerIdentity = gamePlayer.PlayerIdentity;
 	player.GameId = GameId;
 	player.Position = new Vector3(gamePlayer.Position.X, gamePlayer.Position.Y, gamePlayer.Position.Z);
+	player.username = owner.Name;
 	PlayerSpawnPath.AddChild(player);
   }
 
