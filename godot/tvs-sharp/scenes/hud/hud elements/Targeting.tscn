@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://2xasqahl2hcj"]
+
+[ext_resource type="Script" uid="uid://c8wxedg5ifkio" path="res://scenes/hud/hud elements/targetting.gd" id="1_rodh3"]
+
+[node name="Targeting" type="Control" unique_id=984442675]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_rodh3")
+
+[node name="Corners" type="Control" parent="." unique_id=805061242]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopLeft" type="ColorRect" parent="Corners" unique_id=1671491563]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="TopRight" type="ColorRect" parent="Corners" unique_id=624010193]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="BottomLeft" type="ColorRect" parent="Corners" unique_id=2137327421]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="BottomRight" type="ColorRect" parent="Corners" unique_id=1223798054]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
