@@ -26,14 +26,14 @@ namespace SpacetimeDB.Types
 
             public readonly IdentityUniqueIndex Identity;
 
-            public sealed class NameIndex : BTreeIndexBase<string>
+            public sealed class NameUniqueIndex : UniqueIndexBase<string>
             {
                 protected override string GetKey(Player row) => row.Name;
 
-                public NameIndex(PlayerHandle table) : base(table) { }
+                public NameUniqueIndex(PlayerHandle table) : base(table) { }
             }
 
-            public readonly NameIndex Name;
+            public readonly NameUniqueIndex Name;
 
             internal PlayerHandle(DbConnection conn) : base(conn)
             {
