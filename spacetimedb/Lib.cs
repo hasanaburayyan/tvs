@@ -71,8 +71,10 @@ public static partial class Module
     var try_spawn_location = bool () =>
     {
       var other_players = ctx.Db.game_player.GameSessionId.Filter(gameId);
-      foreach(var other_player in other_players) {
-        if (other_player.Position == desired_spawn_location) {
+      foreach (var other_player in other_players)
+      {
+        if (other_player.Position == desired_spawn_location)
+        {
           return false;
         }
       }
@@ -80,7 +82,8 @@ public static partial class Module
     };
 
 
-    while(!try_spawn_location()) {
+    while (!try_spawn_location())
+    {
       desired_spawn_location = desired_spawn_location * 2;
     }
 
@@ -93,11 +96,13 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void KickPlayerFromGame(ReducerContext ctx, ulong gameId, String playerName) {
+  public static void KickPlayerFromGame(ReducerContext ctx, ulong gameId, String playerName)
+  {
     var player = ctx.Db.player.Name.Find(playerName) ?? throw new Exception("Cannot find player to kick");
     var gamePlayer = ctx.Db.game_player.PlayerIdentity.Find(player.Identity) ?? throw new Exception("Player is not in any games to kick");
 
-    if (gamePlayer.GameSessionId == gameId) {
+    if (gamePlayer.GameSessionId == gameId)
+    {
       ctx.Db.game_player.Id.Delete(gamePlayer.Id);
     }
   }
@@ -119,18 +124,21 @@ public static partial class Module
     var player = ctx.Db.player.Identity.Find(ctx.Sender);
     if (player != null)
     {
-      var gamePlayer = ctx.Db.game_player.PlayerIdentity.Find(ctx.Sender) ?? throw new Exception("Cannot find game player");
-      ctx.Db.game_player.Id.Delete(gamePlayer.Id);
-
-      // delete game sessions owned by player, if any
-      // but remove all players in that game session first
-      foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender))
+      if (ctx.Db.game_player.PlayerIdentity.Find(ctx.Sender) is GamePlayer gamePlayer)
       {
-        foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
+        ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+
+        // delete game sessions owned by player, if any
+        // but remove all players in that game session first
+        foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender))
         {
-          ctx.Db.game_player.Id.Delete(gp.Id);
+          foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
+          {
+            ctx.Db.game_player.Id.Delete(gp.Id);
+          }
+          ctx.Db.game_session.Id.Delete(gameSession.Id);
         }
-        ctx.Db.game_session.Id.Delete(gameSession.Id);
+
       }
 
       // now delete the player
@@ -140,19 +148,22 @@ public static partial class Module
     CleanupPositionOverrides(ctx, ctx.Sender);
 
     // Find chat sessions player owns
-      var chatSessions = ctx.Db.ChatSession.Owner.Filter(ctx.Sender);
+    var chatSessions = ctx.Db.ChatSession.Owner.Filter(ctx.Sender);
 
-      // Remove all memberships
-      foreach (var membership in ctx.Db.ChatSessionPlayer.PlayerIdentity.Filter(ctx.Sender)) {
-        ctx.Db.ChatSessionPlayer.Id.Delete(membership.Id);
-      }
+    // Remove all memberships
+    foreach (var membership in ctx.Db.ChatSessionPlayer.PlayerIdentity.Filter(ctx.Sender))
+    {
+      ctx.Db.ChatSessionPlayer.Id.Delete(membership.Id);
+    }
 
-      foreach (var message in ctx.Db.Message.Sender.Filter(ctx.Sender)) {
-        ctx.Db.Message.Id.Delete(message.Id);
-      }
+    foreach (var message in ctx.Db.Message.Sender.Filter(ctx.Sender))
+    {
+      ctx.Db.Message.Id.Delete(message.Id);
+    }
 
-      foreach (var chatSession in chatSessions) {
-        ctx.Db.ChatSession.Id.Delete(chatSession.Id);
-      }
+    foreach (var chatSession in chatSessions)
+    {
+      ctx.Db.ChatSession.Id.Delete(chatSession.Id);
+    }
   }
 }
