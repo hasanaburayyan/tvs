@@ -20,7 +20,7 @@ func _ready() -> void:
 func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			if camera == null:
+			if camera == null or !is_instance_valid(camera) or !camera.is_inside_tree():
 				camera = get_viewport().get_camera_3d()
 			if camera == null:
 				return
@@ -32,6 +32,8 @@ func _input(event):
 			current_target = _get_target_from_raycast(result)
 
 func _process(delta: float) -> void:
+	if current_target != null and (!is_instance_valid(current_target) or !current_target.is_inside_tree()):
+		current_target = null
 	if current_target == null:
 		hide()
 		return
