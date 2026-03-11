@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://87xl435yk7b4" path="res://scenes/menus/in_game/InGameMenu.tscn" id="5_7mycd"]
 [ext_resource type="Script" uid="uid://c7c4etvmmbjkc" path="res://managers/player/PlayerManager.cs" id="5_lquwl"]
 [ext_resource type="PackedScene" uid="uid://2xasqahl2hcj" path="res://scenes/hud/hud elements/Targeting.tscn" id="6_272bh"]
+[ext_resource type="PackedScene" path="res://scenes/menus/profile_select/ProfileSelect.tscn" id="7_prof"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
 size = Vector3(60, 2, 60)
@@ -31,9 +32,15 @@ hud = NodePath("..")
 
 [node name="PlayerCreation" parent="HUD" unique_id=455517294 node_paths=PackedStringArray("hud") instance=ExtResource("3_h2yge")]
 unique_name_in_owner = true
+visible = false
 hud = NodePath("..")
 
 [node name="ServerSelect" parent="HUD" unique_id=2022991667 node_paths=PackedStringArray("hud") instance=ExtResource("3_1bvp3")]
+unique_name_in_owner = true
+visible = false
+hud = NodePath("..")
+
+[node name="ProfileSelect" parent="HUD" node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
 unique_name_in_owner = true
 visible = false
 hud = NodePath("..")

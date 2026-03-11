@@ -22,9 +22,15 @@ public partial class InGameMenu : PopulableMenu
 	_stuckButton.Pressed += OnStuckButtonPressed;
 	_leaveGameButton.Pressed += OnLeaveGamePressed;
 
-	SpacetimeNetworkManager.Instance.Conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
-	SpacetimeNetworkManager.Instance.Conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
-	SpacetimeNetworkManager.Instance.Conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
+	SpacetimeNetworkManager.Instance.SubscriptionApplied += RegisterCallbacks;
+  }
+
+  void RegisterCallbacks()
+  {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
+	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
+	conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
   }
 
   public override void Populate()
