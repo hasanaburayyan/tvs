@@ -84,7 +84,7 @@ void ListAll(DbConnection conn)
 
   Console.WriteLine("\n=== Game Players ===");
   foreach (var gp in conn.Db.GamePlayer.Iter())
-    Console.WriteLine($"  session={gp.GameSessionId} player={gp.PlayerIdentity} slot={gp.TeamSlot}");
+    Console.WriteLine($"  session={gp.GameSessionId} player={gp.PlayerId} slot={gp.TeamSlot}");
 }
 
 void Seed(DbConnection conn)
@@ -100,7 +100,7 @@ void DeleteAll(DbConnection conn)
 {
   foreach (var player in conn.Db.Player.Iter())
   {
-    conn.Reducers.DeletePlayer(player.Identity);
+    conn.Reducers.DeletePlayer(player.Id);
   }
 
   foreach (var game in conn.Db.GameSession.Iter())

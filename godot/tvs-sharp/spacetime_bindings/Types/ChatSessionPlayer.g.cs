@@ -15,19 +15,19 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "id")]
         public ulong Id;
-        [DataMember(Name = "player_identity")]
-        public SpacetimeDB.Identity PlayerIdentity;
+        [DataMember(Name = "player_id")]
+        public ulong PlayerId;
         [DataMember(Name = "session_id")]
         public ulong SessionId;
 
         public ChatSessionPlayer(
             ulong Id,
-            SpacetimeDB.Identity PlayerIdentity,
+            ulong PlayerId,
             ulong SessionId
         )
         {
             this.Id = Id;
-            this.PlayerIdentity = PlayerIdentity;
+            this.PlayerId = PlayerId;
             this.SessionId = SessionId;
         }
 

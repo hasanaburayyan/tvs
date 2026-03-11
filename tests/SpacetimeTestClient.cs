@@ -45,6 +45,8 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnJoinGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnLeaveGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnClearData += (ctx) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSelectPlayer += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnDeselectPlayer += (ctx) => HandleReducerEvent(ctx);
         conn.Reducers.OnCreateChatSession += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnRemoveChatSessionByName += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnRemoveChatSessionById += (ctx, _) => HandleReducerEvent(ctx);
@@ -128,6 +130,15 @@ public class SpacetimeTestClient : IDisposable
     }
 
     // ── Convenience helpers ─────────────────────────────────────────────────
+
+    /// Creates a player and returns its ulong Id.
+    public ulong CreatePlayerAndGetId(string name)
+    {
+        Call(r => r.CreatePlayer(name));
+        var player = Db.Player.Name.Find(name)
+            ?? throw new Exception($"CreatePlayer succeeded but player '{name}' not found in client cache");
+        return player.Id;
+    }
 
     /// Creates a game and returns its ID by finding the session owned by this client.
     public ulong CreateGame(uint maxPlayers)

@@ -26,19 +26,19 @@ namespace SpacetimeDB.Types
 
             public readonly IdUniqueIndex Id;
 
-            public sealed class PlayerIdentityIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            public sealed class PlayerIdIndex : BTreeIndexBase<ulong>
             {
-                protected override SpacetimeDB.Identity GetKey(PositionOverride row) => row.PlayerIdentity;
+                protected override ulong GetKey(PositionOverride row) => row.PlayerId;
 
-                public PlayerIdentityIndex(PositionOverrideHandle table) : base(table) { }
+                public PlayerIdIndex(PositionOverrideHandle table) : base(table) { }
             }
 
-            public readonly PlayerIdentityIndex PlayerIdentity;
+            public readonly PlayerIdIndex PlayerId;
 
             internal PositionOverrideHandle(DbConnection conn) : base(conn)
             {
                 Id = new(this);
-                PlayerIdentity = new(this);
+                PlayerId = new(this);
             }
 
             protected override object GetPrimaryKey(PositionOverride row) => row.Id;
@@ -50,14 +50,14 @@ namespace SpacetimeDB.Types
     public sealed class PositionOverrideCols
     {
         public global::SpacetimeDB.Col<PositionOverride, ulong> Id { get; }
-        public global::SpacetimeDB.Col<PositionOverride, SpacetimeDB.Identity> PlayerIdentity { get; }
+        public global::SpacetimeDB.Col<PositionOverride, ulong> PlayerId { get; }
         public global::SpacetimeDB.Col<PositionOverride, ulong> GameSessionId { get; }
         public global::SpacetimeDB.Col<PositionOverride, DbVector3> Position { get; }
 
         public PositionOverrideCols(string tableName)
         {
             Id = new global::SpacetimeDB.Col<PositionOverride, ulong>(tableName, "id");
-            PlayerIdentity = new global::SpacetimeDB.Col<PositionOverride, SpacetimeDB.Identity>(tableName, "player_identity");
+            PlayerId = new global::SpacetimeDB.Col<PositionOverride, ulong>(tableName, "player_id");
             GameSessionId = new global::SpacetimeDB.Col<PositionOverride, ulong>(tableName, "game_session_id");
             Position = new global::SpacetimeDB.Col<PositionOverride, DbVector3>(tableName, "position");
         }
@@ -66,12 +66,12 @@ namespace SpacetimeDB.Types
     public sealed class PositionOverrideIxCols
     {
         public global::SpacetimeDB.IxCol<PositionOverride, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<PositionOverride, SpacetimeDB.Identity> PlayerIdentity { get; }
+        public global::SpacetimeDB.IxCol<PositionOverride, ulong> PlayerId { get; }
 
         public PositionOverrideIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<PositionOverride, ulong>(tableName, "id");
-            PlayerIdentity = new global::SpacetimeDB.IxCol<PositionOverride, SpacetimeDB.Identity>(tableName, "player_identity");
+            PlayerId = new global::SpacetimeDB.IxCol<PositionOverride, ulong>(tableName, "player_id");
         }
     }
 }

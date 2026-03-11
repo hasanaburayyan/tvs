@@ -26,14 +26,14 @@ namespace SpacetimeDB.Types
 
             public readonly IdUniqueIndex Id;
 
-            public sealed class PlayerIdentityIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            public sealed class PlayerIdIndex : BTreeIndexBase<ulong>
             {
-                protected override SpacetimeDB.Identity GetKey(ChatSessionPlayer row) => row.PlayerIdentity;
+                protected override ulong GetKey(ChatSessionPlayer row) => row.PlayerId;
 
-                public PlayerIdentityIndex(ChatSessionPlayerHandle table) : base(table) { }
+                public PlayerIdIndex(ChatSessionPlayerHandle table) : base(table) { }
             }
 
-            public readonly PlayerIdentityIndex PlayerIdentity;
+            public readonly PlayerIdIndex PlayerId;
 
             public sealed class SessionIdIndex : BTreeIndexBase<ulong>
             {
@@ -47,7 +47,7 @@ namespace SpacetimeDB.Types
             internal ChatSessionPlayerHandle(DbConnection conn) : base(conn)
             {
                 Id = new(this);
-                PlayerIdentity = new(this);
+                PlayerId = new(this);
                 SessionId = new(this);
             }
 
@@ -60,13 +60,13 @@ namespace SpacetimeDB.Types
     public sealed class ChatSessionPlayerCols
     {
         public global::SpacetimeDB.Col<ChatSessionPlayer, ulong> Id { get; }
-        public global::SpacetimeDB.Col<ChatSessionPlayer, SpacetimeDB.Identity> PlayerIdentity { get; }
+        public global::SpacetimeDB.Col<ChatSessionPlayer, ulong> PlayerId { get; }
         public global::SpacetimeDB.Col<ChatSessionPlayer, ulong> SessionId { get; }
 
         public ChatSessionPlayerCols(string tableName)
         {
             Id = new global::SpacetimeDB.Col<ChatSessionPlayer, ulong>(tableName, "id");
-            PlayerIdentity = new global::SpacetimeDB.Col<ChatSessionPlayer, SpacetimeDB.Identity>(tableName, "player_identity");
+            PlayerId = new global::SpacetimeDB.Col<ChatSessionPlayer, ulong>(tableName, "player_id");
             SessionId = new global::SpacetimeDB.Col<ChatSessionPlayer, ulong>(tableName, "session_id");
         }
     }
@@ -74,13 +74,13 @@ namespace SpacetimeDB.Types
     public sealed class ChatSessionPlayerIxCols
     {
         public global::SpacetimeDB.IxCol<ChatSessionPlayer, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<ChatSessionPlayer, SpacetimeDB.Identity> PlayerIdentity { get; }
+        public global::SpacetimeDB.IxCol<ChatSessionPlayer, ulong> PlayerId { get; }
         public global::SpacetimeDB.IxCol<ChatSessionPlayer, ulong> SessionId { get; }
 
         public ChatSessionPlayerIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<ChatSessionPlayer, ulong>(tableName, "id");
-            PlayerIdentity = new global::SpacetimeDB.IxCol<ChatSessionPlayer, SpacetimeDB.Identity>(tableName, "player_identity");
+            PlayerId = new global::SpacetimeDB.IxCol<ChatSessionPlayer, ulong>(tableName, "player_id");
             SessionId = new global::SpacetimeDB.IxCol<ChatSessionPlayer, ulong>(tableName, "session_id");
         }
     }

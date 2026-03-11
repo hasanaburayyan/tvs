@@ -32,61 +32,66 @@ public partial class Hud : CanvasLayer
   // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
-    _playerCreationMenu = GetNode<PopulableMenu>("%PlayerCreation");
-    _serverSelectMenu = GetNode<PopulableMenu>("%ServerSelect");
-    _ingameMenu = GetNode<PopulableMenu>("%InGameMenu");
+	_playerCreationMenu = GetNode<PopulableMenu>("%PlayerCreation");
+	_serverSelectMenu = GetNode<PopulableMenu>("%ServerSelect");
+	_ingameMenu = GetNode<PopulableMenu>("%InGameMenu");
 
-    _menus = new Dictionary<Menus, PopulableMenu>
+	_menus = new Dictionary<Menus, PopulableMenu>
   {
   { Menus.PLAYER_CREATION, _playerCreationMenu },
   { Menus.SERVER_SELECT, _serverSelectMenu },
   { Menus.IN_GAME_MENU, _ingameMenu }
   };
 
-    StartLobby += (int id) =>
-    {
-      inGame = true;
-      sessionID = (ulong)id;
-    };
+	SpacetimeNetworkManager.Instance.SubscriptionApplied += () =>
+	{
+	  SwitchToMenu(Menus.PLAYER_CREATION);
+	};
 
-    LeaveLobby += (int id) =>
-    {
-      inGame = false;
-      if (sessionID == (ulong)id)
-      {
-        sessionID = 0;
-      }
+	StartLobby += (int id) =>
+	{
+	  inGame = true;
+	  sessionID = (ulong)id;
+	};
 
-      SwitchToMenu(Menus.SERVER_SELECT);
-    };
+	LeaveLobby += (int id) =>
+	{
+	  inGame = false;
+	  if (sessionID == (ulong)id)
+	  {
+		sessionID = 0;
+	  }
+
+	  SwitchToMenu(Menus.SERVER_SELECT);
+	};
 
   }
 
 
   public void CloseMenus()
   {
-    foreach (var menu in _menus.Values)
-    {
-      menu.Visible = false;
-    }
+	foreach (var menu in _menus.Values)
+	{
+	  menu.Visible = false;
+	}
   }
 
   public override void _UnhandledInput(InputEvent @event)
   {
-    if (@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Escape)
-    {
-      if (inGame)
-      {
-        _ingameMenu.Visible = !_ingameMenu.Visible;
-      }
-      GetViewport().SetInputAsHandled();
-    }
+	if (@event is InputEventKey keyEvent && keyEvent.Pressed && keyEvent.Keycode == Key.Escape)
+	{
+	  if (inGame)
+	  {
+		_ingameMenu.Visible = !_ingameMenu.Visible;
+	  }
+	  GetViewport().SetInputAsHandled();
+	}
   }
 
   public void SwitchToMenu(Menus menu)
   {
-    CloseMenus();
-    _menus[menu].Visible = true;
-    _menus[menu].Populate();
+	CloseMenus();
+	_menus[menu].Visible = true;
+	_menus[menu].Populate();
   }
 }

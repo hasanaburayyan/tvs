@@ -1,5 +1,3 @@
-using System.Diagnostics.Contracts;
-using Microsoft.VisualBasic;
 using SpacetimeDB;
 
 public static partial class Module
@@ -7,13 +5,18 @@ public static partial class Module
   [SpacetimeDB.Table(Accessor = "player", Public = true)]
   public partial struct Player
   {
-
     [SpacetimeDB.PrimaryKey]
-    public Identity Identity;
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+
+    [SpacetimeDB.Index.BTree]
+    public Identity OwnerIdentity;
+
     [SpacetimeDB.Unique]
     public string Name;
     public bool Online;
 
+    public Identity? ControllerIdentity;
   }
 
   [SpacetimeDB.Type]
@@ -36,7 +39,6 @@ public static partial class Module
     public SessionState State;
     public uint MaxPlayers;
     public Timestamp CreatedAt;
-
   }
 
   [SpacetimeDB.Table(Accessor = "game_player", Public = true)]
@@ -49,7 +51,7 @@ public static partial class Module
     [SpacetimeDB.Index.BTree]
     public ulong GameSessionId;
     [SpacetimeDB.Unique]
-    public Identity PlayerIdentity;
+    public ulong PlayerId;
     public byte TeamSlot;
 
     public DbVector3 Position;
@@ -65,7 +67,7 @@ public static partial class Module
     public Timestamp TimeCreated;
 
     [SpacetimeDB.Index.BTree]
-    public Identity Owner;
+    public ulong OwnerPlayerId;
     [SpacetimeDB.Index.BTree]
     public string Name;
     public bool Active;
@@ -81,7 +83,7 @@ public static partial class Module
     [SpacetimeDB.Index.BTree]
     public ulong SessionId;
     [SpacetimeDB.Index.BTree]
-    public Identity Sender;
+    public ulong SenderPlayerId;
     public bool Deleted;
     public Timestamp TimeSent;
   }
@@ -93,7 +95,7 @@ public static partial class Module
     [SpacetimeDB.AutoInc]
     public ulong Id;
     [SpacetimeDB.Index.BTree]
-    public Identity PlayerIdentity;
+    public ulong PlayerId;
     [SpacetimeDB.Index.BTree]
     public ulong SessionId;
   }

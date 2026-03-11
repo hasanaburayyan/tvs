@@ -35,20 +35,20 @@ namespace SpacetimeDB.Types
 
             public readonly NameIndex Name;
 
-            public sealed class OwnerIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            public sealed class OwnerPlayerIdIndex : BTreeIndexBase<ulong>
             {
-                protected override SpacetimeDB.Identity GetKey(ChatSession row) => row.Owner;
+                protected override ulong GetKey(ChatSession row) => row.OwnerPlayerId;
 
-                public OwnerIndex(ChatSessionHandle table) : base(table) { }
+                public OwnerPlayerIdIndex(ChatSessionHandle table) : base(table) { }
             }
 
-            public readonly OwnerIndex Owner;
+            public readonly OwnerPlayerIdIndex OwnerPlayerId;
 
             internal ChatSessionHandle(DbConnection conn) : base(conn)
             {
                 Id = new(this);
                 Name = new(this);
-                Owner = new(this);
+                OwnerPlayerId = new(this);
             }
 
             protected override object GetPrimaryKey(ChatSession row) => row.Id;
@@ -61,7 +61,7 @@ namespace SpacetimeDB.Types
     {
         public global::SpacetimeDB.Col<ChatSession, ulong> Id { get; }
         public global::SpacetimeDB.Col<ChatSession, SpacetimeDB.Timestamp> TimeCreated { get; }
-        public global::SpacetimeDB.Col<ChatSession, SpacetimeDB.Identity> Owner { get; }
+        public global::SpacetimeDB.Col<ChatSession, ulong> OwnerPlayerId { get; }
         public global::SpacetimeDB.Col<ChatSession, string> Name { get; }
         public global::SpacetimeDB.Col<ChatSession, bool> Active { get; }
 
@@ -69,7 +69,7 @@ namespace SpacetimeDB.Types
         {
             Id = new global::SpacetimeDB.Col<ChatSession, ulong>(tableName, "id");
             TimeCreated = new global::SpacetimeDB.Col<ChatSession, SpacetimeDB.Timestamp>(tableName, "time_created");
-            Owner = new global::SpacetimeDB.Col<ChatSession, SpacetimeDB.Identity>(tableName, "owner");
+            OwnerPlayerId = new global::SpacetimeDB.Col<ChatSession, ulong>(tableName, "owner_player_id");
             Name = new global::SpacetimeDB.Col<ChatSession, string>(tableName, "name");
             Active = new global::SpacetimeDB.Col<ChatSession, bool>(tableName, "active");
         }
@@ -78,13 +78,13 @@ namespace SpacetimeDB.Types
     public sealed class ChatSessionIxCols
     {
         public global::SpacetimeDB.IxCol<ChatSession, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<ChatSession, SpacetimeDB.Identity> Owner { get; }
+        public global::SpacetimeDB.IxCol<ChatSession, ulong> OwnerPlayerId { get; }
         public global::SpacetimeDB.IxCol<ChatSession, string> Name { get; }
 
         public ChatSessionIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<ChatSession, ulong>(tableName, "id");
-            Owner = new global::SpacetimeDB.IxCol<ChatSession, SpacetimeDB.Identity>(tableName, "owner");
+            OwnerPlayerId = new global::SpacetimeDB.IxCol<ChatSession, ulong>(tableName, "owner_player_id");
             Name = new global::SpacetimeDB.IxCol<ChatSession, string>(tableName, "name");
         }
     }

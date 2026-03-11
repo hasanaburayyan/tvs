@@ -22,26 +22,129 @@ public class PlayerTests : IDisposable
   {
     _client.Call(r => r.CreatePlayer("Alice"));
 
-    var player = _client.Db.Player.Identity.Find(_client.Identity);
+    var player = _client.Db.Player.Name.Find("Alice");
     Assert.NotNull(player);
     Assert.Equal("Alice", player.Name);
+    Assert.Equal(_client.Identity, player.OwnerIdentity);
+    Assert.True(player.Online);
+    Assert.Equal(_client.Identity, player.ControllerIdentity);
   }
 
   [Fact]
-  public void CreatePlayer_DuplicateIdentityRejected()
+  public void CreatePlayer_DuplicateNameRejected()
   {
     _client.Call(r => r.CreatePlayer("First"));
-    _client.CallExpectFailure(r => r.CreatePlayer("Second"));
+    _client.CallExpectFailure(r => r.CreatePlayer("First"));
+  }
+
+  [Fact]
+  public void CreatePlayer_MultiplePlayersAllowed()
+  {
+    _client.Call(r => r.CreatePlayer("PlayerA"));
+    _client.Call(r => r.CreatePlayer("PlayerB"));
+
+    var a = _client.Db.Player.Name.Find("PlayerA");
+    var b = _client.Db.Player.Name.Find("PlayerB");
+    Assert.NotNull(a);
+    Assert.NotNull(b);
+    Assert.False(a.Online);
+    Assert.True(b.Online);
   }
 
   [Fact]
   public void DeletePlayer_RemovesRow()
   {
-    _client.Call(r => r.CreatePlayer("ToDelete"));
-    Assert.NotNull(_client.Db.Player.Identity.Find(_client.Identity));
+    var playerId = _client.CreatePlayerAndGetId("ToDelete");
+    _client.Call(r => r.DeselectPlayer());
+    _client.Call(r => r.DeletePlayer(playerId));
+    Assert.Null(_client.Db.Player.Name.Find("ToDelete"));
+  }
 
-    _client.Call(r => r.DeletePlayer(_client.Identity));
-    Assert.Null(_client.Db.Player.Identity.Find(_client.Identity));
+  [Fact]
+  public void DeletePlayer_OnlinePlayerRejected()
+  {
+    var playerId = _client.CreatePlayerAndGetId("Online");
+    _client.CallExpectFailure(r => r.DeletePlayer(playerId));
+  }
+}
+
+public class SelectPlayerTests : IDisposable
+{
+  private readonly SpacetimeTestClient _client;
+
+  public SelectPlayerTests()
+  {
+    _client = SpacetimeTestClient.Create();
+  }
+
+  public void Dispose()
+  {
+    _client.ClearData();
+    _client.Dispose();
+  }
+
+  [Fact]
+  public void SelectPlayer_Succeeds()
+  {
+    var playerId = _client.CreatePlayerAndGetId("Selectable");
+    _client.Call(r => r.DeselectPlayer());
+
+    var player = _client.Db.Player.Id.Find(playerId);
+    Assert.NotNull(player);
+    Assert.False(player.Online);
+
+    _client.Call(r => r.SelectPlayer(playerId));
+
+    player = _client.Db.Player.Id.Find(playerId);
+    Assert.NotNull(player);
+    Assert.True(player.Online);
+    Assert.Equal(_client.Identity, player.ControllerIdentity);
+  }
+
+  [Fact]
+  public void SelectPlayer_WrongOwnerRejected()
+  {
+    var playerId = _client.CreatePlayerAndGetId("OwnedByA");
+    _client.Call(r => r.DeselectPlayer());
+
+    using var other = SpacetimeTestClient.Create();
+    other.CallExpectFailure(r => r.SelectPlayer(playerId));
+
+    other.ClearData();
+  }
+
+  [Fact]
+  public void SelectPlayer_OnlinePlayerRejected()
+  {
+    var playerId = _client.CreatePlayerAndGetId("AlreadyOnline");
+    _client.CallExpectFailure(r => r.SelectPlayer(playerId));
+  }
+
+  [Fact]
+  public void DeselectPlayer_SetsOffline()
+  {
+    var playerId = _client.CreatePlayerAndGetId("GoOffline");
+    _client.Call(r => r.DeselectPlayer());
+
+    var player = _client.Db.Player.Id.Find(playerId);
+    Assert.NotNull(player);
+    Assert.False(player.Online);
+    Assert.Null(player.ControllerIdentity);
+  }
+
+  [Fact]
+  public void CreatePlayer_AutoDeselectsPrevious()
+  {
+    var firstId = _client.CreatePlayerAndGetId("First");
+    var secondId = _client.CreatePlayerAndGetId("Second");
+
+    var first = _client.Db.Player.Id.Find(firstId);
+    var second = _client.Db.Player.Id.Find(secondId);
+    Assert.NotNull(first);
+    Assert.NotNull(second);
+    Assert.False(first.Online);
+    Assert.True(second.Online);
+    Assert.Equal(_client.Identity, second.ControllerIdentity);
   }
 }
 
@@ -98,18 +201,19 @@ public class JoinGameTests : IDisposable
   [Fact]
   public void JoinGame_Succeeds()
   {
-    _client.Call(r => r.CreatePlayer("Host"));
+    var playerId = _client.CreatePlayerAndGetId("Host");
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
 
     var players = _client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList();
     Assert.Single(players);
+    Assert.Equal(playerId, players[0].PlayerId);
   }
 
   [Fact]
   public void JoinGame_NonexistentGameRejected()
   {
-    _client.Call(r => r.CreatePlayer("Lonely"));
+    _client.CreatePlayerAndGetId("Lonely");
     _client.CallExpectFailure(r => r.JoinGame(999999));
   }
 
@@ -118,11 +222,11 @@ public class JoinGameTests : IDisposable
   {
     using var joiner = SpacetimeTestClient.Create();
 
-    _client.Call(r => r.CreatePlayer("Host"));
+    _client.CreatePlayerAndGetId("Host");
     var gameId = _client.CreateGame(1);
     _client.Call(r => r.JoinGame(gameId));
 
-    joiner.Call(r => r.CreatePlayer("Joiner"));
+    joiner.CreatePlayerAndGetId("Joiner");
     joiner.CallExpectFailure(r => r.JoinGame(gameId));
 
     joiner.ClearData();
@@ -131,7 +235,7 @@ public class JoinGameTests : IDisposable
   [Fact]
   public void LeaveGame_RemovesGamePlayer()
   {
-    _client.Call(r => r.CreatePlayer("Leaver"));
+    _client.CreatePlayerAndGetId("Leaver");
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
     Assert.Single(_client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList());
@@ -140,9 +244,12 @@ public class JoinGameTests : IDisposable
     Assert.Empty(_client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList());
   }
 }
-public class ChatTests: IDisposable{
-    private readonly SpacetimeTestClient _client;
-    public ChatTests()
+
+public class ChatTests: IDisposable
+{
+  private readonly SpacetimeTestClient _client;
+
+  public ChatTests()
   {
     _client = SpacetimeTestClient.Create();
   }
@@ -152,14 +259,20 @@ public class ChatTests: IDisposable{
     _client.ClearData();
     _client.Dispose();
   }
+
   [Fact]
-  public void CreateChatSessionTest(){
+  public void CreateChatSessionTest()
+  {
+    _client.CreatePlayerAndGetId("ChatCreator");
     _client.Call(r => r.CreateChatSession("TestChat"));
     var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat");
     Assert.Single(chatLookup);
   }
+
   [Fact]
-  public void RemoveSessionTest(){
+  public void RemoveSessionTest()
+  {
+    _client.CreatePlayerAndGetId("RemoveHost");
     _client.Call(r => r.CreateChatSession("TestChat2"));
     var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat2");
     Assert.Single(chatLookup);
@@ -167,8 +280,11 @@ public class ChatTests: IDisposable{
     chatLookup = _client.Db.ChatSession.Name.Filter("TestChat2");
     Assert.False(chatLookup.First().Active);
   }
+
   [Fact]
-  public void RemoveSessionTestById(){
+  public void RemoveSessionTestById()
+  {
+    _client.CreatePlayerAndGetId("RemoveByIdHost");
     _client.Call(r => r.CreateChatSession("TestChat2"));
     var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat2");
     Assert.Single(chatLookup);
@@ -178,26 +294,30 @@ public class ChatTests: IDisposable{
     Assert.NotNull(chat);
     Assert.False(chat.Active);
   }
+
   [Fact]
-  public void JoinChatSessionTest(){
-    _client.Call(r => r.CreatePlayer("TestName"));
+  public void JoinChatSessionTest()
+  {
+    var playerId = _client.CreatePlayerAndGetId("TestName");
     _client.Call(r => r.CreateChatSession("TestChat4"));
     var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat4");
     _client.Call(r => r.JoinChatSession(chatLookup.First().Id));
     var membershipLookup = _client.Db.ChatSessionPlayer.SessionId.Filter(chatLookup.First().Id);
     Assert.Single(membershipLookup);
   }
+
   [Fact]
-  public void JoinChatSessionTest2()
+  public void ChatReducer_WithoutActivePlayer_Fails()
   {
-    _client.Call(r => r.CreateChatSession("TestChat5"));
-    var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat5");
-    _client.CallExpectFailure(r => r.JoinChatSession(chatLookup.First().Id));
+    using var noPlayer = SpacetimeTestClient.Create();
+    noPlayer.CallExpectFailure(r => r.CreateChatSession("TestChat5"));
+    noPlayer.Dispose();
   }
+
   [Fact]
   public void LeaveChatSessionTest()
   {
-    _client.Call(r => r.CreatePlayer("TestName2"));
+    _client.CreatePlayerAndGetId("TestName2");
     _client.Call(r => r.CreateChatSession("TestChat6"));
     var chatLookup = _client.Db.ChatSession.Name.Filter("TestChat6");
     _client.Call(r => r.JoinChatSession(chatLookup.First().Id));
@@ -211,7 +331,7 @@ public class ChatTests: IDisposable{
   [Fact]
   public void RemoveChatSession_CleansMemberships()
   {
-    _client.Call(r => r.CreatePlayer("CleanupHost"));
+    _client.CreatePlayerAndGetId("CleanupHost");
     _client.Call(r => r.CreateChatSession("CleanupChat"));
     var chatId = _client.Db.ChatSession.Name.Filter("CleanupChat").First().Id;
     _client.Call(r => r.JoinChatSession(chatId));
@@ -225,7 +345,7 @@ public class ChatTests: IDisposable{
   [Fact]
   public void SendMessage_InsertsRow()
   {
-    _client.Call(r => r.CreatePlayer("Sender"));
+    var playerId = _client.CreatePlayerAndGetId("Sender");
     _client.Call(r => r.CreateChatSession("MsgChat"));
     var chatId = _client.Db.ChatSession.Name.Filter("MsgChat").First().Id;
     _client.Call(r => r.JoinChatSession(chatId));
@@ -235,14 +355,14 @@ public class ChatTests: IDisposable{
     var messages = _client.Db.Message.SessionId.Filter(chatId).ToList();
     var msg = Assert.Single(messages);
     Assert.Equal("Hello world", msg.Body);
-    Assert.Equal(_client.Identity, msg.Sender);
+    Assert.Equal(playerId, msg.SenderPlayerId);
     Assert.False(msg.Deleted);
   }
 
   [Fact]
   public void SendMessage_MultipleMessages()
   {
-    _client.Call(r => r.CreatePlayer("Chatter"));
+    _client.CreatePlayerAndGetId("Chatter");
     _client.Call(r => r.CreateChatSession("MultiMsgChat"));
     var chatId = _client.Db.ChatSession.Name.Filter("MultiMsgChat").First().Id;
     _client.Call(r => r.JoinChatSession(chatId));
@@ -258,7 +378,7 @@ public class ChatTests: IDisposable{
   [Fact]
   public void SoftDeleteMessage_SetsDeletedFlag()
   {
-    _client.Call(r => r.CreatePlayer("Deleter"));
+    _client.CreatePlayerAndGetId("Deleter");
     _client.Call(r => r.CreateChatSession("SoftDelChat"));
     var chatId = _client.Db.ChatSession.Name.Filter("SoftDelChat").First().Id;
     _client.Call(r => r.JoinChatSession(chatId));
@@ -281,7 +401,7 @@ public class ChatTests: IDisposable{
   [Fact]
   public void HardDeleteMessage_RemovesRow()
   {
-    _client.Call(r => r.CreatePlayer("HardDeleter"));
+    _client.CreatePlayerAndGetId("HardDeleter");
     _client.Call(r => r.CreateChatSession("HardDelChat"));
     var chatId = _client.Db.ChatSession.Name.Filter("HardDelChat").First().Id;
     _client.Call(r => r.JoinChatSession(chatId));
@@ -294,10 +414,10 @@ public class ChatTests: IDisposable{
   }
 
   [Fact]
-  public void RemoveChatSessionByName_NonexistentFails()
+  public void RemoveChatSessionByName_NonexistentNoOp()
   {
+    _client.CreatePlayerAndGetId("NoOpHost");
     _client.Call(r => r.RemoveChatSessionByName("DoesNotExist"));
-    // No-op — no sessions match, nothing should change
   }
 
   [Fact]
@@ -311,8 +431,8 @@ public class ChatTests: IDisposable{
   {
     using var other = SpacetimeTestClient.Create();
 
-    _client.Call(r => r.CreatePlayer("HostMulti"));
-    other.Call(r => r.CreatePlayer("GuestMulti"));
+    _client.CreatePlayerAndGetId("HostMulti");
+    other.CreatePlayerAndGetId("GuestMulti");
 
     _client.Call(r => r.CreateChatSession("SharedChat"));
     var chatId = _client.Db.ChatSession.Name.Filter("SharedChat").First().Id;

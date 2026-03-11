@@ -17,8 +17,8 @@ namespace SpacetimeDB.Types
         public ulong Id;
         [DataMember(Name = "game_session_id")]
         public ulong GameSessionId;
-        [DataMember(Name = "player_identity")]
-        public SpacetimeDB.Identity PlayerIdentity;
+        [DataMember(Name = "player_id")]
+        public ulong PlayerId;
         [DataMember(Name = "team_slot")]
         public byte TeamSlot;
         [DataMember(Name = "position")]
@@ -27,14 +27,14 @@ namespace SpacetimeDB.Types
         public GamePlayer(
             ulong Id,
             ulong GameSessionId,
-            SpacetimeDB.Identity PlayerIdentity,
+            ulong PlayerId,
             byte TeamSlot,
             DbVector3 Position
         )
         {
             this.Id = Id;
             this.GameSessionId = GameSessionId;
-            this.PlayerIdentity = PlayerIdentity;
+            this.PlayerId = PlayerId;
             this.TeamSlot = TeamSlot;
             this.Position = Position;
         }
