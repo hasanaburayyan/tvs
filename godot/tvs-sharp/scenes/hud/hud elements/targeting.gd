@@ -46,6 +46,10 @@ func _process(delta: float) -> void:
 	_update_corner_positions()
 
 func _update_corner_positions():
+	if current_target == null or !is_instance_valid(current_target) or !current_target.is_inside_tree():
+		current_target = null
+		hide()
+		return
 	if camera != null and camera.is_position_behind(current_target.global_position):
 		hide()
 		return

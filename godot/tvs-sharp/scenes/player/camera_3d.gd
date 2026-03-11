@@ -20,6 +20,8 @@ var _q = false
 var _e = false
 
 func _input(event):
+	if not is_current():
+		return
 	if event is InputEventMouseMotion:
 		_mouse_position = event.relative
 	
@@ -54,6 +56,8 @@ func _input(event):
 				_e = event.pressed
 
 func _process(delta: float) -> void:
+	if not is_current():
+		return
 	#_update_movement(delta)
 	_update_mouselook()
 
