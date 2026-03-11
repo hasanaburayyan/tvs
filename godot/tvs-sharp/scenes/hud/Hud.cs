@@ -9,6 +9,7 @@ public enum Menus
   PLAYER_CREATION = 1,
   SERVER_SELECT = 2,
   IN_GAME_MENU = 3,
+  PROFILE_SELECT = 4,
 }
 
 public partial class Hud : CanvasLayer
@@ -22,6 +23,7 @@ public partial class Hud : CanvasLayer
   private PopulableMenu _playerCreationMenu;
   private PopulableMenu _serverSelectMenu;
   private PopulableMenu _ingameMenu;
+  private PopulableMenu _profileSelectMenu;
 
   private Dictionary<Menus, PopulableMenu> _menus = new Dictionary<Menus, PopulableMenu>();
 
@@ -29,18 +31,19 @@ public partial class Hud : CanvasLayer
   public ulong sessionID;
 
 
-  // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
 	_playerCreationMenu = GetNode<PopulableMenu>("%PlayerCreation");
 	_serverSelectMenu = GetNode<PopulableMenu>("%ServerSelect");
 	_ingameMenu = GetNode<PopulableMenu>("%InGameMenu");
+	_profileSelectMenu = GetNode<PopulableMenu>("%ProfileSelect");
 
 	_menus = new Dictionary<Menus, PopulableMenu>
   {
   { Menus.PLAYER_CREATION, _playerCreationMenu },
   { Menus.SERVER_SELECT, _serverSelectMenu },
-  { Menus.IN_GAME_MENU, _ingameMenu }
+  { Menus.IN_GAME_MENU, _ingameMenu },
+  { Menus.PROFILE_SELECT, _profileSelectMenu }
   };
 
 	SpacetimeNetworkManager.Instance.SubscriptionApplied += () =>
@@ -65,6 +68,7 @@ public partial class Hud : CanvasLayer
 	  SwitchToMenu(Menus.SERVER_SELECT);
 	};
 
+	SwitchToMenu(Menus.PROFILE_SELECT);
   }
 
 

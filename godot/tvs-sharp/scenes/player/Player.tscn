@@ -28,5 +28,5 @@ spring_length = 2.0
 
 [node name="Camera3D" type="Camera3D" parent="SpringArm3D" unique_id=2023736129]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 0.98379755, 0.17928301, 0, -0.17928301, 0.98379755, 1.3073485, 1.0219003, 1.8977058)
+transform = Transform3D(1, 0, 0, 0, 0.98379755, 0.17928301, 0, -0.17928301, 0.98379755, 0.4734621, 1.0219002, 1.8977058)
 script = ExtResource("2_gfjak")
