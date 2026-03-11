@@ -20,7 +20,7 @@ public static partial class Module
   public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition)
   {
     var player = GetPlayerForSender(ctx);
-    var gamePlayer = ctx.Db.game_player.PlayerId.Find(player.Id) ?? throw new Exception("Game player not found!");
+    var gamePlayer = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("Game player not found!");
 
     ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition });
   }
@@ -33,12 +33,7 @@ public static partial class Module
       throw new Exception($"Player '{playerName}' not found!");
     }
 
-    var gp = ctx.Db.game_player.PlayerId.Find(player.Id) ?? throw new Exception("Game player not found!");
-
-    if (gp.GameSessionId != gameSessionId)
-    {
-      throw new Exception($"Player '{playerName}' is not in game session {gameSessionId}!");
-    }
+    var gp = FindGamePlayer(ctx, player.Id, gameSessionId) ?? throw new Exception($"Player '{playerName}' is not in game session {gameSessionId}!");
 
     ctx.Db.game_player.Id.Update(gp with { Position = position });
 

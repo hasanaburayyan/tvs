@@ -50,9 +50,10 @@ public static partial class Module
 
     [SpacetimeDB.Index.BTree]
     public ulong GameSessionId;
-    [SpacetimeDB.Unique]
+    [SpacetimeDB.Index.BTree]
     public ulong PlayerId;
     public byte TeamSlot;
+    public bool Active;
 
     public DbVector3 Position;
   }

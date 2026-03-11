@@ -15,7 +15,7 @@ public partial class PlayerManager : Node
   public void LoadLobby() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	foreach (var gamePlayer in conn.Db.GamePlayer.GameSessionId.Filter(GameId)) {
-	  SpawnPlayer(gamePlayer);
+	  if (gamePlayer.Active) SpawnPlayer(gamePlayer);
 	}
 
 	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
@@ -42,7 +42,7 @@ public partial class PlayerManager : Node
   }
 
   public void OnGamePlayerInsert(EventContext ctx, GamePlayer gamePlayer) {
-	if (gamePlayer.GameSessionId != GameId) {
+	if (gamePlayer.GameSessionId != GameId || !gamePlayer.Active) {
 	  return;
 	}
 	SpawnPlayer(gamePlayer);
@@ -66,20 +66,22 @@ public partial class PlayerManager : Node
   }
 
   public void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGamePlayer, GamePlayer newGamePlayer) {
-	if (oldGamePlayer.GameSessionId != GameId && newGamePlayer.GameSessionId != GameId) {
+	if (newGamePlayer.GameSessionId != GameId) {
 	  return;
 	}
 
-	if (oldGamePlayer.GameSessionId == GameId && newGamePlayer.GameSessionId != GameId) {
+	if (oldGamePlayer.Active && !newGamePlayer.Active) {
 	  RemovePlayer(oldGamePlayer);
+	  return;
 	}
 
-	if (oldGamePlayer.GameSessionId != GameId && newGamePlayer.GameSessionId == GameId) {
+	if (!oldGamePlayer.Active && newGamePlayer.Active) {
 	  SpawnPlayer(newGamePlayer);
+	  return;
 	}
 
-	if (oldGamePlayer.GameSessionId == GameId && newGamePlayer.GameSessionId == GameId) {
-	  var player = PlayerSpawnPath.GetNodeOrNull<Player>(oldGamePlayer.PlayerId.ToString());
+	if (newGamePlayer.Active) {
+	  var player = PlayerSpawnPath.GetNodeOrNull<Player>(newGamePlayer.PlayerId.ToString());
 	  if (player != null) {
 		player.OnPositionUpdated(new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z));
 	  }

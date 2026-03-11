@@ -43,6 +43,7 @@ public partial class InGameMenu : PopulableMenu
 	var gamePlayers = conn.Db.GamePlayer.GameSessionId.Filter(hud.sessionID);
 	foreach (var gamePlayer in gamePlayers)
 	{
+	  if (!gamePlayer.Active) continue;
 	  var player = conn.Db.Player.Id.Find(gamePlayer.PlayerId);
 	  if (player is null) continue;
 	  var playerRow = PlayerRowScene.Instantiate<PlayerRow>();
@@ -89,17 +90,9 @@ public partial class InGameMenu : PopulableMenu
 
   public void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGamePlayer, GamePlayer newGamePlayer)
   {
-	if (oldGamePlayer.GameSessionId != hud.sessionID && newGamePlayer.GameSessionId != hud.sessionID)
-	{
-	  return;
-	}
+	if (newGamePlayer.GameSessionId != hud.sessionID) return;
 
-	if (oldGamePlayer.GameSessionId == hud.sessionID && newGamePlayer.GameSessionId != hud.sessionID)
-	{
-	  PopulatePlayerList();
-	}
-
-	if (oldGamePlayer.GameSessionId != hud.sessionID && newGamePlayer.GameSessionId == hud.sessionID)
+	if (oldGamePlayer.Active != newGamePlayer.Active)
 	{
 	  PopulatePlayerList();
 	}

@@ -12,13 +12,36 @@ public static partial class Module
     throw new Exception("No active player for this connection");
   }
 
+  static GamePlayer? FindGamePlayer(ReducerContext ctx, ulong playerId, ulong gameSessionId)
+  {
+    foreach (var gp in ctx.Db.game_player.PlayerId.Filter(playerId))
+    {
+      if (gp.GameSessionId == gameSessionId) return gp;
+    }
+    return null;
+  }
+
+  static GamePlayer? FindActiveGamePlayer(ReducerContext ctx, ulong playerId)
+  {
+    foreach (var gp in ctx.Db.game_player.PlayerId.Filter(playerId))
+    {
+      if (gp.Active) return gp;
+    }
+    return null;
+  }
+
+  static void DeactivateGamePlayer(ReducerContext ctx, ulong playerId)
+  {
+    if (FindActiveGamePlayer(ctx, playerId) is GamePlayer gp)
+      ctx.Db.game_player.Id.Update(gp with { Active = false });
+  }
+
   static void DeselectCurrentPlayer(ReducerContext ctx)
   {
     foreach (var p in ctx.Db.player.Iter())
     {
       if (p.ControllerIdentity != ctx.Sender) continue;
-      if (ctx.Db.game_player.PlayerId.Find(p.Id) is GamePlayer gp)
-        ctx.Db.game_player.Id.Delete(gp.Id);
+      DeactivateGamePlayer(ctx, p.Id);
       CleanupPositionOverrides(ctx, p.Id);
       ctx.Db.player.Id.Update(p with { Online = false, ControllerIdentity = null });
     }
@@ -88,12 +111,35 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
+  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers) {
+    var session = ctx.Db.game_session.Insert(new GameSession
+    {
+      OwnerIdentity = ctx.Sender,
+      State = SessionState.Lobby,
+      MaxPlayers = maxPlayers,
+      CreatedAt = ctx.Timestamp,
+    });
+
+    JoinGame(ctx, session.Id);
+  }
+
+  [SpacetimeDB.Reducer]
   public static void DeleteGame(ReducerContext ctx, ulong gameId)
   {
     ctx.Db.game_session.Id.Delete(gameId);
   }
 
   const int floor_height = 2;
+
+  static int CountActivePlayers(ReducerContext ctx, ulong gameSessionId)
+  {
+    int count = 0;
+    foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSessionId))
+    {
+      if (gp.Active) count++;
+    }
+    return count;
+  }
 
   [SpacetimeDB.Reducer]
   public static void JoinGame(ReducerContext ctx, ulong gameId)
@@ -106,17 +152,32 @@ public static partial class Module
     if (gameSession.State != SessionState.Lobby)
       throw new Exception("Joining a game in progress is not yet supported!");
 
-    if (gameSession.MaxPlayers <= ctx.Db.game_player.GameSessionId.Filter(gameSession.Id).Count())
+    var existing = FindGamePlayer(ctx, player.Id, gameId);
+    if (existing is GamePlayer ex)
+    {
+      if (ex.Active)
+        throw new Exception("Already in this game!");
+
+      if (gameSession.MaxPlayers <= CountActivePlayers(ctx, gameId))
+        throw new Exception("Game session is full!");
+
+      DeactivateGamePlayer(ctx, player.Id);
+      ctx.Db.game_player.Id.Update(ex with { Active = true });
+      return;
+    }
+
+    if (gameSession.MaxPlayers <= CountActivePlayers(ctx, gameId))
       throw new Exception("Game session is full!");
+
+    DeactivateGamePlayer(ctx, player.Id);
 
     var desired_spawn_location = new DbVector3(0, floor_height + 1, 0);
 
     var try_spawn_location = bool () =>
     {
-      var other_players = ctx.Db.game_player.GameSessionId.Filter(gameId);
-      foreach (var other_player in other_players)
+      foreach (var other_player in ctx.Db.game_player.GameSessionId.Filter(gameId))
       {
-        if (other_player.Position == desired_spawn_location)
+        if (other_player.Active && other_player.Position == desired_spawn_location)
           return false;
       }
       return true;
@@ -131,6 +192,7 @@ public static partial class Module
     {
       GameSessionId = gameSession.Id,
       PlayerId = player.Id,
+      Active = true,
       Position = desired_spawn_location
     });
   }
@@ -139,11 +201,11 @@ public static partial class Module
   public static void KickPlayerFromGame(ReducerContext ctx, ulong gameId, string playerName)
   {
     var player = ctx.Db.player.Name.Find(playerName) ?? throw new Exception("Cannot find player to kick");
-    var gamePlayer = ctx.Db.game_player.PlayerId.Find(player.Id) ?? throw new Exception("Player is not in any games to kick");
+    var gamePlayer = FindGamePlayer(ctx, player.Id, gameId) ?? throw new Exception("Player is not in this game");
 
-    if (gamePlayer.GameSessionId == gameId)
+    if (gamePlayer.Active)
     {
-      ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+      ctx.Db.game_player.Id.Update(gamePlayer with { Active = false });
     }
   }
 
@@ -151,10 +213,11 @@ public static partial class Module
   public static void LeaveGame(ReducerContext ctx, ulong gameId)
   {
     var player = GetPlayerForSender(ctx);
-    var gp = ctx.Db.game_player.PlayerId.Find(player.Id) ?? throw new Exception("cannot find a game to leave");
-    if (gp.GameSessionId == gameId)
+    var gp = FindGamePlayer(ctx, player.Id, gameId) ?? throw new Exception("cannot find a game to leave");
+
+    if (gp.Active)
     {
-      ctx.Db.game_player.Id.Delete(gp.Id);
+      ctx.Db.game_player.Id.Update(gp with { Active = false });
     }
     CleanupPositionOverrides(ctx, player.Id);
   }
@@ -170,9 +233,9 @@ public static partial class Module
   {
     foreach (var player in ctx.Db.player.OwnerIdentity.Filter(ctx.Sender))
     {
-      if (ctx.Db.game_player.PlayerId.Find(player.Id) is GamePlayer gamePlayer)
+      foreach (var gp in ctx.Db.game_player.PlayerId.Filter(player.Id))
       {
-        ctx.Db.game_player.Id.Delete(gamePlayer.Id);
+        ctx.Db.game_player.Id.Delete(gp.Id);
       }
 
       foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender))
