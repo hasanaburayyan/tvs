@@ -15,9 +15,15 @@ public partial class PlayerRow : HBoxContainer
 
   private bool isSelf = false;
 
-  // Called when the node enters the scene tree for the first time.
+  private GamePlayer? FindInSession(ulong playerId) {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(playerId))
+	  if (gp.GameSessionId == hud.sessionID && gp.Active) return gp;
+	return null;
+  }
+
   public override void _Ready()
-	{
+  {
 	_nameLabel = GetNode<Label>("%NameLabel");
 	_travelButton = GetNode<Button>("%TravelButton");
 	_teleportButton = GetNode<Button>("%TeleportButton");
@@ -30,17 +36,25 @@ public partial class PlayerRow : HBoxContainer
 
   public void OnTravelButtonPressed() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
-	var teleportToPlayer = conn.Db.GamePlayer.PlayerIdentity.Find(player.Identity);
-	var myPlayer = conn.Db.Player.Identity.Find(conn.Identity ?? throw new Exception("Client has no identity"));
+	var teleportToGamePlayer = FindInSession(player.Id);
+	if (teleportToGamePlayer is null) return;
 
-	conn.Reducers.TeleportPlayer(hud.sessionID, myPlayer.Name, teleportToPlayer.Position);
+	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId
+	  ?? throw new Exception("No active player selected");
+	var myPlayer = conn.Db.Player.Id.Find(activePlayerId)
+	  ?? throw new Exception("Active player not found");
+
+	conn.Reducers.TeleportPlayer(hud.sessionID, myPlayer.Name, teleportToGamePlayer.Position);
   }
 
   public void OnTeleportButtonPressed() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
-	var myPlayer = conn.Db.GamePlayer.PlayerIdentity.Find(conn.Identity ?? throw new Exception("Client has no identity"));
+	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId
+	  ?? throw new Exception("No active player selected");
+	var myGamePlayer = FindInSession(activePlayerId);
+	if (myGamePlayer is null) return;
 
-	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, myPlayer.Position);
+	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, myGamePlayer.Position);
   }
 
   public void OnKickButtonPressed() {
@@ -48,10 +62,9 @@ public partial class PlayerRow : HBoxContainer
 	conn.Reducers.KickPlayerFromGame(hud.sessionID, player.Name);
   }
 
-
   public void Populate(SpacetimeDB.Types.Player player) {
 	this.player = player;
-	isSelf = player.Identity == SpacetimeNetworkManager.Instance.Conn.Identity;
+	isSelf = player.Id == SpacetimeNetworkManager.Instance.ActivePlayerId;
 
 	_nameLabel.Text = player.Name;
 	if (isSelf) {

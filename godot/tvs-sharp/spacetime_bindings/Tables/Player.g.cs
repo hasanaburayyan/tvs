@@ -17,14 +17,14 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "player";
 
-            public sealed class IdentityUniqueIndex : UniqueIndexBase<SpacetimeDB.Identity>
+            public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
             {
-                protected override SpacetimeDB.Identity GetKey(Player row) => row.Identity;
+                protected override ulong GetKey(Player row) => row.Id;
 
-                public IdentityUniqueIndex(PlayerHandle table) : base(table) { }
+                public IdUniqueIndex(PlayerHandle table) : base(table) { }
             }
 
-            public readonly IdentityUniqueIndex Identity;
+            public readonly IdUniqueIndex Id;
 
             public sealed class NameUniqueIndex : UniqueIndexBase<string>
             {
@@ -35,13 +35,23 @@ namespace SpacetimeDB.Types
 
             public readonly NameUniqueIndex Name;
 
-            internal PlayerHandle(DbConnection conn) : base(conn)
+            public sealed class OwnerIdentityIndex : BTreeIndexBase<SpacetimeDB.Identity>
             {
-                Identity = new(this);
-                Name = new(this);
+                protected override SpacetimeDB.Identity GetKey(Player row) => row.OwnerIdentity;
+
+                public OwnerIdentityIndex(PlayerHandle table) : base(table) { }
             }
 
-            protected override object GetPrimaryKey(Player row) => row.Identity;
+            public readonly OwnerIdentityIndex OwnerIdentity;
+
+            internal PlayerHandle(DbConnection conn) : base(conn)
+            {
+                Id = new(this);
+                Name = new(this);
+                OwnerIdentity = new(this);
+            }
+
+            protected override object GetPrimaryKey(Player row) => row.Id;
         }
 
         public readonly PlayerHandle Player;
@@ -49,26 +59,32 @@ namespace SpacetimeDB.Types
 
     public sealed class PlayerCols
     {
-        public global::SpacetimeDB.Col<Player, SpacetimeDB.Identity> Identity { get; }
+        public global::SpacetimeDB.Col<Player, ulong> Id { get; }
+        public global::SpacetimeDB.Col<Player, SpacetimeDB.Identity> OwnerIdentity { get; }
         public global::SpacetimeDB.Col<Player, string> Name { get; }
         public global::SpacetimeDB.Col<Player, bool> Online { get; }
+        public global::SpacetimeDB.NullableCol<Player, SpacetimeDB.Identity> ControllerIdentity { get; }
 
         public PlayerCols(string tableName)
         {
-            Identity = new global::SpacetimeDB.Col<Player, SpacetimeDB.Identity>(tableName, "identity");
+            Id = new global::SpacetimeDB.Col<Player, ulong>(tableName, "id");
+            OwnerIdentity = new global::SpacetimeDB.Col<Player, SpacetimeDB.Identity>(tableName, "owner_identity");
             Name = new global::SpacetimeDB.Col<Player, string>(tableName, "name");
             Online = new global::SpacetimeDB.Col<Player, bool>(tableName, "online");
+            ControllerIdentity = new global::SpacetimeDB.NullableCol<Player, SpacetimeDB.Identity>(tableName, "controller_identity");
         }
     }
 
     public sealed class PlayerIxCols
     {
-        public global::SpacetimeDB.IxCol<Player, SpacetimeDB.Identity> Identity { get; }
+        public global::SpacetimeDB.IxCol<Player, ulong> Id { get; }
+        public global::SpacetimeDB.IxCol<Player, SpacetimeDB.Identity> OwnerIdentity { get; }
         public global::SpacetimeDB.IxCol<Player, string> Name { get; }
 
         public PlayerIxCols(string tableName)
         {
-            Identity = new global::SpacetimeDB.IxCol<Player, SpacetimeDB.Identity>(tableName, "identity");
+            Id = new global::SpacetimeDB.IxCol<Player, ulong>(tableName, "id");
+            OwnerIdentity = new global::SpacetimeDB.IxCol<Player, SpacetimeDB.Identity>(tableName, "owner_identity");
             Name = new global::SpacetimeDB.IxCol<Player, string>(tableName, "name");
         }
     }

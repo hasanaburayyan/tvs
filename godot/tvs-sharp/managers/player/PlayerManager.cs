@@ -15,7 +15,7 @@ public partial class PlayerManager : Node
   public void LoadLobby() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	foreach (var gamePlayer in conn.Db.GamePlayer.GameSessionId.Filter(GameId)) {
-	  SpawnPlayer(gamePlayer);
+	  if (gamePlayer.Active) SpawnPlayer(gamePlayer);
 	}
 
 	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
@@ -25,16 +25,16 @@ public partial class PlayerManager : Node
   }
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
-	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Identity.Find(gamePlayer.PlayerIdentity);
+	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Id.Find(gamePlayer.PlayerId);
 	if (owner is null)
 	{
-	  GD.PrintErr($"SpawnPlayer: Player record not found for identity {gamePlayer.PlayerIdentity}, skipping spawn");
+	  GD.PrintErr($"SpawnPlayer: Player record not found for PlayerId {gamePlayer.PlayerId}, skipping spawn");
 	  return;
 	}
 
 	var player = PlayerScene.Instantiate<Player>();
-	player.Name = gamePlayer.PlayerIdentity.ToString();
-	player.OwnerIdentity = gamePlayer.PlayerIdentity;
+	player.Name = gamePlayer.PlayerId.ToString();
+	player.PlayerId = gamePlayer.PlayerId;
 	player.GameId = GameId;
 	player.Position = new Vector3(gamePlayer.Position.X, gamePlayer.Position.Y, gamePlayer.Position.Z);
 	player.username = owner.Name;
@@ -42,7 +42,7 @@ public partial class PlayerManager : Node
   }
 
   public void OnGamePlayerInsert(EventContext ctx, GamePlayer gamePlayer) {
-	if (gamePlayer.GameSessionId != GameId) {
+	if (gamePlayer.GameSessionId != GameId || !gamePlayer.Active) {
 	  return;
 	}
 	SpawnPlayer(gamePlayer);
@@ -56,33 +56,32 @@ public partial class PlayerManager : Node
   }
 
   private void RemovePlayer(GamePlayer gamePlayer) {
-	var player = PlayerSpawnPath.GetNode<Player>(gamePlayer.PlayerIdentity.ToString());
+	var player = PlayerSpawnPath.GetNodeOrNull<Player>(gamePlayer.PlayerId.ToString());
 	if (player != null) {
 	  player.QueueFree();
-	if (player.OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity) {
+	  if (player.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId) {
 		DestroyLobby();
 	  }
 	}
   }
 
   public void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGamePlayer, GamePlayer newGamePlayer) {
-	if (oldGamePlayer.GameSessionId != GameId && newGamePlayer.GameSessionId != GameId) {
+	if (newGamePlayer.GameSessionId != GameId) {
 	  return;
 	}
 
-	// if left
-	if (oldGamePlayer.GameSessionId == GameId && newGamePlayer.GameSessionId != GameId) {
+	if (oldGamePlayer.Active && !newGamePlayer.Active) {
 	  RemovePlayer(oldGamePlayer);
+	  return;
 	}
 
-	// if joined
-	if (oldGamePlayer.GameSessionId != GameId && newGamePlayer.GameSessionId == GameId) {
+	if (!oldGamePlayer.Active && newGamePlayer.Active) {
 	  SpawnPlayer(newGamePlayer);
+	  return;
 	}
 
-	// if moved
-	if (oldGamePlayer.GameSessionId == GameId && newGamePlayer.GameSessionId == GameId) {
-	  var player = PlayerSpawnPath.GetNode<Player>(oldGamePlayer.PlayerIdentity.ToString());
+	if (newGamePlayer.Active) {
+	  var player = PlayerSpawnPath.GetNodeOrNull<Player>(newGamePlayer.PlayerId.ToString());
 	  if (player != null) {
 		player.OnPositionUpdated(new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z));
 	  }
@@ -90,20 +89,20 @@ public partial class PlayerManager : Node
   }
 
   public void OnPositionOverrideInsert(EventContext ctx, PositionOverride posOverride) {
-	var conn = SpacetimeNetworkManager.Instance.Conn;
-	if (posOverride.PlayerIdentity != conn.Identity) {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (posOverride.PlayerId != mgr.ActivePlayerId) {
 	  return;
 	}
 	if (posOverride.GameSessionId != GameId) {
 	  return;
 	}
 
-	var player = PlayerSpawnPath.GetNode<Player>(posOverride.PlayerIdentity.ToString());
+	var player = PlayerSpawnPath.GetNodeOrNull<Player>(posOverride.PlayerId.ToString());
 	if (player != null) {
 	  player.ApplyPositionOverride(new Vector3(posOverride.Position.X, posOverride.Position.Y, posOverride.Position.Z));
 	}
 
-	conn.Reducers.AckPositionOverride(posOverride.Id);
+	mgr.Conn.Reducers.AckPositionOverride(posOverride.Id);
   }
 
   public void DestroyLobby() {

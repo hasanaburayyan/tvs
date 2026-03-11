@@ -12,17 +12,17 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void DeletePlayerHandler(ReducerEventContext ctx, ulong playerId);
-        public event DeletePlayerHandler? OnDeletePlayer;
+        public delegate void CreateGameAndJoinHandler(ReducerEventContext ctx, uint maxPlayers);
+        public event CreateGameAndJoinHandler? OnCreateGameAndJoin;
 
-        public void DeletePlayer(ulong playerId)
+        public void CreateGameAndJoin(uint maxPlayers)
         {
-            conn.InternalCallReducer(new Reducer.DeletePlayer(playerId));
+            conn.InternalCallReducer(new Reducer.CreateGameAndJoin(maxPlayers));
         }
 
-        public bool InvokeDeletePlayer(ReducerEventContext ctx, Reducer.DeletePlayer args)
+        public bool InvokeCreateGameAndJoin(ReducerEventContext ctx, Reducer.CreateGameAndJoin args)
         {
-            if (OnDeletePlayer == null)
+            if (OnCreateGameAndJoin == null)
             {
                 if (InternalOnUnhandledReducerError != null)
                 {
@@ -34,9 +34,9 @@ namespace SpacetimeDB.Types
                 }
                 return false;
             }
-            OnDeletePlayer(
+            OnCreateGameAndJoin(
                 ctx,
-                args.PlayerId
+                args.MaxPlayers
             );
             return true;
         }
@@ -46,21 +46,21 @@ namespace SpacetimeDB.Types
     {
         [SpacetimeDB.Type]
         [DataContract]
-        public sealed partial class DeletePlayer : Reducer, IReducerArgs
+        public sealed partial class CreateGameAndJoin : Reducer, IReducerArgs
         {
-            [DataMember(Name = "player_id")]
-            public ulong PlayerId;
+            [DataMember(Name = "max_players")]
+            public uint MaxPlayers;
 
-            public DeletePlayer(ulong PlayerId)
+            public CreateGameAndJoin(uint MaxPlayers)
             {
-                this.PlayerId = PlayerId;
+                this.MaxPlayers = MaxPlayers;
             }
 
-            public DeletePlayer()
+            public CreateGameAndJoin()
             {
             }
 
-            string IReducerArgs.ReducerName => "delete_player";
+            string IReducerArgs.ReducerName => "create_game_and_join";
         }
     }
 }

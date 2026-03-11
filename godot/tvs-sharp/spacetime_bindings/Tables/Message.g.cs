@@ -26,14 +26,14 @@ namespace SpacetimeDB.Types
 
             public readonly IdUniqueIndex Id;
 
-            public sealed class SenderIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            public sealed class SenderPlayerIdIndex : BTreeIndexBase<ulong>
             {
-                protected override SpacetimeDB.Identity GetKey(Message row) => row.Sender;
+                protected override ulong GetKey(Message row) => row.SenderPlayerId;
 
-                public SenderIndex(MessageHandle table) : base(table) { }
+                public SenderPlayerIdIndex(MessageHandle table) : base(table) { }
             }
 
-            public readonly SenderIndex Sender;
+            public readonly SenderPlayerIdIndex SenderPlayerId;
 
             public sealed class SessionIdIndex : BTreeIndexBase<ulong>
             {
@@ -47,7 +47,7 @@ namespace SpacetimeDB.Types
             internal MessageHandle(DbConnection conn) : base(conn)
             {
                 Id = new(this);
-                Sender = new(this);
+                SenderPlayerId = new(this);
                 SessionId = new(this);
             }
 
@@ -62,7 +62,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Message, ulong> Id { get; }
         public global::SpacetimeDB.Col<Message, string> Body { get; }
         public global::SpacetimeDB.Col<Message, ulong> SessionId { get; }
-        public global::SpacetimeDB.Col<Message, SpacetimeDB.Identity> Sender { get; }
+        public global::SpacetimeDB.Col<Message, ulong> SenderPlayerId { get; }
         public global::SpacetimeDB.Col<Message, bool> Deleted { get; }
         public global::SpacetimeDB.Col<Message, SpacetimeDB.Timestamp> TimeSent { get; }
 
@@ -71,7 +71,7 @@ namespace SpacetimeDB.Types
             Id = new global::SpacetimeDB.Col<Message, ulong>(tableName, "id");
             Body = new global::SpacetimeDB.Col<Message, string>(tableName, "body");
             SessionId = new global::SpacetimeDB.Col<Message, ulong>(tableName, "session_id");
-            Sender = new global::SpacetimeDB.Col<Message, SpacetimeDB.Identity>(tableName, "sender");
+            SenderPlayerId = new global::SpacetimeDB.Col<Message, ulong>(tableName, "sender_player_id");
             Deleted = new global::SpacetimeDB.Col<Message, bool>(tableName, "deleted");
             TimeSent = new global::SpacetimeDB.Col<Message, SpacetimeDB.Timestamp>(tableName, "time_sent");
         }
@@ -81,13 +81,13 @@ namespace SpacetimeDB.Types
     {
         public global::SpacetimeDB.IxCol<Message, ulong> Id { get; }
         public global::SpacetimeDB.IxCol<Message, ulong> SessionId { get; }
-        public global::SpacetimeDB.IxCol<Message, SpacetimeDB.Identity> Sender { get; }
+        public global::SpacetimeDB.IxCol<Message, ulong> SenderPlayerId { get; }
 
         public MessageIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<Message, ulong>(tableName, "id");
             SessionId = new global::SpacetimeDB.IxCol<Message, ulong>(tableName, "session_id");
-            Sender = new global::SpacetimeDB.IxCol<Message, SpacetimeDB.Identity>(tableName, "sender");
+            SenderPlayerId = new global::SpacetimeDB.IxCol<Message, ulong>(tableName, "sender_player_id");
         }
     }
 }

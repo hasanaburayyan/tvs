@@ -15,8 +15,8 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "id")]
         public ulong Id;
-        [DataMember(Name = "player_identity")]
-        public SpacetimeDB.Identity PlayerIdentity;
+        [DataMember(Name = "player_id")]
+        public ulong PlayerId;
         [DataMember(Name = "game_session_id")]
         public ulong GameSessionId;
         [DataMember(Name = "position")]
@@ -24,13 +24,13 @@ namespace SpacetimeDB.Types
 
         public PositionOverride(
             ulong Id,
-            SpacetimeDB.Identity PlayerIdentity,
+            ulong PlayerId,
             ulong GameSessionId,
             DbVector3 Position
         )
         {
             this.Id = Id;
-            this.PlayerIdentity = PlayerIdentity;
+            this.PlayerId = PlayerId;
             this.GameSessionId = GameSessionId;
             this.Position = Position;
         }

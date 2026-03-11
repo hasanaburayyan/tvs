@@ -13,22 +13,30 @@ namespace SpacetimeDB.Types
     [DataContract]
     public sealed partial class Player
     {
-        [DataMember(Name = "identity")]
-        public SpacetimeDB.Identity Identity;
+        [DataMember(Name = "id")]
+        public ulong Id;
+        [DataMember(Name = "owner_identity")]
+        public SpacetimeDB.Identity OwnerIdentity;
         [DataMember(Name = "name")]
         public string Name;
         [DataMember(Name = "online")]
         public bool Online;
+        [DataMember(Name = "controller_identity")]
+        public SpacetimeDB.Identity? ControllerIdentity;
 
         public Player(
-            SpacetimeDB.Identity Identity,
+            ulong Id,
+            SpacetimeDB.Identity OwnerIdentity,
             string Name,
-            bool Online
+            bool Online,
+            SpacetimeDB.Identity? ControllerIdentity
         )
         {
-            this.Identity = Identity;
+            this.Id = Id;
+            this.OwnerIdentity = OwnerIdentity;
             this.Name = Name;
             this.Online = Online;
+            this.ControllerIdentity = ControllerIdentity;
         }
 
         public Player()

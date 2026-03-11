@@ -43,6 +43,11 @@ public partial class Hud : CanvasLayer
   { Menus.IN_GAME_MENU, _ingameMenu }
   };
 
+	SpacetimeNetworkManager.Instance.SubscriptionApplied += () =>
+	{
+	  SwitchToMenu(Menus.PLAYER_CREATION);
+	};
+
 	StartLobby += (int id) =>
 	{
 	  inGame = true;

@@ -13,7 +13,7 @@ public partial class Player : CharacterBody3D
   public const float JumpVelocity = 4.5f;
   public const float LERP_DURATION = 0.1f;
 
-  public Identity OwnerIdentity;
+  public ulong PlayerId;
 
   public ulong GameId;
   public bool IsLocal;
@@ -36,28 +36,28 @@ public partial class Player : CharacterBody3D
 	_nametag = GetNode<Label3D>("%NameTag");
 	_animPlayer = GetNode<Node3D>("%WW1_femalesoldier").GetNode<AnimationPlayer>("AnimationPlayer");
 
-	IsLocal = OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity;
-	if (IsLocal)
-	{
-	  Camera.MakeCurrent();
-	}
-	_nametag.Text = username;
+    IsLocal = PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId;
+    if (IsLocal)
+    {
+      Camera.MakeCurrent();
+    }
+    _nametag.Text = username;
   }
 
   public void OnPositionUpdated(Vector3 newPosition)
   {
-	_lerpTime = 0.0f;
-	_lerpStart = Position;
-	_lerpTarget = newPosition;
+    _lerpTime = 0.0f;
+    _lerpStart = Position;
+    _lerpTarget = newPosition;
   }
 
   public void ApplyPositionOverride(Vector3 position)
   {
-	Position = position;
-	_lerpStart = position;
-	_lerpTarget = position;
-	_lerpTime = LERP_DURATION;
-	Velocity = Vector3.Zero;
+    Position = position;
+    _lerpStart = position;
+    _lerpTarget = position;
+    _lerpTime = LERP_DURATION;
+    Velocity = Vector3.Zero;
   }
 
   public override void _PhysicsProcess(double delta)
@@ -73,33 +73,33 @@ public partial class Player : CharacterBody3D
 	  return;
 	}
 
-	Vector3 velocity = Velocity;
+    Vector3 velocity = Velocity;
 
-	if (!IsOnFloor())
-	{
-	  velocity += GetGravity() * (float)delta;
-	}
+    if (!IsOnFloor())
+    {
+      velocity += GetGravity() * (float)delta;
+    }
 
-	if (Input.IsActionJustPressed("ui_accept") && IsOnFloor())
-	{
-	  velocity.Y = JumpVelocity;
-	}
+    if (Input.IsActionJustPressed("ui_accept") && IsOnFloor())
+    {
+      velocity.Y = JumpVelocity;
+    }
 
-	Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
-	Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
-	if (direction != Vector3.Zero)
-	{
-	  velocity.X = direction.X * Speed;
-	  velocity.Z = direction.Z * Speed;
-	}
-	else
-	{
-	  velocity.X = Mathf.MoveToward(Velocity.X, 0, Speed);
-	  velocity.Z = Mathf.MoveToward(Velocity.Z, 0, Speed);
-	}
+    Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
+    Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
+    if (direction != Vector3.Zero)
+    {
+      velocity.X = direction.X * Speed;
+      velocity.Z = direction.Z * Speed;
+    }
+    else
+    {
+      velocity.X = Mathf.MoveToward(Velocity.X, 0, Speed);
+      velocity.Z = Mathf.MoveToward(Velocity.Z, 0, Speed);
+    }
 
-	Velocity = velocity;
-	MoveAndSlide();
+    Velocity = velocity;
+    MoveAndSlide();
 
 	bool isMovingLocal = new Vector2(Velocity.X, Velocity.Z).LengthSquared() > 0.01f;
 	UpdateAnimation(isMovingLocal);
