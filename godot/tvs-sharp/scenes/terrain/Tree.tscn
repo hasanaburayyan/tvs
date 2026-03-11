@@ -1,0 +1,33 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_trunk"]
+albedo_color = Color(0.35, 0.22, 0.1, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_canopy"]
+albedo_color = Color(0.2, 0.45, 0.15, 1)
+
+[sub_resource type="CylinderMesh" id="mesh_trunk"]
+material = SubResource("mat_trunk")
+top_radius = 0.15
+bottom_radius = 0.2
+height = 0.5
+
+[sub_resource type="SphereMesh" id="mesh_canopy"]
+material = SubResource("mat_canopy")
+radius = 0.4
+height = 0.6
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+
+[node name="Tree" type="StaticBody3D"]
+
+[node name="Trunk" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+mesh = SubResource("mesh_trunk")
+
+[node name="Canopy" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("mesh_canopy")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_1")

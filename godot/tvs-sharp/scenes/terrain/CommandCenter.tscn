@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_base"]
+albedo_color = Color(0.35, 0.4, 0.25, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_roof"]
+albedo_color = Color(0.45, 0.4, 0.3, 1)
+
+[sub_resource type="BoxMesh" id="mesh_base"]
+material = SubResource("mat_base")
+size = Vector3(1, 0.6, 1)
+
+[sub_resource type="PrismMesh" id="mesh_roof"]
+material = SubResource("mat_roof")
+size = Vector3(1.1, 0.4, 1.1)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+
+[node name="CommandCenter" type="StaticBody3D"]
+
+[node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0)
+mesh = SubResource("mesh_base")
+
+[node name="Roof" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("mesh_roof")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_1")

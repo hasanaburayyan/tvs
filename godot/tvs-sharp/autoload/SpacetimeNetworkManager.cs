@@ -21,43 +21,43 @@ public partial class SpacetimeNetworkManager : Node
 
   public override void _Ready()
   {
-    Instance = this;
+	Instance = this;
   }
 
   public void Connect(string profile)
   {
-    ActiveProfile = profile;
-    GD.Print($"Connecting with profile '{profile}' (token: {TokenPath})");
-    Conn = DbConnection.Builder()
-      .WithUri("https://maincloud.spacetimedb.com")
-      //.WithUri("http://127.0.0.1:3000")
-      .WithDatabaseName("tvs")
-      .WithToken(LoadToken())
-      .OnConnect(OnConnected)
-      .OnConnectError(OnConnectError)
-      .OnDisconnect(OnDisconnect)
-      .Build();
+	ActiveProfile = profile;
+	GD.Print($"Connecting with profile '{profile}' (token: {TokenPath})");
+	Conn = DbConnection.Builder()
+	  //.WithUri("https://maincloud.spacetimedb.com")
+	  .WithUri("http://127.0.0.1:3000")
+	  .WithDatabaseName("tvs")
+	  .WithToken(LoadToken())
+	  .OnConnect(OnConnected)
+	  .OnConnectError(OnConnectError)
+	  .OnDisconnect(OnDisconnect)
+	  .Build();
   }
 
   public static List<string> GetSavedProfiles()
   {
-    var profiles = new List<string>();
-    using var dir = DirAccess.Open("user://");
-    if (dir == null) return profiles;
+	var profiles = new List<string>();
+	using var dir = DirAccess.Open("user://");
+	if (dir == null) return profiles;
 
-    dir.ListDirBegin();
-    var fileName = dir.GetNext();
-    while (fileName != "")
-    {
-      if (!dir.CurrentIsDir() && fileName.StartsWith(TokenPrefix) && fileName.EndsWith(TokenExt))
-      {
-        var name = fileName[TokenPrefix.Length..^TokenExt.Length];
-        if (name.Length > 0)
-          profiles.Add(name);
-      }
-      fileName = dir.GetNext();
-    }
-    return profiles;
+	dir.ListDirBegin();
+	var fileName = dir.GetNext();
+	while (fileName != "")
+	{
+	  if (!dir.CurrentIsDir() && fileName.StartsWith(TokenPrefix) && fileName.EndsWith(TokenExt))
+	  {
+		var name = fileName[TokenPrefix.Length..^TokenExt.Length];
+		if (name.Length > 0)
+		  profiles.Add(name);
+	  }
+	  fileName = dir.GetNext();
+	}
+	return profiles;
   }
 
   void OnConnected(DbConnection conn, Identity identity, string token)
@@ -100,6 +100,6 @@ public partial class SpacetimeNetworkManager : Node
 
   public override void _Process(double delta)
   {
-    Conn?.FrameTick();
+	Conn?.FrameTick();
   }
 }

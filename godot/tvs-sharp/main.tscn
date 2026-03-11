@@ -8,19 +8,19 @@
 [ext_resource type="Script" uid="uid://c7c4etvmmbjkc" path="res://managers/player/PlayerManager.cs" id="5_lquwl"]
 [ext_resource type="PackedScene" uid="uid://2xasqahl2hcj" path="res://scenes/hud/hud elements/Targeting.tscn" id="6_272bh"]
 [ext_resource type="PackedScene" path="res://scenes/menus/profile_select/ProfileSelect.tscn" id="7_prof"]
+[ext_resource type="Script" uid="uid://xl5mwtfqyuul" path="res://managers/map/MapManager.cs" id="9_kek77"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
-size = Vector3(60, 2, 60)
+size = Vector3(200, 2, 200)
 
 [sub_resource type="BoxMesh" id="BoxMesh_lquwl"]
-size = Vector3(60, 2, 60)
+size = Vector3(200, 2, 200)
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_7mycd"]
-
-[node name="Main" type="Node3D" unique_id=115939296 node_paths=PackedStringArray("PlayerManager", "Hud")]
+[node name="Main" type="Node3D" unique_id=115939296 node_paths=PackedStringArray("PlayerManager", "Hud", "MapManager")]
 script = ExtResource("1_ig7tw")
 PlayerManager = NodePath("PlayerManager")
 Hud = NodePath("HUD")
+MapManager = NodePath("MapManager")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1523776012]
 script = ExtResource("2_1bvp3")
@@ -40,7 +40,7 @@ unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
 
-[node name="ProfileSelect" parent="HUD" node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
+[node name="ProfileSelect" parent="HUD" unique_id=1003272541 node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
 unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
@@ -55,10 +55,6 @@ shape = SubResource("BoxShape3D_1bvp3")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D" unique_id=1521590559]
 mesh = SubResource("BoxMesh_lquwl")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1371688607]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.59427, 7.6981573)
-mesh = SubResource("CylinderMesh_7mycd")
-
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=364786149]
 transform = Transform3D(1, 0, 0, 0, -0.960318, 0.27890733, 0, -0.27890733, -0.960318, 0, 5.475296, 0)
 shadow_enabled = true
@@ -66,3 +62,6 @@ shadow_enabled = true
 [node name="PlayerManager" type="Node" parent="." unique_id=1091122836 node_paths=PackedStringArray("PlayerSpawnPath")]
 script = ExtResource("5_lquwl")
 PlayerSpawnPath = NodePath("..")
+
+[node name="MapManager" type="Node" parent="." unique_id=1123036608]
+script = ExtResource("9_kek77")

@@ -12,12 +12,16 @@ public partial class Main : Node3D
   [Export]
   public Hud Hud;
 
+  [Export]
+  public MapManager MapManager;
 
 	public override void _Ready()
 	{
 	Hud.StartLobby += (id) => {
 	  PlayerManager.GameId = (ulong)id;
 	  PlayerManager.LoadLobby();
+	  MapManager.GameId = (ulong)id;
+	  MapManager.LoadMap();
 	};
 
 	Hud.LeaveLobby += (id) =>
@@ -26,7 +30,8 @@ public partial class Main : Node3D
 	  {
 		PlayerManager.GameId = 0;
 	  }
-
+	  MapManager.GameId = 0;
+	  MapManager.DestroyMap();
 	  PlayerManager.DestroyLobby();
 	};
   }
