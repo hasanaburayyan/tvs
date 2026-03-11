@@ -5,24 +5,27 @@ public static partial class Module
   [SpacetimeDB.Reducer]
   public static void CreateChatSession(ReducerContext ctx, string name)
   {
+    var player = GetPlayerForSender(ctx);
     ctx.Db.ChatSession.Insert(new ChatSession{
-      Owner = ctx.Sender,
+      OwnerPlayerId = player.Id,
       TimeCreated = ctx.Timestamp,
       Name = name,
       Active = true
     });
   }
+
   [SpacetimeDB.Reducer]
   public static void RemoveChatSessionByName(ReducerContext ctx, string name)
   {
-    var ChatSessions = ctx.Db.ChatSession.Owner.Filter(ctx.Sender);
+    var player = GetPlayerForSender(ctx);
+    var ChatSessions = ctx.Db.ChatSession.OwnerPlayerId.Filter(player.Id);
     foreach(var session in ChatSessions){
       if(session.Name.Equals(name)){
-        //ctx.Db.ChatSession.Id.Delete(session.Id);
         RemoveChatSessionById(ctx, session.Id);
       }
     }
   }
+
   [SpacetimeDB.Reducer]
   public static void RemoveChatSessionById(ReducerContext ctx, ulong id)
   {
@@ -33,40 +36,43 @@ public static partial class Module
     originalChatSession.Active = false;
     ctx.Db.ChatSession.Id.Update(originalChatSession);
   }
+
   [SpacetimeDB.Reducer]
   public static void JoinChatSession(ReducerContext ctx, ulong id)
   {
-    var player = ctx.Db.player.Identity.Find(ctx.Sender);
-    if(player == null){
-      throw new Exception("Player not found");
-    }
+    var player = GetPlayerForSender(ctx);
     ctx.Db.ChatSessionPlayer.Insert(new ChatSessionPlayer
     {
-      PlayerIdentity = ctx.Sender,
+      PlayerId = player.Id,
       SessionId = id
     });
   }
+
   [SpacetimeDB.Reducer]
   public static void LeaveChatSession(ReducerContext ctx, ulong id)
   {
-    foreach(var chatsession in ctx.Db.ChatSessionPlayer.PlayerIdentity.Filter(ctx.Sender)){
+    var player = GetPlayerForSender(ctx);
+    foreach(var chatsession in ctx.Db.ChatSessionPlayer.PlayerId.Filter(player.Id)){
       if(chatsession.SessionId == id){
         ctx.Db.ChatSessionPlayer.Id.Delete(chatsession.Id);
       }
     }
   }
+
   [SpacetimeDB.Reducer]
   public static void SendMessage(ReducerContext ctx, string message, ulong chatSessionId)
   {
+    var player = GetPlayerForSender(ctx);
     ctx.Db.Message.Insert(new Message
     {
       Body = message,
       SessionId = chatSessionId,
-      Sender = ctx.Sender,
+      SenderPlayerId = player.Id,
       TimeSent = ctx.Timestamp,
       Deleted = false
     });
   }
+
   [SpacetimeDB.Reducer]
   public static void SoftDeleteMessage(ReducerContext ctx, ulong id)
   {
@@ -74,6 +80,7 @@ public static partial class Module
     originalMessage.Deleted = true;
     ctx.Db.Message.Id.Update(originalMessage);
   }
+
   [SpacetimeDB.Reducer]
   public static void HardDeleteMessage(ReducerContext ctx, ulong id)
   {

@@ -17,8 +17,8 @@ namespace SpacetimeDB.Types
         public ulong Id;
         [DataMember(Name = "time_created")]
         public SpacetimeDB.Timestamp TimeCreated;
-        [DataMember(Name = "owner")]
-        public SpacetimeDB.Identity Owner;
+        [DataMember(Name = "owner_player_id")]
+        public ulong OwnerPlayerId;
         [DataMember(Name = "name")]
         public string Name;
         [DataMember(Name = "active")]
@@ -27,14 +27,14 @@ namespace SpacetimeDB.Types
         public ChatSession(
             ulong Id,
             SpacetimeDB.Timestamp TimeCreated,
-            SpacetimeDB.Identity Owner,
+            ulong OwnerPlayerId,
             string Name,
             bool Active
         )
         {
             this.Id = Id;
             this.TimeCreated = TimeCreated;
-            this.Owner = Owner;
+            this.OwnerPlayerId = OwnerPlayerId;
             this.Name = Name;
             this.Active = Active;
         }

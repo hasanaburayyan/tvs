@@ -38,11 +38,16 @@ public partial class ServerSelect : PopulableMenu
 	var servers = conn.Db.GameSession.Iter();
 	foreach (var server in servers) {
 	  var serverItem = ServerItemScene.Instantiate<ServerItem>();
-	  var serverOwner = conn.Db.Player.Identity.Find(server.OwnerIdentity);
-	serverItem.hud = hud;
+	  string ownerName = "Unknown";
+	  foreach (var p in conn.Db.Player.OwnerIdentity.Filter(server.OwnerIdentity))
+	  {
+		ownerName = p.Name;
+		break;
+	  }
+	  serverItem.hud = hud;
 	  var currentPlayerCount = conn.Db.GamePlayer.GameSessionId.Filter(server.Id).Count();
 	  _serverListContainer.AddChild(serverItem);
-	  serverItem.Populate(serverOwner.Name, currentPlayerCount, server.MaxPlayers, server.Id, server.State.ToString());
+	  serverItem.Populate(ownerName, currentPlayerCount, server.MaxPlayers, server.Id, server.State.ToString());
 	}
   }
 

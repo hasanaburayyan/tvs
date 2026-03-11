@@ -19,8 +19,8 @@ namespace SpacetimeDB.Types
         public string Body;
         [DataMember(Name = "session_id")]
         public ulong SessionId;
-        [DataMember(Name = "sender")]
-        public SpacetimeDB.Identity Sender;
+        [DataMember(Name = "sender_player_id")]
+        public ulong SenderPlayerId;
         [DataMember(Name = "deleted")]
         public bool Deleted;
         [DataMember(Name = "time_sent")]
@@ -30,7 +30,7 @@ namespace SpacetimeDB.Types
             ulong Id,
             string Body,
             ulong SessionId,
-            SpacetimeDB.Identity Sender,
+            ulong SenderPlayerId,
             bool Deleted,
             SpacetimeDB.Timestamp TimeSent
         )
@@ -38,7 +38,7 @@ namespace SpacetimeDB.Types
             this.Id = Id;
             this.Body = Body;
             this.SessionId = SessionId;
-            this.Sender = Sender;
+            this.SenderPlayerId = SenderPlayerId;
             this.Deleted = Deleted;
             this.TimeSent = TimeSent;
         }

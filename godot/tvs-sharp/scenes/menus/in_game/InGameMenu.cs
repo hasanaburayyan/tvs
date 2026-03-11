@@ -43,7 +43,8 @@ public partial class InGameMenu : PopulableMenu
 	var gamePlayers = conn.Db.GamePlayer.GameSessionId.Filter(hud.sessionID);
 	foreach (var gamePlayer in gamePlayers)
 	{
-	  var player = conn.Db.Player.Identity.Find(gamePlayer.PlayerIdentity);
+	  var player = conn.Db.Player.Id.Find(gamePlayer.PlayerId);
+	  if (player is null) continue;
 	  var playerRow = PlayerRowScene.Instantiate<PlayerRow>();
 	  playerRow.hud = hud;
 	  _player_list_container.AddChild(playerRow);
@@ -55,8 +56,11 @@ public partial class InGameMenu : PopulableMenu
   public void OnStuckButtonPressed()
   {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
-	var player = conn.Db.Player.Identity.Find(conn.Identity ?? throw new Exception("cannot search from unathenticated connection"));
-	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, new DbVector3(2, 5, 2)); // TODO: eventually this can be some better coordinate 
+	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId
+	  ?? throw new Exception("No active player selected");
+	var player = conn.Db.Player.Id.Find(activePlayerId)
+	  ?? throw new Exception("Active player not found");
+	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, new DbVector3(2, 5, 2));
   }
 
   public void OnLeaveGamePressed()
@@ -90,13 +94,11 @@ public partial class InGameMenu : PopulableMenu
 	  return;
 	}
 
-	// if left
 	if (oldGamePlayer.GameSessionId == hud.sessionID && newGamePlayer.GameSessionId != hud.sessionID)
 	{
 	  PopulatePlayerList();
 	}
 
-	// if joined
 	if (oldGamePlayer.GameSessionId != hud.sessionID && newGamePlayer.GameSessionId == hud.sessionID)
 	{
 	  PopulatePlayerList();

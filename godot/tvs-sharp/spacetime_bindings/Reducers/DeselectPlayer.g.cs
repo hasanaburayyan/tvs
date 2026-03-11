@@ -12,17 +12,17 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void DeletePlayerHandler(ReducerEventContext ctx, ulong playerId);
-        public event DeletePlayerHandler? OnDeletePlayer;
+        public delegate void DeselectPlayerHandler(ReducerEventContext ctx);
+        public event DeselectPlayerHandler? OnDeselectPlayer;
 
-        public void DeletePlayer(ulong playerId)
+        public void DeselectPlayer()
         {
-            conn.InternalCallReducer(new Reducer.DeletePlayer(playerId));
+            conn.InternalCallReducer(new Reducer.DeselectPlayer());
         }
 
-        public bool InvokeDeletePlayer(ReducerEventContext ctx, Reducer.DeletePlayer args)
+        public bool InvokeDeselectPlayer(ReducerEventContext ctx, Reducer.DeselectPlayer args)
         {
-            if (OnDeletePlayer == null)
+            if (OnDeselectPlayer == null)
             {
                 if (InternalOnUnhandledReducerError != null)
                 {
@@ -34,9 +34,8 @@ namespace SpacetimeDB.Types
                 }
                 return false;
             }
-            OnDeletePlayer(
-                ctx,
-                args.PlayerId
+            OnDeselectPlayer(
+                ctx
             );
             return true;
         }
@@ -46,21 +45,9 @@ namespace SpacetimeDB.Types
     {
         [SpacetimeDB.Type]
         [DataContract]
-        public sealed partial class DeletePlayer : Reducer, IReducerArgs
+        public sealed partial class DeselectPlayer : Reducer, IReducerArgs
         {
-            [DataMember(Name = "player_id")]
-            public ulong PlayerId;
-
-            public DeletePlayer(ulong PlayerId)
-            {
-                this.PlayerId = PlayerId;
-            }
-
-            public DeletePlayer()
-            {
-            }
-
-            string IReducerArgs.ReducerName => "delete_player";
+            string IReducerArgs.ReducerName => "deselect_player";
         }
     }
 }

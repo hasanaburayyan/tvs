@@ -10,7 +10,7 @@ public static partial class Module
     public ulong Id;
 
     [SpacetimeDB.Index.BTree]
-    public Identity PlayerIdentity;
+    public ulong PlayerId;
 
     public ulong GameSessionId;
     public DbVector3 Position;
@@ -19,7 +19,8 @@ public static partial class Module
   [SpacetimeDB.Reducer]
   public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition)
   {
-    var gamePlayer = ctx.Db.game_player.PlayerIdentity.Find(ctx.Sender) ?? throw new Exception("Game player not found!");
+    var player = GetPlayerForSender(ctx);
+    var gamePlayer = ctx.Db.game_player.PlayerId.Find(player.Id) ?? throw new Exception("Game player not found!");
 
     ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition });
   }
@@ -32,25 +33,19 @@ public static partial class Module
       throw new Exception($"Player '{playerName}' not found!");
     }
 
-    GamePlayer? found = null;
-    var gp = ctx.Db.game_player.PlayerIdentity.Find(player.Identity) ?? throw new Exception("Game player not found!");
-    
-    if (gp.GameSessionId == gameSessionId)
-    {
-      found = gp;
-    }
+    var gp = ctx.Db.game_player.PlayerId.Find(player.Id) ?? throw new Exception("Game player not found!");
 
-    if (found is not GamePlayer gamePlayer)
+    if (gp.GameSessionId != gameSessionId)
     {
       throw new Exception($"Player '{playerName}' is not in game session {gameSessionId}!");
     }
 
-    ctx.Db.game_player.Id.Update(gamePlayer with { Position = position });
+    ctx.Db.game_player.Id.Update(gp with { Position = position });
 
     ctx.Db.PositionOverride.Insert(new PositionOverride
     {
       Id = 0,
-      PlayerIdentity = gamePlayer.PlayerIdentity,
+      PlayerId = player.Id,
       GameSessionId = gameSessionId,
       Position = position,
     });
@@ -64,7 +59,8 @@ public static partial class Module
       return;
     }
 
-    if (po.PlayerIdentity != ctx.Sender)
+    var activePlayer = GetPlayerForSender(ctx);
+    if (po.PlayerId != activePlayer.Id)
     {
       throw new Exception("Not authorized to acknowledge this override!");
     }
@@ -72,9 +68,9 @@ public static partial class Module
     ctx.Db.PositionOverride.Id.Delete(overrideId);
   }
 
-  public static void CleanupPositionOverrides(ReducerContext ctx, Identity playerIdentity)
+  public static void CleanupPositionOverrides(ReducerContext ctx, ulong playerId)
   {
-    foreach (var po in ctx.Db.PositionOverride.PlayerIdentity.Filter(playerIdentity))
+    foreach (var po in ctx.Db.PositionOverride.PlayerId.Filter(playerId))
     {
       ctx.Db.PositionOverride.Id.Delete(po.Id);
     }
