@@ -26,6 +26,7 @@ public partial class Player : CharacterBody3D
   private Vector3 _lerpStart;
   private Vector3 _lerpTarget;
   private Label3D _nametag;
+  private AnimationPlayer _animPlayer;
 
   public override void _Ready()
   {
@@ -33,7 +34,7 @@ public partial class Player : CharacterBody3D
 	_lerpStart = Position;
 	_lerpTarget = Position;
 	_nametag = GetNode<Label3D>("%NameTag");
-	
+	_animPlayer = GetNode<Node3D>("%WW1_femalesoldier").GetNode<AnimationPlayer>("AnimationPlayer");
 
 	IsLocal = OwnerIdentity == SpacetimeNetworkManager.Instance.Conn.Identity;
 	if (IsLocal)
@@ -65,6 +66,10 @@ public partial class Player : CharacterBody3D
 	{
 	  _lerpTime = Mathf.Min(_lerpTime + (float)delta, LERP_DURATION);
 	  Position = _lerpStart.Lerp(_lerpTarget, _lerpTime / LERP_DURATION);
+
+	  bool isMovingRemote = _lerpStart.DistanceSquaredTo(_lerpTarget) > 0.001f
+							&& _lerpTime < LERP_DURATION;
+	  UpdateAnimation(isMovingRemote);
 	  return;
 	}
 
@@ -96,12 +101,29 @@ public partial class Player : CharacterBody3D
 	Velocity = velocity;
 	MoveAndSlide();
 
+	bool isMovingLocal = new Vector2(Velocity.X, Velocity.Z).LengthSquared() > 0.01f;
+	UpdateAnimation(isMovingLocal);
+
 	_syncTimer += (float)delta;
 	if (_syncTimer >= SYNC_INTERVAL && Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f)
 	{
 	  _lastSyncedPosition = Position;
 	  _syncTimer = 0.0f;
 	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(GameId, new DbVector3(Position.X, Position.Y, Position.Z));
+	}
+  }
+
+  private void UpdateAnimation(bool isMoving)
+  {
+	if (isMoving)
+	{
+	  if (_animPlayer.CurrentAnimation != "Walk")
+		_animPlayer.Play("Walk");
+	}
+	else
+	{
+	  if (_animPlayer.IsPlaying())
+		_animPlayer.Stop();
 	}
   }
 }

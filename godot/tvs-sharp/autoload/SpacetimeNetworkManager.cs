@@ -11,8 +11,8 @@ public partial class SpacetimeNetworkManager : Node
   {
 	Instance = this;
 	Conn = DbConnection.Builder()
-	  .WithUri("https://maincloud.spacetimedb.com")
-	  //.WithUri("http://127.0.0.1:3000")
+	  //.WithUri("https://maincloud.spacetimedb.com")
+	  .WithUri("http://127.0.0.1:3000")
 	  .WithDatabaseName("tvs")
 	  .OnConnect(OnConnected)
 	  .OnConnectError(OnConnectError)
