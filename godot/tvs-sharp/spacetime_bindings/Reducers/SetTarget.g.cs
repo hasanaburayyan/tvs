@@ -12,17 +12,17 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void MovePlayerHandler(ReducerEventContext ctx, ulong gameId, SpacetimeDB.Types.DbVector3 newPosition, float rotationY);
-        public event MovePlayerHandler? OnMovePlayer;
+        public delegate void SetTargetHandler(ReducerEventContext ctx, ulong gameId, ulong? targetGamePlayerId);
+        public event SetTargetHandler? OnSetTarget;
 
-        public void MovePlayer(ulong gameId, SpacetimeDB.Types.DbVector3 newPosition, float rotationY)
+        public void SetTarget(ulong gameId, ulong? targetGamePlayerId)
         {
-            conn.InternalCallReducer(new Reducer.MovePlayer(gameId, newPosition, rotationY));
+            conn.InternalCallReducer(new Reducer.SetTarget(gameId, targetGamePlayerId));
         }
 
-        public bool InvokeMovePlayer(ReducerEventContext ctx, Reducer.MovePlayer args)
+        public bool InvokeSetTarget(ReducerEventContext ctx, Reducer.SetTarget args)
         {
-            if (OnMovePlayer == null)
+            if (OnSetTarget == null)
             {
                 if (InternalOnUnhandledReducerError != null)
                 {
@@ -34,11 +34,10 @@ namespace SpacetimeDB.Types
                 }
                 return false;
             }
-            OnMovePlayer(
+            OnSetTarget(
                 ctx,
                 args.GameId,
-                args.NewPosition,
-                args.RotationY
+                args.TargetGamePlayerId
             );
             return true;
         }
@@ -48,32 +47,27 @@ namespace SpacetimeDB.Types
     {
         [SpacetimeDB.Type]
         [DataContract]
-        public sealed partial class MovePlayer : Reducer, IReducerArgs
+        public sealed partial class SetTarget : Reducer, IReducerArgs
         {
             [DataMember(Name = "game_id")]
             public ulong GameId;
-            [DataMember(Name = "new_position")]
-            public DbVector3 NewPosition;
-            [DataMember(Name = "rotation_y")]
-            public float RotationY;
+            [DataMember(Name = "target_game_player_id")]
+            public ulong? TargetGamePlayerId;
 
-            public MovePlayer(
+            public SetTarget(
                 ulong GameId,
-                DbVector3 NewPosition,
-                float RotationY
+                ulong? TargetGamePlayerId
             )
             {
                 this.GameId = GameId;
-                this.NewPosition = NewPosition;
-                this.RotationY = RotationY;
+                this.TargetGamePlayerId = TargetGamePlayerId;
             }
 
-            public MovePlayer()
+            public SetTarget()
             {
-                this.NewPosition = new();
             }
 
-            string IReducerArgs.ReducerName => "move_player";
+            string IReducerArgs.ReducerName => "set_target";
         }
     }
 }

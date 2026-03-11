@@ -2,7 +2,8 @@
 
 [ext_resource type="Script" uid="uid://b702hw4xqh6f0" path="res://scenes/player/Player.cs" id="1_wr5hl"]
 [ext_resource type="PackedScene" uid="uid://bw7iwoia6wbwu" path="res://assets/models/ww_1_femalesoldier.tscn" id="2_4kuee"]
-[ext_resource type="Script" uid="uid://bvdn2yltim1m1" path="res://scenes/player/camera_3d.gd" id="2_gfjak"]
+[ext_resource type="Script" path="res://scenes/player/FreelookCamera.cs" id="2_gfjak"]
+[ext_resource type="Script" path="res://scenes/player/Targetable.cs" id="3_targetable"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gfjak"]
 
@@ -30,3 +31,7 @@ spring_length = 2.0
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 0.98379755, 0.17928301, 0, -0.17928301, 0.98379755, 0.4734621, 1.0219002, 1.8977058)
 script = ExtResource("2_gfjak")
+
+[node name="Targetable" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_targetable")

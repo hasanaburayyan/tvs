@@ -17,12 +17,12 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition)
+  public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition, float rotationY)
   {
     var player = GetPlayerForSender(ctx);
     var gamePlayer = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("Game player not found!");
 
-    ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition });
+    ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition, RotationY = rotationY });
   }
 
   [SpacetimeDB.Reducer]

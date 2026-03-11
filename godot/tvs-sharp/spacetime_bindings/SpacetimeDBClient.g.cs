@@ -651,6 +651,7 @@ namespace SpacetimeDB.Types
                 Reducer.RemoveChatSessionByName args => Reducers.InvokeRemoveChatSessionByName(eventContext, args),
                 Reducer.SelectPlayer args => Reducers.InvokeSelectPlayer(eventContext, args),
                 Reducer.SendMessage args => Reducers.InvokeSendMessage(eventContext, args),
+                Reducer.SetTarget args => Reducers.InvokeSetTarget(eventContext, args),
                 Reducer.SoftDeleteMessage args => Reducers.InvokeSoftDeleteMessage(eventContext, args),
                 Reducer.TeleportPlayer args => Reducers.InvokeTeleportPlayer(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")

@@ -65,6 +65,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GamePlayer, byte> TeamSlot { get; }
         public global::SpacetimeDB.Col<GamePlayer, bool> Active { get; }
         public global::SpacetimeDB.Col<GamePlayer, DbVector3> Position { get; }
+        public global::SpacetimeDB.Col<GamePlayer, float> RotationY { get; }
+        public global::SpacetimeDB.NullableCol<GamePlayer, ulong> TargetGamePlayerId { get; }
 
         public GamePlayerCols(string tableName)
         {
@@ -74,6 +76,8 @@ namespace SpacetimeDB.Types
             TeamSlot = new global::SpacetimeDB.Col<GamePlayer, byte>(tableName, "team_slot");
             Active = new global::SpacetimeDB.Col<GamePlayer, bool>(tableName, "active");
             Position = new global::SpacetimeDB.Col<GamePlayer, DbVector3>(tableName, "position");
+            RotationY = new global::SpacetimeDB.Col<GamePlayer, float>(tableName, "rotation_y");
+            TargetGamePlayerId = new global::SpacetimeDB.NullableCol<GamePlayer, ulong>(tableName, "target_game_player_id");
         }
     }
 

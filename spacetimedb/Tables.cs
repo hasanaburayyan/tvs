@@ -56,6 +56,9 @@ public static partial class Module
     public bool Active;
 
     public DbVector3 Position;
+    public float RotationY;
+
+    public ulong? TargetGamePlayerId;
   }
 
   [Table(Name = "chat_session", Public = true)]
