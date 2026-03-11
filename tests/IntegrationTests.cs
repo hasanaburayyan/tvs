@@ -233,15 +233,83 @@ public class JoinGameTests : IDisposable
   }
 
   [Fact]
-  public void LeaveGame_RemovesGamePlayer()
+  public void LeaveGame_DeactivatesGamePlayer()
   {
     _client.CreatePlayerAndGetId("Leaver");
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
-    Assert.Single(_client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList());
+    var gps = _client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList();
+    Assert.Single(gps);
+    Assert.True(gps[0].Active);
 
     _client.Call(r => r.LeaveGame(gameId));
-    Assert.Empty(_client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList());
+    gps = _client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList();
+    Assert.Single(gps);
+    Assert.False(gps[0].Active);
+  }
+
+  [Fact]
+  public void RejoinSameGame_RestoresPosition()
+  {
+    _client.CreatePlayerAndGetId("Rejoiner");
+    var gameId = _client.CreateGame(4);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var movedPos = new SpacetimeDB.Types.DbVector3(10, 5, 10);
+    _client.Call(r => r.MovePlayer(gameId, movedPos));
+
+    _client.Call(r => r.LeaveGame(gameId));
+    var gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
+    Assert.False(gp.Active);
+    Assert.Equal(movedPos, gp.Position);
+
+    _client.Call(r => r.JoinGame(gameId));
+    gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
+    Assert.True(gp.Active);
+    Assert.Equal(movedPos, gp.Position);
+  }
+
+  [Fact]
+  public void JoinMultipleGames()
+  {
+    var playerId = _client.CreatePlayerAndGetId("MultiJoiner");
+    var gameA = _client.CreateGame(4);
+    var gameB = _client.CreateGame(4);
+
+    _client.Call(r => r.JoinGame(gameA));
+    var gpA = _client.Db.GamePlayer.GameSessionId.Filter(gameA).ToList();
+    Assert.Single(gpA);
+    Assert.True(gpA[0].Active);
+
+    _client.Call(r => r.JoinGame(gameB));
+    var gpB = _client.Db.GamePlayer.GameSessionId.Filter(gameB).ToList();
+    Assert.Single(gpB);
+    Assert.True(gpB[0].Active);
+
+    gpA = _client.Db.GamePlayer.GameSessionId.Filter(gameA).ToList();
+    Assert.Single(gpA);
+    Assert.False(gpA[0].Active);
+  }
+
+  [Fact]
+  public void RejoinAfterKick_RestoresPosition()
+  {
+    _client.CreatePlayerAndGetId("KickTarget");
+    var gameId = _client.CreateGame(4);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var movedPos = new SpacetimeDB.Types.DbVector3(7, 3, 7);
+    _client.Call(r => r.MovePlayer(gameId, movedPos));
+
+    _client.Call(r => r.KickPlayerFromGame(gameId, "KickTarget"));
+    var gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
+    Assert.False(gp.Active);
+    Assert.Equal(movedPos, gp.Position);
+
+    _client.Call(r => r.JoinGame(gameId));
+    gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
+    Assert.True(gp.Active);
+    Assert.Equal(movedPos, gp.Position);
   }
 }
 

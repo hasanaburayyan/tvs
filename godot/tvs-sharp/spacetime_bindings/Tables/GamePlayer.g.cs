@@ -35,14 +35,14 @@ namespace SpacetimeDB.Types
 
             public readonly IdUniqueIndex Id;
 
-            public sealed class PlayerIdUniqueIndex : UniqueIndexBase<ulong>
+            public sealed class PlayerIdIndex : BTreeIndexBase<ulong>
             {
                 protected override ulong GetKey(GamePlayer row) => row.PlayerId;
 
-                public PlayerIdUniqueIndex(GamePlayerHandle table) : base(table) { }
+                public PlayerIdIndex(GamePlayerHandle table) : base(table) { }
             }
 
-            public readonly PlayerIdUniqueIndex PlayerId;
+            public readonly PlayerIdIndex PlayerId;
 
             internal GamePlayerHandle(DbConnection conn) : base(conn)
             {
@@ -63,6 +63,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GamePlayer, ulong> GameSessionId { get; }
         public global::SpacetimeDB.Col<GamePlayer, ulong> PlayerId { get; }
         public global::SpacetimeDB.Col<GamePlayer, byte> TeamSlot { get; }
+        public global::SpacetimeDB.Col<GamePlayer, bool> Active { get; }
         public global::SpacetimeDB.Col<GamePlayer, DbVector3> Position { get; }
 
         public GamePlayerCols(string tableName)
@@ -71,6 +72,7 @@ namespace SpacetimeDB.Types
             GameSessionId = new global::SpacetimeDB.Col<GamePlayer, ulong>(tableName, "game_session_id");
             PlayerId = new global::SpacetimeDB.Col<GamePlayer, ulong>(tableName, "player_id");
             TeamSlot = new global::SpacetimeDB.Col<GamePlayer, byte>(tableName, "team_slot");
+            Active = new global::SpacetimeDB.Col<GamePlayer, bool>(tableName, "active");
             Position = new global::SpacetimeDB.Col<GamePlayer, DbVector3>(tableName, "position");
         }
     }

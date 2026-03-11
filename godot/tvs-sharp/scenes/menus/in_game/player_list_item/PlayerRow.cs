@@ -15,6 +15,13 @@ public partial class PlayerRow : HBoxContainer
 
   private bool isSelf = false;
 
+  private GamePlayer? FindInSession(ulong playerId) {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(playerId))
+	  if (gp.GameSessionId == hud.sessionID && gp.Active) return gp;
+	return null;
+  }
+
   public override void _Ready()
   {
 	_nameLabel = GetNode<Label>("%NameLabel");
@@ -29,7 +36,7 @@ public partial class PlayerRow : HBoxContainer
 
   public void OnTravelButtonPressed() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
-	var teleportToGamePlayer = conn.Db.GamePlayer.PlayerId.Find(player.Id);
+	var teleportToGamePlayer = FindInSession(player.Id);
 	if (teleportToGamePlayer is null) return;
 
 	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId
@@ -44,7 +51,7 @@ public partial class PlayerRow : HBoxContainer
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId
 	  ?? throw new Exception("No active player selected");
-	var myGamePlayer = conn.Db.GamePlayer.PlayerId.Find(activePlayerId);
+	var myGamePlayer = FindInSession(activePlayerId);
 	if (myGamePlayer is null) return;
 
 	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, myGamePlayer.Position);

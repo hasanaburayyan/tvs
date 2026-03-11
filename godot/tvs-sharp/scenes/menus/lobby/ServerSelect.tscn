@@ -38,3 +38,17 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 text = "Refresh"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ButtonContainer" unique_id=378348259]
+layout_mode = 2
+
+[node name="CreateServerButton" type="Button" parent="MarginContainer/VBoxContainer/ButtonContainer/VBoxContainer" unique_id=243398833]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Create Server"
+
+[node name="ServerSizeRange" type="SpinBox" parent="MarginContainer/VBoxContainer/ButtonContainer/VBoxContainer" unique_id=237661800]
+unique_name_in_owner = true
+layout_mode = 2
+min_value = 4.0
+value = 4.0

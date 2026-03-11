@@ -635,6 +635,7 @@ namespace SpacetimeDB.Types
                 Reducer.ClearData args => Reducers.InvokeClearData(eventContext, args),
                 Reducer.CreateChatSession args => Reducers.InvokeCreateChatSession(eventContext, args),
                 Reducer.CreateGame args => Reducers.InvokeCreateGame(eventContext, args),
+                Reducer.CreateGameAndJoin args => Reducers.InvokeCreateGameAndJoin(eventContext, args),
                 Reducer.CreatePlayer args => Reducers.InvokeCreatePlayer(eventContext, args),
                 Reducer.DeleteGame args => Reducers.InvokeDeleteGame(eventContext, args),
                 Reducer.DeletePlayer args => Reducers.InvokeDeletePlayer(eventContext, args),
