@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://c7c4etvmmbjkc" path="res://managers/player/PlayerManager.cs" id="5_lquwl"]
 [ext_resource type="PackedScene" uid="uid://2xasqahl2hcj" path="res://scenes/hud/hud elements/Targeting.tscn" id="6_272bh"]
 [ext_resource type="PackedScene" path="res://scenes/menus/profile_select/ProfileSelect.tscn" id="7_prof"]
+[ext_resource type="PackedScene" uid="uid://c48m00w1umraf" path="res://scenes/hud/player_hud.tscn" id="8_kek77"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
 size = Vector3(60, 2, 60)
@@ -40,12 +41,16 @@ unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
 
-[node name="ProfileSelect" parent="HUD" node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
+[node name="ProfileSelect" parent="HUD" unique_id=755441538 node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
 unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
 
 [node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("6_272bh")]
+
+[node name="PlayerHud" parent="HUD" unique_id=522126320 instance=ExtResource("8_kek77")]
+visible = false
+mouse_filter = 2
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1775772858]
 

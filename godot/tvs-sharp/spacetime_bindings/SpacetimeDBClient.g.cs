@@ -632,6 +632,7 @@ namespace SpacetimeDB.Types
             return reducer switch
             {
                 Reducer.AckPositionOverride args => Reducers.InvokeAckPositionOverride(eventContext, args),
+                Reducer.CastSpell args => Reducers.InvokeCastSpell(eventContext, args),
                 Reducer.ClearData args => Reducers.InvokeClearData(eventContext, args),
                 Reducer.CreateChatSession args => Reducers.InvokeCreateChatSession(eventContext, args),
                 Reducer.CreateGame args => Reducers.InvokeCreateGame(eventContext, args),
@@ -651,6 +652,7 @@ namespace SpacetimeDB.Types
                 Reducer.RemoveChatSessionByName args => Reducers.InvokeRemoveChatSessionByName(eventContext, args),
                 Reducer.SelectPlayer args => Reducers.InvokeSelectPlayer(eventContext, args),
                 Reducer.SendMessage args => Reducers.InvokeSendMessage(eventContext, args),
+                Reducer.SetTarget args => Reducers.InvokeSetTarget(eventContext, args),
                 Reducer.SoftDeleteMessage args => Reducers.InvokeSoftDeleteMessage(eventContext, args),
                 Reducer.TeleportPlayer args => Reducers.InvokeTeleportPlayer(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")

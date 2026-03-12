@@ -12,17 +12,17 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void MovePlayerHandler(ReducerEventContext ctx, ulong gameId, SpacetimeDB.Types.DbVector3 newPosition, float rotationY);
-        public event MovePlayerHandler? OnMovePlayer;
+        public delegate void CastSpellHandler(ReducerEventContext ctx, ulong gameId, SpacetimeDB.Types.SpellId spellId, ulong? targetGamePlayerId);
+        public event CastSpellHandler? OnCastSpell;
 
-        public void MovePlayer(ulong gameId, SpacetimeDB.Types.DbVector3 newPosition, float rotationY)
+        public void CastSpell(ulong gameId, SpacetimeDB.Types.SpellId spellId, ulong? targetGamePlayerId)
         {
-            conn.InternalCallReducer(new Reducer.MovePlayer(gameId, newPosition, rotationY));
+            conn.InternalCallReducer(new Reducer.CastSpell(gameId, spellId, targetGamePlayerId));
         }
 
-        public bool InvokeMovePlayer(ReducerEventContext ctx, Reducer.MovePlayer args)
+        public bool InvokeCastSpell(ReducerEventContext ctx, Reducer.CastSpell args)
         {
-            if (OnMovePlayer == null)
+            if (OnCastSpell == null)
             {
                 if (InternalOnUnhandledReducerError != null)
                 {
@@ -34,11 +34,11 @@ namespace SpacetimeDB.Types
                 }
                 return false;
             }
-            OnMovePlayer(
+            OnCastSpell(
                 ctx,
                 args.GameId,
-                args.NewPosition,
-                args.RotationY
+                args.SpellId,
+                args.TargetGamePlayerId
             );
             return true;
         }
@@ -48,32 +48,31 @@ namespace SpacetimeDB.Types
     {
         [SpacetimeDB.Type]
         [DataContract]
-        public sealed partial class MovePlayer : Reducer, IReducerArgs
+        public sealed partial class CastSpell : Reducer, IReducerArgs
         {
             [DataMember(Name = "game_id")]
             public ulong GameId;
-            [DataMember(Name = "new_position")]
-            public DbVector3 NewPosition;
-            [DataMember(Name = "rotation_y")]
-            public float RotationY;
+            [DataMember(Name = "spell_id")]
+            public SpellId SpellId;
+            [DataMember(Name = "target_game_player_id")]
+            public ulong? TargetGamePlayerId;
 
-            public MovePlayer(
+            public CastSpell(
                 ulong GameId,
-                DbVector3 NewPosition,
-                float RotationY
+                SpellId SpellId,
+                ulong? TargetGamePlayerId
             )
             {
                 this.GameId = GameId;
-                this.NewPosition = NewPosition;
-                this.RotationY = RotationY;
+                this.SpellId = SpellId;
+                this.TargetGamePlayerId = TargetGamePlayerId;
             }
 
-            public MovePlayer()
+            public CastSpell()
             {
-                this.NewPosition = new();
             }
 
-            string IReducerArgs.ReducerName => "move_player";
+            string IReducerArgs.ReducerName => "cast_spell";
         }
     }
 }

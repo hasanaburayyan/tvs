@@ -12,8 +12,10 @@ public partial class Player : CharacterBody3D
   public const float Speed = 5.0f;
   public const float JumpVelocity = 4.5f;
   public const float LERP_DURATION = 0.1f;
+  public const float ROTATION_SYNC_THRESHOLD = 0.01f;
 
   public ulong PlayerId;
+  public ulong GamePlayerId;
 
   public ulong GameId;
   public bool IsLocal;
@@ -21,10 +23,13 @@ public partial class Player : CharacterBody3D
 
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
+  private float _lastSyncedRotationY = 0.0f;
 
   private float _lerpTime;
   private Vector3 _lerpStart;
   private Vector3 _lerpTarget;
+  private float _rotLerpStart;
+  private float _rotLerpTarget;
   private Label3D _nametag;
   private AnimationPlayer _animPlayer;
 
@@ -33,6 +38,8 @@ public partial class Player : CharacterBody3D
 	Camera = GetNode<Camera3D>("%Camera3D");
 	_lerpStart = Position;
 	_lerpTarget = Position;
+	_rotLerpStart = Rotation.Y;
+	_rotLerpTarget = Rotation.Y;
 	_nametag = GetNode<Label3D>("%NameTag");
 	_animPlayer = GetNode<Node3D>("%WW1_femalesoldier").GetNode<AnimationPlayer>("AnimationPlayer");
 
@@ -42,13 +49,18 @@ public partial class Player : CharacterBody3D
 	  Camera.MakeCurrent();
 	}
 	_nametag.Text = username;
+
+	var targetable = GetNode<Targetable>("%Targetable");
+	targetable.GamePlayerId = GamePlayerId;
   }
 
-  public void OnPositionUpdated(Vector3 newPosition)
+  public void OnStateUpdated(Vector3 newPosition, float newRotationY)
   {
 	_lerpTime = 0.0f;
 	_lerpStart = Position;
 	_lerpTarget = newPosition;
+	_rotLerpStart = Rotation.Y;
+	_rotLerpTarget = newRotationY;
   }
 
   public void ApplyPositionOverride(Vector3 position)
@@ -65,7 +77,9 @@ public partial class Player : CharacterBody3D
 	if (!IsLocal)
 	{
 	  _lerpTime = Mathf.Min(_lerpTime + (float)delta, LERP_DURATION);
-	  Position = _lerpStart.Lerp(_lerpTarget, _lerpTime / LERP_DURATION);
+	  float t = _lerpTime / LERP_DURATION;
+	  Position = _lerpStart.Lerp(_lerpTarget, t);
+	  Rotation = new Vector3(Rotation.X, Mathf.LerpAngle(_rotLerpStart, _rotLerpTarget, t), Rotation.Z);
 
 	  bool isMovingRemote = _lerpStart.DistanceSquaredTo(_lerpTarget) > 0.001f
 							&& _lerpTime < LERP_DURATION;
@@ -105,11 +119,18 @@ public partial class Player : CharacterBody3D
 	UpdateAnimation(isMovingLocal);
 
 	_syncTimer += (float)delta;
-	if (_syncTimer >= SYNC_INTERVAL && Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f)
+	bool positionChanged = Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f;
+	bool rotationChanged = Mathf.Abs(Rotation.Y - _lastSyncedRotationY) > ROTATION_SYNC_THRESHOLD;
+	if (_syncTimer >= SYNC_INTERVAL && (positionChanged || rotationChanged))
 	{
 	  _lastSyncedPosition = Position;
+	  _lastSyncedRotationY = Rotation.Y;
 	  _syncTimer = 0.0f;
-	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(GameId, new DbVector3(Position.X, Position.Y, Position.Z));
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(
+		GameId,
+		new DbVector3(Position.X, Position.Y, Position.Z),
+		Rotation.Y
+	  );
 	}
   }
 
