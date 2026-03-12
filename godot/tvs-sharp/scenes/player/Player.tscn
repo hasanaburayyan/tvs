@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c0px8gi5tvei1"]
 
 [ext_resource type="Script" uid="uid://b702hw4xqh6f0" path="res://scenes/player/Player.cs" id="1_wr5hl"]
-[ext_resource type="PackedScene" path="res://assets/models/ww_1_femalesoldier.tscn" id="2_4kuee"]
+[ext_resource type="PackedScene" uid="uid://bw7iwoia6wbwu" path="res://assets/models/ww_1_femalesoldier.tscn" id="2_4kuee"]
 [ext_resource type="Script" uid="uid://b4ob00ntaljdb" path="res://scenes/player/FreelookCamera.cs" id="2_gfjak"]
 [ext_resource type="Script" uid="uid://swaxr6ewi653" path="res://scenes/player/Targetable.cs" id="3_targetable"]
 

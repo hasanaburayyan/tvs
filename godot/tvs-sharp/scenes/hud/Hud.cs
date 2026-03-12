@@ -24,6 +24,7 @@ public partial class Hud : CanvasLayer
   private PopulableMenu _serverSelectMenu;
   private PopulableMenu _ingameMenu;
   private PopulableMenu _profileSelectMenu;
+  private Control _playerHud;
 
   private Dictionary<Menus, PopulableMenu> _menus = new Dictionary<Menus, PopulableMenu>();
 
@@ -37,6 +38,7 @@ public partial class Hud : CanvasLayer
 	_serverSelectMenu = GetNode<PopulableMenu>("%ServerSelect");
 	_ingameMenu = GetNode<PopulableMenu>("%InGameMenu");
 	_profileSelectMenu = GetNode<PopulableMenu>("%ProfileSelect");
+	_playerHud = GetNode<Control>("PlayerHud");
 
 	_menus = new Dictionary<Menus, PopulableMenu>
   {
@@ -55,11 +57,13 @@ public partial class Hud : CanvasLayer
 	{
 	  inGame = true;
 	  sessionID = (ulong)id;
+	  _playerHud.Visible = true;
 	};
 
 	LeaveLobby += (int id) =>
 	{
 	  inGame = false;
+	  _playerHud.Visible = false;
 	  if (sessionID == (ulong)id)
 	  {
 		sessionID = 0;

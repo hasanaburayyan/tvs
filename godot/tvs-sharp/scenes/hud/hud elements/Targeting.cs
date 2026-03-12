@@ -15,6 +15,9 @@ public partial class Targeting : Control
   [Export]
   public int RingSegments = 64;
 
+  public static Targeting Instance { get; private set; }
+  public ulong? CurrentTargetGamePlayerId => _currentTargetable?.GamePlayerId;
+
   private Camera3D _camera;
   private Node3D _currentTarget;
   private Targetable _currentTargetable;
@@ -22,6 +25,7 @@ public partial class Targeting : Control
 
   public override void _Ready()
   {
+    Instance = this;
     _camera = GetViewport().GetCamera3D();
     _ringIndicator = CreateRingIndicator();
   }

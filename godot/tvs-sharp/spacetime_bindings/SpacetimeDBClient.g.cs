@@ -632,6 +632,7 @@ namespace SpacetimeDB.Types
             return reducer switch
             {
                 Reducer.AckPositionOverride args => Reducers.InvokeAckPositionOverride(eventContext, args),
+                Reducer.CastSpell args => Reducers.InvokeCastSpell(eventContext, args),
                 Reducer.ClearData args => Reducers.InvokeClearData(eventContext, args),
                 Reducer.CreateChatSession args => Reducers.InvokeCreateChatSession(eventContext, args),
                 Reducer.CreateGame args => Reducers.InvokeCreateGame(eventContext, args),
