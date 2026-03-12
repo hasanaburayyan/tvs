@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://2xasqahl2hcj" path="res://scenes/hud/hud elements/Targeting.tscn" id="6_272bh"]
 [ext_resource type="PackedScene" path="res://scenes/menus/profile_select/ProfileSelect.tscn" id="7_prof"]
 [ext_resource type="PackedScene" uid="uid://c48m00w1umraf" path="res://scenes/hud/player_hud.tscn" id="8_kek77"]
+[ext_resource type="PackedScene" uid="uid://d0loadout_select" path="res://scenes/menus/loadout_select/LoadoutSelect.tscn" id="10_ldout"]
 [ext_resource type="Script" uid="uid://xl5mwtfqyuul" path="res://managers/map/MapManager.cs" id="9_kek77"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
@@ -43,6 +44,11 @@ hud = NodePath("..")
 
 ; [node name="ProfileSelect" parent="HUD" unique_id=1003272541 node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
 [node name="ProfileSelect" parent="HUD" unique_id=755441538 node_paths=PackedStringArray("hud") instance=ExtResource("7_prof")]
+unique_name_in_owner = true
+visible = false
+hud = NodePath("..")
+
+[node name="LoadoutSelect" parent="HUD" unique_id=100000001 node_paths=PackedStringArray("hud") instance=ExtResource("10_ldout")]
 unique_name_in_owner = true
 visible = false
 hud = NodePath("..")

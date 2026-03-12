@@ -10,6 +10,7 @@ public enum Menus
   SERVER_SELECT = 2,
   IN_GAME_MENU = 3,
   PROFILE_SELECT = 4,
+  LOADOUT_SELECT = 5,
 }
 
 public partial class Hud : CanvasLayer
@@ -24,13 +25,13 @@ public partial class Hud : CanvasLayer
   private PopulableMenu _serverSelectMenu;
   private PopulableMenu _ingameMenu;
   private PopulableMenu _profileSelectMenu;
-  private Control _playerHud;
+  private PopulableMenu _loadoutSelectMenu;
+  private PlayerHud _playerHud;
 
   private Dictionary<Menus, PopulableMenu> _menus = new Dictionary<Menus, PopulableMenu>();
 
   private bool inGame = false;
   public ulong sessionID;
-
 
   public override void _Ready()
   {
@@ -38,15 +39,17 @@ public partial class Hud : CanvasLayer
 	_serverSelectMenu = GetNode<PopulableMenu>("%ServerSelect");
 	_ingameMenu = GetNode<PopulableMenu>("%InGameMenu");
 	_profileSelectMenu = GetNode<PopulableMenu>("%ProfileSelect");
-	_playerHud = GetNode<Control>("PlayerHud");
+	_loadoutSelectMenu = GetNode<PopulableMenu>("%LoadoutSelect");
+	_playerHud = GetNode<PlayerHud>("PlayerHud");
 
 	_menus = new Dictionary<Menus, PopulableMenu>
-  {
-  { Menus.PLAYER_CREATION, _playerCreationMenu },
-  { Menus.SERVER_SELECT, _serverSelectMenu },
-  { Menus.IN_GAME_MENU, _ingameMenu },
-  { Menus.PROFILE_SELECT, _profileSelectMenu }
-  };
+	{
+	  { Menus.PLAYER_CREATION, _playerCreationMenu },
+	  { Menus.SERVER_SELECT, _serverSelectMenu },
+	  { Menus.IN_GAME_MENU, _ingameMenu },
+	  { Menus.PROFILE_SELECT, _profileSelectMenu },
+	  { Menus.LOADOUT_SELECT, _loadoutSelectMenu },
+	};
 
 	SpacetimeNetworkManager.Instance.SubscriptionApplied += () =>
 	{
@@ -58,11 +61,13 @@ public partial class Hud : CanvasLayer
 	  inGame = true;
 	  sessionID = (ulong)id;
 	  _playerHud.Visible = true;
+	  _playerHud.Initialize(sessionID);
 	};
 
 	LeaveLobby += (int id) =>
 	{
 	  inGame = false;
+	  _playerHud.Teardown();
 	  _playerHud.Visible = false;
 	  if (sessionID == (ulong)id)
 	  {
@@ -74,7 +79,6 @@ public partial class Hud : CanvasLayer
 
 	SwitchToMenu(Menus.PROFILE_SELECT);
   }
-
 
   public void CloseMenus()
   {
@@ -101,5 +105,32 @@ public partial class Hud : CanvasLayer
 	CloseMenus();
 	_menus[menu].Visible = true;
 	_menus[menu].Populate();
+  }
+
+  public bool HasLoadoutForSession(ulong gameSessionId)
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return false;
+
+	foreach (var lo in mgr.Conn.Db.Loadout.GameSessionId.Filter(gameSessionId))
+	{
+	  if (lo.PlayerId == mgr.ActivePlayerId)
+		return true;
+	}
+	return false;
+  }
+
+  public void EnterGameOrLoadoutSelect(ulong gameSessionId)
+  {
+	sessionID = gameSessionId;
+	if (HasLoadoutForSession(gameSessionId))
+	{
+	  EmitSignal(SignalName.StartLobby, (long)gameSessionId);
+	  CloseMenus();
+	}
+	else
+	{
+	  SwitchToMenu(Menus.LOADOUT_SELECT);
+	}
   }
 }

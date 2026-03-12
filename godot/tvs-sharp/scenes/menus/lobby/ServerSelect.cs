@@ -90,8 +90,7 @@ public partial class ServerSelect : PopulableMenu
 	{
 	  if (gp.Active)
 	  {
-		hud.EmitSignal(Hud.SignalName.StartLobby, gp.GameSessionId);
-		hud.CloseMenus();
+		hud.EnterGameOrLoadoutSelect(gp.GameSessionId);
 		return;
 	  }
 	}

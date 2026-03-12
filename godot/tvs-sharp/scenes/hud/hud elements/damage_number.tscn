@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://d0damage_number"]
+
+[ext_resource type="Script" path="res://scenes/hud/hud elements/DamageNumber.cs" id="1_dn"]
+
+[node name="DamageNumber" type="Label3D"]
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_range = 8.0
+font_size = 48
+outline_size = 8
+text = "0"
+script = ExtResource("1_dn")

@@ -1,4 +1,5 @@
 using Godot;
+using SpacetimeDB.Types;
 using System;
 
 public partial class ServerItem : HBoxContainer
@@ -29,10 +30,24 @@ public partial class ServerItem : HBoxContainer
   }
 
   void OnEnlistButtonPressed() {
-	SpacetimeNetworkManager.Instance.Conn.Reducers.JoinGame(_sessionID);
-	
-	hud.EmitSignal(Hud.SignalName.StartLobby, _sessionID);
-	hud.CloseMenus();
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	conn.Reducers.OnJoinGame += OnJoinGameResult;
+	conn.Reducers.JoinGame(_sessionID);
+	_enlistButton.Disabled = true;
+  }
+
+  void OnJoinGameResult(ReducerEventContext ctx, ulong gameId) {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	if (ctx.Event.CallerIdentity != conn.Identity) return;
+	conn.Reducers.OnJoinGame -= OnJoinGameResult;
+
+	if (ctx.Event.Status is not SpacetimeDB.Status.Committed)
+	{
+	  _enlistButton.Disabled = false;
+	  return;
+	}
+
+	hud.EnterGameOrLoadoutSelect(_sessionID);
   }
 
   public void Populate(string creator, int playerCount, ulong maxPlayers, ulong sessionID, string state) {
