@@ -110,7 +110,7 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId)
+  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, DbVector3? targetPosition, float? targetRotationY)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
@@ -139,6 +139,8 @@ public static partial class Module
         throw new Exception("Target is not in the same game");
       if (!target.Active)
         throw new Exception("Target is not active");
+      if (!HasLineOfSight(ctx, gp.Position, target.Position, gameId))
+        throw new Exception("Target is not in line of sight");
     }
 
     // Check resource costs
@@ -175,6 +177,50 @@ public static partial class Module
     }
 
     var resolved = ResolveAbility(ctx, ability, gp.Id, loadout);
+
+    // Handle terrain-spawning abilities
+    if (ability.Type == AbilityType.Terrain && ability.SpawnedTerrainType is TerrainType terrainType)
+    {
+      if (targetPosition is not DbVector3 pos)
+        throw new Exception("Terrain ability requires a target position");
+
+      float dx = pos.x - gp.Position.x;
+      float dz = pos.z - gp.Position.z;
+      float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+      if (dist > resolved.Range)
+        throw new Exception("Target position is out of range");
+
+      Timestamp? expiresAt = ability.EffectDurationMs > 0
+        ? ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs)
+        : null;
+
+      var inserted = ctx.Db.terrain_feature.Insert(new TerrainFeature
+      {
+        Id = 0,
+        GameSessionId = gameId,
+        Type = terrainType,
+        PosX = pos.x,
+        PosY = pos.y,
+        PosZ = pos.z,
+        SizeX = ability.TerrainSizeX,
+        SizeY = ability.TerrainSizeY,
+        SizeZ = ability.TerrainSizeZ,
+        RotationY = targetRotationY ?? gp.RotationY,
+        TeamIndex = 0,
+        CasterGamePlayerId = gp.Id,
+        ExpiresAt = expiresAt,
+      });
+
+      if (expiresAt is Timestamp expiry)
+      {
+        ctx.Db.terrain_expiry_check.Insert(new TerrainExpiryCheck
+        {
+          Id = 0,
+          TerrainFeatureId = inserted.Id,
+          ScheduledAt = new ScheduleAt.Time(expiry),
+        });
+      }
+    }
 
     // Apply buff/debuff effects
     if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0)

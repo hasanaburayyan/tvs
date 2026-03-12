@@ -41,6 +41,7 @@ public partial class Targeting : Control
   {
     if (@event is not InputEventMouseButton mb) return;
     if (mb.ButtonIndex != MouseButton.Left || !mb.Pressed) return;
+    if (PlacementMode.Instance?.IsActive == true) return;
 
     var cam = GetActiveCamera();
     if (cam == null) return;
@@ -68,6 +69,13 @@ public partial class Targeting : Control
 
     _ringIndicator.GlobalPosition = _currentTarget.GlobalPosition with { Y = _currentTarget.GlobalPosition.Y + 0.05f };
     _ringIndicator.Visible = true;
+  }
+
+  public void ClearTarget()
+  {
+    _currentTarget = null;
+    _currentTargetable = null;
+    _ringIndicator.Visible = false;
   }
 
   private void SetTarget(Node3D target, Targetable targetable)

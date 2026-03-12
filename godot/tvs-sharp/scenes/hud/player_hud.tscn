@@ -17,55 +17,68 @@ script = ExtResource("1_7em14")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1607344600]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="TopLayer" type="VBoxContainer" parent="VBoxContainer" unique_id=379987323]
 layout_mode = 2
+mouse_filter = 2
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.38
 
 [node name="LeftSide" type="HBoxContainer" parent="VBoxContainer/TopLayer" unique_id=61909956]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="ResourceBars" type="VBoxContainer" parent="VBoxContainer/TopLayer/LeftSide"]
 unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
 custom_minimum_size = Vector2(220, 0)
 theme_override_constants/separation = 4
 
 [node name="Middle" type="HBoxContainer" parent="VBoxContainer/TopLayer" unique_id=1050426163]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="RightSide" type="HBoxContainer" parent="VBoxContainer/TopLayer" unique_id=487732190]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="MiddleLayer" type="VBoxContainer" parent="VBoxContainer" unique_id=190424206]
 layout_mode = 2
+mouse_filter = 2
 size_flags_vertical = 3
 
 [node name="BottomLayer" type="VBoxContainer" parent="VBoxContainer" unique_id=848681627]
 layout_mode = 2
+mouse_filter = 2
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.23
 
 [node name="TopRow" type="HBoxContainer" parent="VBoxContainer/BottomLayer" unique_id=96889]
 layout_mode = 2
+mouse_filter = 2
 
 [node name="Left" type="VBoxContainer" parent="VBoxContainer/BottomLayer/TopRow" unique_id=954677593]
 layout_mode = 2
+mouse_filter = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.3
 
 [node name="Middle" type="VBoxContainer" parent="VBoxContainer/BottomLayer/TopRow" unique_id=175268330]
 layout_mode = 2
+mouse_filter = 2
 size_flags_horizontal = 3
 
 [node name="Hotbar" type="HBoxContainer" parent="VBoxContainer/BottomLayer/TopRow/Middle" unique_id=1991021236]
 unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
 alignment = 1
 theme_override_constants/separation = 8
 
 [node name="Right" type="VBoxContainer" parent="VBoxContainer/BottomLayer/TopRow" unique_id=389291422]
 layout_mode = 2
+mouse_filter = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.3

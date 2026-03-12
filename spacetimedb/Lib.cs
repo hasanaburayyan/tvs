@@ -146,6 +146,11 @@ public static partial class Module
   {
     foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameId))
     {
+      foreach (var check in ctx.Db.terrain_expiry_check.Iter())
+      {
+        if (check.TerrainFeatureId == feature.Id)
+          ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+      }
       ctx.Db.terrain_feature.Id.Delete(feature.Id);
     }
 
@@ -293,6 +298,8 @@ public static partial class Module
         throw new Exception("Target is not in the same game");
       if (!target.Active)
         throw new Exception("Target is not active");
+      if (!HasLineOfSight(ctx, gp.Position, target.Position, gameId))
+        throw new Exception("Target is not in line of sight");
     }
 
     ctx.Db.game_player.Id.Update(gp with { TargetGamePlayerId = targetGamePlayerId });

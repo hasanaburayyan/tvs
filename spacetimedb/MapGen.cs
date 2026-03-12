@@ -32,7 +32,6 @@ public static partial class Module
     public static void GenerateMap(ReducerContext ctx, ulong gameSessionId, uint seed)
     {
         var rng = new SeededRng(seed);
-
         // --- Team A command center (rear, z: -95 to -75) ---
         ctx.Db.terrain_feature.Insert(new TerrainFeature
         {
