@@ -256,7 +256,7 @@ public class JoinGameTests : IDisposable
     _client.Call(r => r.JoinGame(gameId));
 
     var movedPos = new SpacetimeDB.Types.DbVector3(10, 5, 10);
-    _client.Call(r => r.MovePlayer(gameId, movedPos));
+    _client.Call(r => r.MovePlayer(gameId, movedPos, 0f));
 
     _client.Call(r => r.LeaveGame(gameId));
     var gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
@@ -299,7 +299,7 @@ public class JoinGameTests : IDisposable
     _client.Call(r => r.JoinGame(gameId));
 
     var movedPos = new SpacetimeDB.Types.DbVector3(7, 3, 7);
-    _client.Call(r => r.MovePlayer(gameId, movedPos));
+    _client.Call(r => r.MovePlayer(gameId, movedPos, 0f));
 
     _client.Call(r => r.KickPlayerFromGame(gameId, "KickTarget"));
     var gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
