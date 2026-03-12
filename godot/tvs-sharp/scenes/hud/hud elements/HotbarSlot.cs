@@ -44,6 +44,10 @@ public partial class HotbarSlot : VBoxContainer
 
 	_keybind = LabelToKey.GetValueOrDefault(keybindLabel, Key.None);
 	TooltipText = $"{ability.Name}\n{ability.Description}";
+
+	var iconPath = $"res://assets/icons/abilities/{ability.Name.ToLower().Replace(" ", "_")}.png";
+	if (ResourceLoader.Exists(iconPath))
+	  _image.TextureNormal = GD.Load<Texture2D>(iconPath);
   }
 
   public override void _UnhandledInput(InputEvent @event)
