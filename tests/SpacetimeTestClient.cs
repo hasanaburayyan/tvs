@@ -40,6 +40,7 @@ public class SpacetimeTestClient : IDisposable
 
         conn.Reducers.OnCreatePlayer += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnCreateGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateGameAndJoin += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnDeletePlayer += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnDeleteGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnJoinGame += (ctx, _) => HandleReducerEvent(ctx);
@@ -58,6 +59,8 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnKickPlayerFromGame += (ctx, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnMovePlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnTeleportPlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSetLoadout += (ctx, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnUseAbility += (ctx, _, _, _) => HandleReducerEvent(ctx);
     }
 
     private void HandleReducerEvent(ReducerEventContext ctx)
@@ -150,6 +153,24 @@ public class SpacetimeTestClient : IDisposable
         var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
         if (game == null) throw new Exception("CreateGame succeeded but game not found in client cache");
         return game.Id;
+    }
+
+    /// Creates a game, joins it, and returns the game session ID.
+    public ulong CreateGameAndJoin(uint maxPlayers)
+    {
+        Call(r => r.CreateGameAndJoin(maxPlayers));
+        var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
+        if (game == null) throw new Exception("CreateGameAndJoin succeeded but game not found");
+        return game.Id;
+    }
+
+    /// Returns the GamePlayer row for this client's active player in the given game.
+    public SpacetimeDB.Types.GamePlayer GetGamePlayer(ulong gameId)
+    {
+        var player = Db.Player.Iter().FirstOrDefault(p => p.ControllerIdentity == Identity);
+        if (player == null) throw new Exception("No active player");
+        return Db.GamePlayer.GameSessionId.Filter(gameId)
+            .First(gp => gp.PlayerId == player.Id && gp.Active);
     }
 
     /// Calls ClearData and waits for it to commit.

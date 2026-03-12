@@ -1,0 +1,317 @@
+using SpacetimeDB;
+
+public static partial class Module
+{
+  static void ApplyMods(ref int power, ref float range, ref float radius, ref ulong cooldownMs, List<AbilityMod> mods)
+  {
+    foreach (var mod in mods)
+    {
+      switch (mod.Type)
+      {
+        case ModType.DamageFlat:
+          power += (int)mod.Value;
+          break;
+        case ModType.DamagePercent:
+          power = (int)(power * (1f + mod.Value));
+          break;
+        case ModType.RangeFlat:
+          range += mod.Value;
+          break;
+        case ModType.RangePercent:
+          range *= (1f + mod.Value);
+          break;
+        case ModType.CooldownPercent:
+          cooldownMs = (ulong)(cooldownMs * (1f + mod.Value));
+          break;
+        case ModType.RadiusPercent:
+          radius *= (1f + mod.Value);
+          break;
+      }
+    }
+  }
+
+  static (int Power, float Range, float Radius, ulong CooldownMs) ResolveAbility(
+    ReducerContext ctx, AbilityDef ability, ulong gamePlayerId, Loadout loadout)
+  {
+    int power = ability.BasePower;
+    float range = ability.BaseRange;
+    float radius = ability.BaseRadius;
+    ulong cooldownMs = ability.CooldownMs;
+
+    if (ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId) is WeaponDef w)
+    {
+      List<AbilityMod>? mods = null;
+      if (w.PrimaryAbilityId == ability.Id) mods = w.PrimaryMods;
+      else if (w.SecondaryAbilityId == ability.Id) mods = w.SecondaryMods;
+
+      if (mods != null && mods.Count > 0)
+        ApplyMods(ref power, ref range, ref radius, ref cooldownMs, mods);
+    }
+
+    foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gamePlayerId))
+    {
+      if (effect.ExpiresAt.MicrosecondsSinceUnixEpoch < ctx.Timestamp.MicrosecondsSinceUnixEpoch)
+        continue;
+
+      if (effect.AffectedAbilityIds.Count == 0 || effect.AffectedAbilityIds.Contains(ability.Id))
+        ApplyMods(ref power, ref range, ref radius, ref cooldownMs, effect.Mods);
+    }
+
+    return (power, range, radius, cooldownMs);
+  }
+
+  static bool IsAbilityInLoadout(ReducerContext ctx, ulong abilityId, Loadout loadout, out bool fromWeapon)
+  {
+    fromWeapon = false;
+
+    if (ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId) is WeaponDef w)
+    {
+      if (w.PrimaryAbilityId == abilityId || w.SecondaryAbilityId == abilityId || w.BonusAbilityIds.Contains(abilityId))
+      {
+        fromWeapon = true;
+        return true;
+      }
+    }
+
+    if (ctx.Db.skill_def.Id.Find(loadout.SkillDefId) is SkillDef s)
+    {
+      if (s.AbilityIds.Contains(abilityId))
+        return true;
+    }
+
+    return false;
+  }
+
+  static Loadout? FindLoadout(ReducerContext ctx, ulong gameSessionId, ulong playerId)
+  {
+    foreach (var lo in ctx.Db.loadout.PlayerId.Filter(playerId))
+    {
+      if (lo.GameSessionId == gameSessionId) return lo;
+    }
+    return null;
+  }
+
+  static ResourcePool? FindResourcePool(ReducerContext ctx, ulong gamePlayerId, ResourceKind kind)
+  {
+    foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gamePlayerId))
+    {
+      if (pool.Kind == kind) return pool;
+    }
+    return null;
+  }
+
+  static AbilityCooldown? FindCooldown(ReducerContext ctx, ulong gamePlayerId, ulong abilityId)
+  {
+    foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gamePlayerId))
+    {
+      if (cd.AbilityId == abilityId) return cd;
+    }
+    return null;
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    var loadout = FindLoadout(ctx, gameId, player.Id)
+      ?? throw new Exception("No loadout set for this session");
+
+    if (!IsAbilityInLoadout(ctx, abilityId, loadout, out bool fromWeapon))
+      throw new Exception("Ability is not in your loadout");
+
+    var ability = ctx.Db.ability_def.Id.Find(abilityId)
+      ?? throw new Exception("Ability not found");
+
+    if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown existing
+        && existing.ReadyAt.MicrosecondsSinceUnixEpoch > ctx.Timestamp.MicrosecondsSinceUnixEpoch)
+      throw new Exception("Ability is on cooldown");
+
+    if (targetGamePlayerId is ulong targetId)
+    {
+      var target = ctx.Db.game_player.Id.Find(targetId)
+        ?? throw new Exception("Target not found");
+      if (target.GameSessionId != gameId)
+        throw new Exception("Target is not in the same game");
+      if (!target.Active)
+        throw new Exception("Target is not active");
+    }
+
+    // Check resource costs
+    foreach (var cost in ability.ResourceCosts)
+    {
+      if (cost.Kind == ResourceKind.Health)
+      {
+        if (gp.Health < cost.Amount)
+          throw new Exception($"Insufficient Health (need {cost.Amount}, have {gp.Health})");
+      }
+      else
+      {
+        var pool = FindResourcePool(ctx, gp.Id, cost.Kind)
+          ?? throw new Exception($"No {cost.Kind} pool found");
+        if (pool.Current < cost.Amount)
+          throw new Exception($"Insufficient {cost.Kind} (need {cost.Amount}, have {pool.Current})");
+      }
+    }
+
+    // Deduct resource costs
+    foreach (var cost in ability.ResourceCosts)
+    {
+      if (cost.Kind == ResourceKind.Health)
+      {
+        gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
+        ctx.Db.game_player.Id.Update(gp with { Health = gp.Health - cost.Amount });
+        gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
+      }
+      else
+      {
+        var pool = FindResourcePool(ctx, gp.Id, cost.Kind)!.Value;
+        ctx.Db.resource_pool.Id.Update(pool with { Current = pool.Current - cost.Amount });
+      }
+    }
+
+    var resolved = ResolveAbility(ctx, ability, gp.Id, loadout);
+
+    // Apply buff/debuff effects
+    if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0)
+    {
+      var expiresAt = ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs);
+
+      if (ability.Type == AbilityType.Buff)
+      {
+        // Buff: apply to self or targeted ally
+        ulong buffTargetId = targetGamePlayerId ?? gp.Id;
+        ctx.Db.active_effect.Insert(new ActiveEffect
+        {
+          Id = 0,
+          GamePlayerId = buffTargetId,
+          CasterGamePlayerId = gp.Id,
+          SourceAbilityId = abilityId,
+          Mods = ability.GrantedMods,
+          AffectedAbilityIds = ability.AffectedAbilityIds,
+          ExpiresAt = expiresAt,
+        });
+      }
+      else if (ability.Type == AbilityType.Debuff && targetGamePlayerId is ulong debuffTarget)
+      {
+        ctx.Db.active_effect.Insert(new ActiveEffect
+        {
+          Id = 0,
+          GamePlayerId = debuffTarget,
+          CasterGamePlayerId = gp.Id,
+          SourceAbilityId = abilityId,
+          Mods = ability.GrantedMods,
+          AffectedAbilityIds = ability.AffectedAbilityIds,
+          ExpiresAt = expiresAt,
+        });
+      }
+    }
+
+    // Upsert cooldown
+    if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown cd)
+    {
+      ctx.Db.ability_cooldown.Id.Update(cd with
+      {
+        ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
+      });
+    }
+    else
+    {
+      ctx.Db.ability_cooldown.Insert(new AbilityCooldown
+      {
+        Id = 0,
+        GamePlayerId = gp.Id,
+        AbilityId = abilityId,
+        ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
+      });
+    }
+
+    // Log to battle log
+    ctx.Db.battle_log.Insert(new BattleLogEntry
+    {
+      Id = 0,
+      GameSessionId = gameId,
+      OccurredAt = ctx.Timestamp,
+      ActorGamePlayerId = gp.Id,
+      AbilityId = abilityId,
+      FromWeapon = fromWeapon,
+      TargetGamePlayerIds = targetGamePlayerId is ulong tid
+        ? new List<ulong> { tid }
+        : new List<ulong>(),
+      ResolvedPower = resolved.Power,
+    });
+
+    // Apply damage/healing to target
+    if (resolved.Power > 0 && targetGamePlayerId is ulong dmgTargetId)
+    {
+      var dmgTarget = ctx.Db.game_player.Id.Find(dmgTargetId)!.Value;
+      if (ability.Type == AbilityType.Damage)
+      {
+        int effectiveDamage = Math.Max(0, resolved.Power - dmgTarget.Armor);
+        int newHealth = Math.Max(0, dmgTarget.Health - effectiveDamage);
+        ctx.Db.game_player.Id.Update(dmgTarget with { Health = newHealth });
+      }
+      else if (ability.Type == AbilityType.Heal)
+      {
+        int newHealth = Math.Min(dmgTarget.MaxHealth, dmgTarget.Health + resolved.Power);
+        ctx.Db.game_player.Id.Update(dmgTarget with { Health = newHealth });
+      }
+    }
+    // Self-heal when no target specified
+    else if (resolved.Power > 0 && ability.Type == AbilityType.Heal && targetGamePlayerId is null)
+    {
+      gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
+      int newHealth = Math.Min(gp.MaxHealth, gp.Health + resolved.Power);
+      ctx.Db.game_player.Id.Update(gp with { Health = newHealth });
+    }
+
+    Log.Info($"Player {player.Name} used {ability.Name} (power: {resolved.Power}, fromWeapon: {fromWeapon}, target: {targetGamePlayerId?.ToString() ?? "none"})");
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void SetLoadout(ReducerContext ctx, ulong gameId, ulong weaponDefId, ulong skillDefId)
+  {
+    var player = GetPlayerForSender(ctx);
+
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (session.State != SessionState.Lobby)
+      throw new Exception("Can only set loadout during lobby phase");
+
+    var gp = FindGamePlayer(ctx, player.Id, gameId)
+      ?? throw new Exception("You are not in this game");
+
+    if (ctx.Db.weapon_def.Id.Find(weaponDefId) is not WeaponDef)
+      throw new Exception("Weapon not found");
+
+    if (ctx.Db.skill_def.Id.Find(skillDefId) is not SkillDef)
+      throw new Exception("Skill not found");
+
+    if (FindLoadout(ctx, gameId, player.Id) is Loadout existing)
+    {
+      ctx.Db.loadout.Id.Update(existing with
+      {
+        WeaponDefId = weaponDefId,
+        SkillDefId = skillDefId,
+      });
+    }
+    else
+    {
+      ctx.Db.loadout.Insert(new Loadout
+      {
+        Id = 0,
+        GameSessionId = gameId,
+        PlayerId = player.Id,
+        WeaponDefId = weaponDefId,
+        SkillDefId = skillDefId,
+      });
+    }
+
+    Log.Info($"Player {player.Name} set loadout for game {gameId}");
+  }
+}
