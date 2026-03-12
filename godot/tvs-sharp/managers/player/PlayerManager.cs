@@ -35,8 +35,10 @@ public partial class PlayerManager : Node
 	var player = PlayerScene.Instantiate<Player>();
 	player.Name = gamePlayer.PlayerId.ToString();
 	player.PlayerId = gamePlayer.PlayerId;
+	player.GamePlayerId = gamePlayer.Id;
 	player.GameId = GameId;
 	player.Position = new Vector3(gamePlayer.Position.X, gamePlayer.Position.Y, gamePlayer.Position.Z);
+	player.Rotation = new Vector3(0, gamePlayer.RotationY, 0);
 	player.username = owner.Name;
 	PlayerSpawnPath.AddChild(player);
   }
@@ -83,7 +85,10 @@ public partial class PlayerManager : Node
 	if (newGamePlayer.Active) {
 	  var player = PlayerSpawnPath.GetNodeOrNull<Player>(newGamePlayer.PlayerId.ToString());
 	  if (player != null) {
-		player.OnPositionUpdated(new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z));
+		player.OnStateUpdated(
+		  new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z),
+		  newGamePlayer.RotationY
+		);
 	  }
 	}
   }

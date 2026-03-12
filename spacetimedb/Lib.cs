@@ -30,10 +30,22 @@ public static partial class Module
     return null;
   }
 
+  static void ClearTargetsForGamePlayer(ReducerContext ctx, ulong gamePlayerId, ulong gameSessionId)
+  {
+    foreach (var other in ctx.Db.game_player.GameSessionId.Filter(gameSessionId))
+    {
+      if (other.TargetGamePlayerId == gamePlayerId)
+        ctx.Db.game_player.Id.Update(other with { TargetGamePlayerId = null });
+    }
+  }
+
   static void DeactivateGamePlayer(ReducerContext ctx, ulong playerId)
   {
     if (FindActiveGamePlayer(ctx, playerId) is GamePlayer gp)
-      ctx.Db.game_player.Id.Update(gp with { Active = false });
+    {
+      ClearTargetsForGamePlayer(ctx, gp.Id, gp.GameSessionId);
+      ctx.Db.game_player.Id.Update(gp with { Active = false, TargetGamePlayerId = null });
+    }
   }
 
   static void DeselectCurrentPlayer(ReducerContext ctx)
@@ -209,7 +221,8 @@ public static partial class Module
       GameSessionId = gameSession.Id,
       PlayerId = player.Id,
       Active = true,
-      Position = desired_spawn_location
+      Position = desired_spawn_location,
+      RotationY = 0f
     });
   }
 
@@ -221,7 +234,8 @@ public static partial class Module
 
     if (gamePlayer.Active)
     {
-      ctx.Db.game_player.Id.Update(gamePlayer with { Active = false });
+      ClearTargetsForGamePlayer(ctx, gamePlayer.Id, gamePlayer.GameSessionId);
+      ctx.Db.game_player.Id.Update(gamePlayer with { Active = false, TargetGamePlayerId = null });
     }
   }
 
@@ -233,9 +247,31 @@ public static partial class Module
 
     if (gp.Active)
     {
-      ctx.Db.game_player.Id.Update(gp with { Active = false });
+      ClearTargetsForGamePlayer(ctx, gp.Id, gp.GameSessionId);
+      ctx.Db.game_player.Id.Update(gp with { Active = false, TargetGamePlayerId = null });
     }
     CleanupPositionOverrides(ctx, player.Id);
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void SetTarget(ReducerContext ctx, ulong gameId, ulong? targetGamePlayerId)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    if (targetGamePlayerId is ulong targetId)
+    {
+      var target = ctx.Db.game_player.Id.Find(targetId) ?? throw new Exception("Target not found");
+      if (target.GameSessionId != gameId)
+        throw new Exception("Target is not in the same game");
+      if (!target.Active)
+        throw new Exception("Target is not active");
+    }
+
+    ctx.Db.game_player.Id.Update(gp with { TargetGamePlayerId = targetGamePlayerId });
   }
 
   [SpacetimeDB.Reducer(ReducerKind.ClientDisconnected)]

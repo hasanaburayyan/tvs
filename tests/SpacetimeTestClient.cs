@@ -56,7 +56,7 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnSoftDeleteMessage += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnHardDeleteMessage += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnKickPlayerFromGame += (ctx, _, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnMovePlayer += (ctx, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnMovePlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnTeleportPlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
     }
 

@@ -25,6 +25,10 @@ namespace SpacetimeDB.Types
         public bool Active;
         [DataMember(Name = "position")]
         public DbVector3 Position;
+        [DataMember(Name = "rotation_y")]
+        public float RotationY;
+        [DataMember(Name = "target_game_player_id")]
+        public ulong? TargetGamePlayerId;
 
         public GamePlayer(
             ulong Id,
@@ -32,7 +36,9 @@ namespace SpacetimeDB.Types
             ulong PlayerId,
             byte TeamSlot,
             bool Active,
-            DbVector3 Position
+            DbVector3 Position,
+            float RotationY,
+            ulong? TargetGamePlayerId
         )
         {
             this.Id = Id;
@@ -41,6 +47,8 @@ namespace SpacetimeDB.Types
             this.TeamSlot = TeamSlot;
             this.Active = Active;
             this.Position = Position;
+            this.RotationY = RotationY;
+            this.TargetGamePlayerId = TargetGamePlayerId;
         }
 
         public GamePlayer()
