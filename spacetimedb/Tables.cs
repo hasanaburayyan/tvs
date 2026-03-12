@@ -52,24 +52,6 @@ public static partial class Module
     public uint MapSeed;
   }
 
-  [SpacetimeDB.Table(Accessor = "terrain_feature", Public = true)]
-  public partial struct TerrainFeature
-  {
-    [SpacetimeDB.PrimaryKey]
-    [SpacetimeDB.AutoInc]
-    public ulong Id;
-    [SpacetimeDB.Index.BTree]
-    public ulong GameSessionId;
-    public TerrainType Type;
-    public float PosX;
-    public float PosY;
-    public float PosZ;
-    public float SizeX;
-    public float SizeY;
-    public float SizeZ;
-    public float RotationY;
-    public byte TeamIndex;
-  }
 
   [SpacetimeDB.Table(Accessor = "game_player", Public = true)]
   public partial struct GamePlayer

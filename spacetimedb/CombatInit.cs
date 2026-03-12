@@ -230,8 +230,12 @@ public static partial class Module
         new ResourceCost { Kind = ResourceKind.Mana, Amount = 25 },
       },
       GrantedMods = new List<AbilityMod>(),
-      EffectDurationMs = 0,
+      EffectDurationMs = 5000,
       AffectedAbilityIds = new List<ulong>(),
+      SpawnedTerrainType = TerrainType.Wall,
+      TerrainSizeX = 10f,
+      TerrainSizeY = 3f,
+      TerrainSizeZ = 1f,
     });
 
     var fireEmpowerment = ctx.Db.ability_def.Insert(new AbilityDef

@@ -21,6 +21,11 @@ public static partial class Module
     public List<AbilityMod> GrantedMods;
     public ulong EffectDurationMs;
     public List<ulong> AffectedAbilityIds;
+
+    public TerrainType? SpawnedTerrainType;
+    public float TerrainSizeX;
+    public float TerrainSizeY;
+    public float TerrainSizeZ;
   }
 
   [SpacetimeDB.Table(Accessor = "weapon_def", Public = true)]

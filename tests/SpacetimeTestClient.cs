@@ -60,7 +60,8 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnMovePlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnTeleportPlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetLoadout += (ctx, _, _, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnUseAbility += (ctx, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnUseAbility += (ctx, _, _, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSetTarget += (ctx, _, _) => HandleReducerEvent(ctx);
     }
 
     private void HandleReducerEvent(ReducerEventContext ctx)

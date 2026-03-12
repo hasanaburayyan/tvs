@@ -93,6 +93,13 @@ public partial class PlayerManager : Node
 		  newGamePlayer.RotationY
 		);
 	  }
+
+	  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId
+		&& oldGamePlayer.TargetGamePlayerId != null
+		&& newGamePlayer.TargetGamePlayerId == null)
+	  {
+		Targeting.Instance?.ClearTarget();
+	  }
 	}
   }
 

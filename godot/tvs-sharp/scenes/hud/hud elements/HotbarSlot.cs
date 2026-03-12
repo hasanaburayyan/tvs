@@ -22,6 +22,10 @@ public partial class HotbarSlot : VBoxContainer
   private string _abilityName;
   private List<TargetType> _validTargets = new();
   private ulong _gameSessionId;
+  private float _terrainSizeX;
+  private float _terrainSizeY;
+  private float _terrainSizeZ;
+  private float _baseRange;
 
   public override void _Ready()
   {
@@ -37,6 +41,10 @@ public partial class HotbarSlot : VBoxContainer
 	_abilityName = ability.Name;
 	_validTargets = ability.ValidTargets;
 	_gameSessionId = gameSessionId;
+	_baseRange = ability.BaseRange;
+	_terrainSizeX = ability.TerrainSizeX;
+	_terrainSizeY = ability.TerrainSizeY;
+	_terrainSizeZ = ability.TerrainSizeZ;
 
 	_label.Text = keybindLabel;
 	if (_nameLabel != null)
@@ -66,6 +74,13 @@ public partial class HotbarSlot : VBoxContainer
 	return _validTargets.Contains(TargetType.Enemy) || _validTargets.Contains(TargetType.Ally);
   }
 
+  private bool IsGroundTargeted()
+  {
+	return _validTargets.Contains(TargetType.Ground)
+	  && !_validTargets.Contains(TargetType.Enemy)
+	  && !_validTargets.Contains(TargetType.Ally);
+  }
+
   private void CastAbility()
   {
 	if (_abilityId == 0) return;
@@ -75,6 +90,13 @@ public partial class HotbarSlot : VBoxContainer
 
 	var conn = mgr.Conn;
 
+	if (IsGroundTargeted() && _terrainSizeX > 0)
+	{
+	  PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ);
+	  GD.Print($"[Hotbar] Entering placement mode for {_abilityName}");
+	  return;
+	}
+
 	ulong? targetId = RequiresTarget() ? Targeting.Instance?.CurrentTargetGamePlayerId : null;
 
 	if (RequiresTarget() && targetId == null)
@@ -83,7 +105,7 @@ public partial class HotbarSlot : VBoxContainer
 	  return;
 	}
 
-	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId);
+	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId, null, null);
 	GD.Print($"[Hotbar] Casting {_abilityName}");
   }
 }
