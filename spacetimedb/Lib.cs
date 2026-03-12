@@ -113,31 +113,47 @@ public static partial class Module
   [SpacetimeDB.Reducer]
   public static void CreateGame(ReducerContext ctx, uint maxPlayers)
   {
-    ctx.Db.game_session.Insert(new GameSession
-    {
-      OwnerIdentity = ctx.Sender,
-      State = SessionState.Lobby,
-      MaxPlayers = maxPlayers,
-      CreatedAt = ctx.Timestamp,
-    });
-  }
-
-  [SpacetimeDB.Reducer]
-  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers) {
+    var seed = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
     var session = ctx.Db.game_session.Insert(new GameSession
     {
       OwnerIdentity = ctx.Sender,
       State = SessionState.Lobby,
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
+      MapSeed = seed,
     });
+    GenerateMap(ctx, session.Id, seed);
+  }
 
+  [SpacetimeDB.Reducer]
+  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers)
+  {
+    var seed = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
+    var session = ctx.Db.game_session.Insert(new GameSession
+    {
+      OwnerIdentity = ctx.Sender,
+      State = SessionState.Lobby,
+      MaxPlayers = maxPlayers,
+      CreatedAt = ctx.Timestamp,
+      MapSeed = seed,
+    });
+    GenerateMap(ctx, session.Id, seed);
     JoinGame(ctx, session.Id);
   }
 
   [SpacetimeDB.Reducer]
   public static void DeleteGame(ReducerContext ctx, ulong gameId)
   {
+    foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameId))
+    {
+      ctx.Db.terrain_feature.Id.Delete(feature.Id);
+    }
+
+    foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameId))
+    {
+      ctx.Db.game_player.Id.Delete(gp.Id);
+    }
+
     ctx.Db.game_session.Id.Delete(gameId);
   }
 
@@ -279,6 +295,10 @@ public static partial class Module
         foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
         {
           ctx.Db.game_player.Id.Delete(gp.Id);
+        }
+        foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameSession.Id))
+        {
+          ctx.Db.terrain_feature.Id.Delete(feature.Id);
         }
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }

@@ -23,13 +23,16 @@ namespace SpacetimeDB.Types
         public uint MaxPlayers;
         [DataMember(Name = "created_at")]
         public SpacetimeDB.Timestamp CreatedAt;
+        [DataMember(Name = "map_seed")]
+        public uint MapSeed;
 
         public GameSession(
             ulong Id,
             SpacetimeDB.Identity OwnerIdentity,
             SessionState State,
             uint MaxPlayers,
-            SpacetimeDB.Timestamp CreatedAt
+            SpacetimeDB.Timestamp CreatedAt,
+            uint MapSeed
         )
         {
             this.Id = Id;
@@ -37,6 +40,7 @@ namespace SpacetimeDB.Types
             this.State = State;
             this.MaxPlayers = MaxPlayers;
             this.CreatedAt = CreatedAt;
+            this.MapSeed = MapSeed;
         }
 
         public GameSession()

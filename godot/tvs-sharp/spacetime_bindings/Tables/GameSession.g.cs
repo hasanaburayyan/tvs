@@ -54,6 +54,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GameSession, SessionState> State { get; }
         public global::SpacetimeDB.Col<GameSession, uint> MaxPlayers { get; }
         public global::SpacetimeDB.Col<GameSession, SpacetimeDB.Timestamp> CreatedAt { get; }
+        public global::SpacetimeDB.Col<GameSession, uint> MapSeed { get; }
 
         public GameSessionCols(string tableName)
         {
@@ -62,6 +63,7 @@ namespace SpacetimeDB.Types
             State = new global::SpacetimeDB.Col<GameSession, SessionState>(tableName, "state");
             MaxPlayers = new global::SpacetimeDB.Col<GameSession, uint>(tableName, "max_players");
             CreatedAt = new global::SpacetimeDB.Col<GameSession, SpacetimeDB.Timestamp>(tableName, "created_at");
+            MapSeed = new global::SpacetimeDB.Col<GameSession, uint>(tableName, "map_seed");
         }
     }
 

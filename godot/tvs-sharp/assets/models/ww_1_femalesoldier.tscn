@@ -3,11 +3,12 @@
 [ext_resource type="PackedScene" uid="uid://dclmfisnkndad" path="res://assets/models/WW1_femalesoldier.glb" id="1_8gxjr"]
 
 [node name="WW1_femalesoldier" unique_id=1252320886 instance=ExtResource("1_8gxjr")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0040618107, 0)
 
-[node name="Armature" parent="." index="0" unique_id=956723368]
+[node name="Armature" parent="." index="0" unique_id=1613851414]
 transform = Transform3D(0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01, 0, -0.1593355, 0)
 
-[node name="Skeleton3D" parent="Armature" index="0" unique_id=2061585350]
+[node name="Skeleton3D" parent="Armature" index="0" unique_id=381508060]
 bones/0/position = Vector3(2.4883845, 107.79035, 9.894377)
 bones/0/rotation = Quaternion(0.9774706, -0.15450346, 0.024431515, -0.14171472)
 bones/1/rotation = Quaternion(-0.31353414, -0.116640955, -0.15909584, 0.9288594)
