@@ -85,6 +85,10 @@ public static partial class Module
     public byte TeamSlot;
     public bool Active;
 
+    public int Health;
+    public int MaxHealth;
+    public int Armor;
+
     public DbVector3 Position;
     public float RotationY;
 

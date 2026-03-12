@@ -1,11 +1,13 @@
 using Godot;
 using System;
+using System.Linq;
 using SpacetimeDB;
 using SpacetimeDB.Types;
 
 public partial class PlayerManager : Node
 {
   private static readonly PackedScene PlayerScene = GD.Load<PackedScene>("uid://c0px8gi5tvei1");
+  private static readonly PackedScene DamageNumberScene = GD.Load<PackedScene>("res://scenes/hud/hud elements/damage_number.tscn");
 
   public ulong GameId{get; set;} = 0;
 
@@ -22,6 +24,7 @@ public partial class PlayerManager : Node
 	conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
 	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
 	conn.Db.PositionOverride.OnInsert += OnPositionOverrideInsert;
+	conn.Db.BattleLog.OnInsert += OnBattleLogInsert;
   }
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
@@ -108,6 +111,31 @@ public partial class PlayerManager : Node
 	}
 
 	mgr.Conn.Reducers.AckPositionOverride(posOverride.Id);
+  }
+
+  public void OnBattleLogInsert(EventContext ctx, BattleLogEntry entry) {
+	if (entry.GameSessionId != GameId) return;
+	if (entry.ResolvedPower == 0) return;
+
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	var ability = conn.Db.AbilityDef.Id.Find(entry.AbilityId);
+	bool isHeal = ability?.Type == AbilityType.Heal;
+
+	foreach (var targetId in entry.TargetGamePlayerIds)
+	{
+	  var targetGp = conn.Db.GamePlayer.Id.Find(targetId);
+	  if (targetGp == null) continue;
+
+	  var playerNode = PlayerSpawnPath.GetNodeOrNull<Player>(targetGp.PlayerId.ToString());
+	  if (playerNode == null) continue;
+
+	  var dmgNum = DamageNumberScene.Instantiate<DamageNumber>();
+	  dmgNum.Setup(entry.ResolvedPower, isHeal);
+	  GetTree().Root.AddChild(dmgNum);
+	  dmgNum.GlobalPosition = playerNode.GlobalPosition + new Vector3(0, 2.2f, 0);
+	}
   }
 
   public void DestroyLobby() {

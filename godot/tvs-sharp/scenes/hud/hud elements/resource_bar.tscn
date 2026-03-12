@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://d0resource_bar"]
+
+[ext_resource type="Script" path="res://scenes/hud/hud elements/ResourceBar.cs" id="1_rb"]
+
+[node name="ResourceBar" type="HBoxContainer"]
+custom_minimum_size = Vector2(200, 24)
+script = ExtResource("1_rb")
+theme_override_constants/separation = 6
+
+[node name="NameLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(40, 0)
+text = "HP"
+horizontal_alignment = 2
+
+[node name="Bar" type="ProgressBar" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="ValueLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(60, 0)
+text = "100/100"

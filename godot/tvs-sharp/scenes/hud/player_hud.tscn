@@ -26,6 +26,12 @@ size_flags_stretch_ratio = 0.38
 [node name="LeftSide" type="HBoxContainer" parent="VBoxContainer/TopLayer" unique_id=61909956]
 layout_mode = 2
 
+[node name="ResourceBars" type="VBoxContainer" parent="VBoxContainer/TopLayer/LeftSide"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(220, 0)
+theme_override_constants/separation = 4
+
 [node name="Middle" type="HBoxContainer" parent="VBoxContainer/TopLayer" unique_id=1050426163]
 layout_mode = 2
 
@@ -56,6 +62,7 @@ size_flags_horizontal = 3
 [node name="Hotbar" type="HBoxContainer" parent="VBoxContainer/BottomLayer/TopRow/Middle" unique_id=1991021236]
 unique_name_in_owner = true
 layout_mode = 2
+alignment = 1
 theme_override_constants/separation = 8
 
 [node name="Right" type="VBoxContainer" parent="VBoxContainer/BottomLayer/TopRow" unique_id=389291422]

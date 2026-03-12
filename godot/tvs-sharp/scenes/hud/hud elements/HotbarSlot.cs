@@ -1,6 +1,7 @@
 using Godot;
 using SpacetimeDB.Types;
 using System.Collections.Generic;
+using System.Linq;
 
 public partial class HotbarSlot : VBoxContainer
 {
@@ -13,70 +14,76 @@ public partial class HotbarSlot : VBoxContainer
   };
 
   private Label _label;
+  private Label _nameLabel;
   private TextureButton _image;
-  private SpellData _spell;
   private Key _keybind;
+
+  private ulong _abilityId;
+  private string _abilityName;
+  private List<TargetType> _validTargets = new();
+  private ulong _gameSessionId;
 
   public override void _Ready()
   {
 	_label = GetNode<Label>("Label");
 	_image = GetNode<TextureButton>("Image");
-	_image.Pressed += CastSpell;
+	_nameLabel = GetNodeOrNull<Label>("NameLabel");
+	_image.Pressed += CastAbility;
   }
 
-  public void SetSpell(SpellData spell, string keybindLabel)
+  public void SetAbility(AbilityDef ability, string keybindLabel, ulong gameSessionId)
   {
-	_spell = spell;
-	_label.Text = keybindLabel;
+	_abilityId = ability.Id;
+	_abilityName = ability.Name;
+	_validTargets = ability.ValidTargets;
+	_gameSessionId = gameSessionId;
 
-	if (spell.Icon != null)
-	  _image.TextureNormal = spell.Icon;
+	_label.Text = keybindLabel;
+	if (_nameLabel != null)
+	  _nameLabel.Text = ability.Name;
 
 	_keybind = LabelToKey.GetValueOrDefault(keybindLabel, Key.None);
-	TooltipText = $"{spell.Name}\n{spell.Description}";
+	TooltipText = $"{ability.Name}\n{ability.Description}";
+
+	var iconPath = $"res://assets/icons/abilities/{ability.Name.ToLower().Replace(" ", "_")}.png";
+	if (ResourceLoader.Exists(iconPath))
+	  _image.TextureNormal = GD.Load<Texture2D>(iconPath);
   }
 
   public override void _UnhandledInput(InputEvent @event)
   {
-	if (_spell == null || _keybind == Key.None) return;
+	if (_abilityId == 0 || _keybind == Key.None) return;
 	if (@event is not InputEventKey key) return;
 	if (!key.Pressed || key.IsEcho()) return;
 	if (key.Keycode != _keybind) return;
 
-	CastSpell();
+	CastAbility();
 	GetViewport().SetInputAsHandled();
   }
 
-  private void CastSpell()
+  private bool RequiresTarget()
   {
-	if (_spell == null) return;
+	return _validTargets.Contains(TargetType.Enemy) || _validTargets.Contains(TargetType.Ally);
+  }
+
+  private void CastAbility()
+  {
+	if (_abilityId == 0) return;
 
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
 
 	var conn = mgr.Conn;
-	ulong? gameSessionId = null;
 
-	foreach (var gp in conn.Db.GamePlayer.Iter())
+	ulong? targetId = RequiresTarget() ? Targeting.Instance?.CurrentTargetGamePlayerId : null;
+
+	if (RequiresTarget() && targetId == null)
 	{
-	  if (gp.PlayerId == mgr.ActivePlayerId && gp.Active)
-	  {
-		gameSessionId = gp.GameSessionId;
-		break;
-	  }
-	}
-
-	if (gameSessionId == null) return;
-
-	ulong? targetId = _spell.RequiresTarget ? Targeting.Instance?.CurrentTargetGamePlayerId : null;
-
-	if (_spell.RequiresTarget && targetId == null)
-	{
-	  GD.Print($"[Hotbar] {_spell.Name} requires a target");
+	  GD.Print($"[Hotbar] {_abilityName} requires a target");
 	  return;
 	}
 
-	conn.Reducers.CastSpell(gameSessionId.Value, _spell.Id, targetId);
-	GD.Print($"[Hotbar] Casting {_spell.Name}");
+	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId);
+	GD.Print($"[Hotbar] Casting {_abilityName}");
   }
 }

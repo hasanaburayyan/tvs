@@ -151,8 +151,20 @@ public static partial class Module
 
     foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameId))
     {
+      foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
+        ctx.Db.resource_pool.Id.Delete(pool.Id);
+      foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gp.Id))
+        ctx.Db.ability_cooldown.Id.Delete(cd.Id);
+      foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
+        ctx.Db.active_effect.Id.Delete(effect.Id);
       ctx.Db.game_player.Id.Delete(gp.Id);
     }
+
+    foreach (var loadout in ctx.Db.loadout.GameSessionId.Filter(gameId))
+      ctx.Db.loadout.Id.Delete(loadout.Id);
+
+    foreach (var log in ctx.Db.battle_log.GameSessionId.Filter(gameId))
+      ctx.Db.battle_log.Id.Delete(log.Id);
 
     ctx.Db.game_session.Id.Delete(gameId);
   }
@@ -216,14 +228,26 @@ public static partial class Module
       desired_spawn_location = desired_spawn_location * 2;
     }
 
-    ctx.Db.game_player.Insert(new GamePlayer
+    var newGp = ctx.Db.game_player.Insert(new GamePlayer
     {
       GameSessionId = gameSession.Id,
       PlayerId = player.Id,
       Active = true,
+      Health = 100,
+      MaxHealth = 100,
+      Armor = 0,
       Position = desired_spawn_location,
       RotationY = 0f
     });
+
+    SeedResourcePools(ctx, newGp.Id);
+  }
+
+  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId)
+  {
+    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Mana, Current = 100, Max = 100 });
+    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Stamina, Current = 100, Max = 100 });
+    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Ammo, Current = 30, Max = 30 });
   }
 
   [SpacetimeDB.Reducer]
@@ -287,6 +311,12 @@ public static partial class Module
     {
       foreach (var gp in ctx.Db.game_player.PlayerId.Filter(player.Id))
       {
+        foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
+          ctx.Db.resource_pool.Id.Delete(pool.Id);
+        foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gp.Id))
+          ctx.Db.ability_cooldown.Id.Delete(cd.Id);
+        foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
+          ctx.Db.active_effect.Id.Delete(effect.Id);
         ctx.Db.game_player.Id.Delete(gp.Id);
       }
 
@@ -294,8 +324,18 @@ public static partial class Module
       {
         foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
         {
+          foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
+            ctx.Db.resource_pool.Id.Delete(pool.Id);
+          foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gp.Id))
+            ctx.Db.ability_cooldown.Id.Delete(cd.Id);
+          foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
+            ctx.Db.active_effect.Id.Delete(effect.Id);
           ctx.Db.game_player.Id.Delete(gp.Id);
         }
+        foreach (var loadout in ctx.Db.loadout.GameSessionId.Filter(gameSession.Id))
+          ctx.Db.loadout.Id.Delete(loadout.Id);
+        foreach (var log in ctx.Db.battle_log.GameSessionId.Filter(gameSession.Id))
+          ctx.Db.battle_log.Id.Delete(log.Id);
         foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameSession.Id))
         {
           ctx.Db.terrain_feature.Id.Delete(feature.Id);
