@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.42, 0.4, 0.35, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_sandbag"]
+albedo_color = Color(0.5, 0.45, 0.3, 1)
+
+[sub_resource type="BoxMesh" id="mesh_wall"]
+material = SubResource("mat_wall")
+size = Vector3(1, 0.7, 0.3)
+
+[sub_resource type="BoxMesh" id="mesh_sandbag"]
+material = SubResource("mat_sandbag")
+size = Vector3(1, 0.3, 0.4)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+
+[node name="Fortification" type="StaticBody3D"]
+
+[node name="Wall" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_wall")
+
+[node name="Sandbags" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0.25)
+mesh = SubResource("mesh_sandbag")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_1")

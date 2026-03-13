@@ -1,16 +1,16 @@
 [gd_scene format=3 uid="uid://c0px8gi5tvei1"]
 
 [ext_resource type="Script" uid="uid://b702hw4xqh6f0" path="res://scenes/player/Player.cs" id="1_wr5hl"]
-[ext_resource type="PackedScene" uid="uid://bw7iwoia6wbwu" path="res://assets/models/ww_1_femalesoldier.tscn" id="2_4kuee"]
 [ext_resource type="Script" uid="uid://b4ob00ntaljdb" path="res://scenes/player/FreelookCamera.cs" id="2_gfjak"]
 [ext_resource type="Script" uid="uid://swaxr6ewi653" path="res://scenes/player/Targetable.cs" id="3_targetable"]
+[ext_resource type="PackedScene" uid="uid://3aoref5jnrh2" path="res://assets/models/nurse.tscn" id="4_524rm"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gfjak"]
 
 [node name="Player" type="CharacterBody3D" unique_id=1896717502]
 script = ExtResource("1_wr5hl")
 
-[node name="WW1_femalesoldier" parent="." unique_id=1152775071 instance=ExtResource("2_4kuee")]
+[node name="Nurse" parent="." unique_id=58088262 instance=ExtResource("4_524rm")]
 unique_name_in_owner = true
 transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
 

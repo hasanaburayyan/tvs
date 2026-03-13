@@ -21,18 +21,26 @@ namespace SpacetimeDB.Types
         public string Description;
         [DataMember(Name = "ability_ids")]
         public System.Collections.Generic.List<ulong> AbilityIds;
+        [DataMember(Name = "archetype_def_id")]
+        public ulong ArchetypeDefId;
+        [DataMember(Name = "grants_mana")]
+        public bool GrantsMana;
 
         public SkillDef(
             ulong Id,
             string Name,
             string Description,
-            System.Collections.Generic.List<ulong> AbilityIds
+            System.Collections.Generic.List<ulong> AbilityIds,
+            ulong ArchetypeDefId,
+            bool GrantsMana
         )
         {
             this.Id = Id;
             this.Name = Name;
             this.Description = Description;
             this.AbilityIds = AbilityIds;
+            this.ArchetypeDefId = ArchetypeDefId;
+            this.GrantsMana = GrantsMana;
         }
 
         public SkillDef()

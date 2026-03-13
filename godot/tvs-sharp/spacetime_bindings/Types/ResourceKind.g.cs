@@ -11,8 +11,9 @@ namespace SpacetimeDB.Types
     public enum ResourceKind
     {
         Health,
-        Mana,
         Stamina,
-        Ammo,
+        Supplies,
+        Mana,
+        Command,
     }
 }

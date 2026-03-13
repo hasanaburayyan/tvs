@@ -72,6 +72,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Loadout, ulong> Id { get; }
         public global::SpacetimeDB.Col<Loadout, ulong> GameSessionId { get; }
         public global::SpacetimeDB.Col<Loadout, ulong> PlayerId { get; }
+        public global::SpacetimeDB.Col<Loadout, ulong> ArchetypeDefId { get; }
         public global::SpacetimeDB.Col<Loadout, ulong> WeaponDefId { get; }
         public global::SpacetimeDB.Col<Loadout, ulong> SkillDefId { get; }
 
@@ -80,6 +81,7 @@ namespace SpacetimeDB.Types
             Id = new global::SpacetimeDB.Col<Loadout, ulong>(tableName, "id");
             GameSessionId = new global::SpacetimeDB.Col<Loadout, ulong>(tableName, "game_session_id");
             PlayerId = new global::SpacetimeDB.Col<Loadout, ulong>(tableName, "player_id");
+            ArchetypeDefId = new global::SpacetimeDB.Col<Loadout, ulong>(tableName, "archetype_def_id");
             WeaponDefId = new global::SpacetimeDB.Col<Loadout, ulong>(tableName, "weapon_def_id");
             SkillDefId = new global::SpacetimeDB.Col<Loadout, ulong>(tableName, "skill_def_id");
         }

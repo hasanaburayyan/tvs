@@ -35,6 +35,10 @@ public static partial class Module
     Wall,
     Building,
     CommandCenter,
+    Outpost,
+    Trap,
+    Fortification,
+    MountedWeapon,
   }
 
   [SpacetimeDB.Table(Accessor = "game_session", Public = true)]

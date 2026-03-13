@@ -36,149 +36,149 @@ public partial class HotbarSlot : VBoxContainer
 
   public override void _Ready()
   {
-    _label = GetNode<Label>("Label");
-    _image = GetNode<TextureButton>("Image");
-    _nameLabel = GetNodeOrNull<Label>("NameLabel");
-    _cooldownOverlay = _image.GetNode<TextureProgressBar>("CooldownOverlay");
-    _cooldownLabel = _image.GetNode<Label>("CooldownLabel");
-    _image.Pressed += CastAbility;
+	_label = GetNode<Label>("Label");
+	_image = GetNode<TextureButton>("Image");
+	_nameLabel = GetNodeOrNull<Label>("NameLabel");
+	_cooldownOverlay = _image.GetNode<TextureProgressBar>("CooldownOverlay");
+	_cooldownLabel = _image.GetNode<Label>("CooldownLabel");
+	_image.Pressed += CastAbility;
   }
 
   public override void _Process(double delta)
   {
-    if (!_onCooldown) return;
+	if (!_onCooldown) return;
 
-    double now = Time.GetUnixTimeFromSystem();
-    double remaining = _cooldownReadyAtSec - now;
+	double now = Time.GetUnixTimeFromSystem();
+	double remaining = _cooldownReadyAtSec - now;
 
-    if (remaining <= 0)
-    {
-      ClearCooldown();
-      return;
-    }
+	if (remaining <= 0)
+	{
+	  ClearCooldown();
+	  return;
+	}
 
-    double progress = _cooldownDurationSec > 0
-      ? Mathf.Clamp(remaining / _cooldownDurationSec, 0.0, 1.0)
-      : 0.0;
-    _cooldownOverlay.Value = progress;
-    _cooldownLabel.Text = remaining >= 10 ? $"{remaining:F0}" : $"{remaining:F1}";
+	double progress = _cooldownDurationSec > 0
+	  ? Mathf.Clamp(remaining / _cooldownDurationSec, 0.0, 1.0)
+	  : 0.0;
+	_cooldownOverlay.Value = progress;
+	_cooldownLabel.Text = remaining >= 10 ? $"{remaining:F0}" : $"{remaining:F1}";
   }
 
   public void SetAbility(AbilityDef ability, string keybindLabel, ulong gameSessionId)
   {
-    _abilityId = ability.Id;
-    _abilityName = ability.Name;
-    _validTargets = ability.ValidTargets;
-    _gameSessionId = gameSessionId;
-    _baseRange = ability.BaseRange;
-    _terrainSizeX = ability.TerrainSizeX;
-    _terrainSizeY = ability.TerrainSizeY;
-    _terrainSizeZ = ability.TerrainSizeZ;
-    _cooldownDurationSec = ability.CooldownMs / 1000.0;
+	_abilityId = ability.Id;
+	_abilityName = ability.Name;
+	_validTargets = ability.ValidTargets;
+	_gameSessionId = gameSessionId;
+	_baseRange = ability.BaseRange;
+	_terrainSizeX = ability.TerrainSizeX;
+	_terrainSizeY = ability.TerrainSizeY;
+	_terrainSizeZ = ability.TerrainSizeZ;
+	_cooldownDurationSec = ability.CooldownMs / 1000.0;
 
-    _label.Text = keybindLabel;
-    if (_nameLabel != null)
-      _nameLabel.Text = ability.Name;
+	_label.Text = keybindLabel;
+	if (_nameLabel != null)
+	  _nameLabel.Text = ability.Name;
 
-    _keybind = LabelToKey.GetValueOrDefault(keybindLabel, Key.None);
-    TooltipText = $"{ability.Name}\n{ability.Description}";
+	_keybind = LabelToKey.GetValueOrDefault(keybindLabel, Key.None);
+	TooltipText = $"{ability.Name}\n{ability.Description}";
 
-    var iconPath = $"res://assets/icons/abilities/{ability.Name.ToLower().Replace(" ", "_")}.png";
-    if (ResourceLoader.Exists(iconPath))
-      _image.TextureNormal = GD.Load<Texture2D>(iconPath);
+	var iconPath = $"res://assets/icons/abilities/{ability.Name.ToLower().Replace(" ", "_")}.png";
+	if (ResourceLoader.Exists(iconPath))
+	  _image.TextureNormal = GD.Load<Texture2D>(iconPath);
 
-    var conn = SpacetimeNetworkManager.Instance.Conn;
-    conn.Db.AbilityCooldown.OnInsert += OnAbilityCoolDownInsert;
-    conn.Db.AbilityCooldown.OnUpdate += OnAbilityCoolDownUpdate;
-    conn.Db.AbilityCooldown.OnDelete += OnAbilityCoolDownDelete;
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	conn.Db.AbilityCooldown.OnInsert += OnAbilityCoolDownInsert;
+	conn.Db.AbilityCooldown.OnUpdate += OnAbilityCoolDownUpdate;
+	conn.Db.AbilityCooldown.OnDelete += OnAbilityCoolDownDelete;
   }
 
   public void OnAbilityCoolDownInsert(EventContext ctx, AbilityCooldown ac)
   {
-    if (ac.GamePlayerId != _gamePlayerId) return;
-    if (ac.AbilityId != _abilityId) return;
-    StartCooldown(ac.ReadyAt);
+	if (ac.GamePlayerId != _gamePlayerId) return;
+	if (ac.AbilityId != _abilityId) return;
+	StartCooldown(ac.ReadyAt);
   }
 
   public void OnAbilityCoolDownUpdate(EventContext ctx, AbilityCooldown oldAC, AbilityCooldown newAC)
   {
-    if (newAC.GamePlayerId != _gamePlayerId) return;
-    if (newAC.AbilityId != _abilityId) return;
-    StartCooldown(newAC.ReadyAt);
+	if (newAC.GamePlayerId != _gamePlayerId) return;
+	if (newAC.AbilityId != _abilityId) return;
+	StartCooldown(newAC.ReadyAt);
   }
 
   public void OnAbilityCoolDownDelete(EventContext ctx, AbilityCooldown ac)
   {
-    if (ac.GamePlayerId != _gamePlayerId) return;
-    if (ac.AbilityId != _abilityId) return;
-    ClearCooldown();
+	if (ac.GamePlayerId != _gamePlayerId) return;
+	if (ac.AbilityId != _abilityId) return;
+	ClearCooldown();
   }
 
   private void StartCooldown(SpacetimeDB.Timestamp readyAt)
   {
-    _cooldownReadyAtSec = readyAt.MicrosecondsSinceUnixEpoch / 1_000_000.0;
-    _onCooldown = true;
-    _cooldownOverlay.Visible = true;
-    _cooldownLabel.Visible = true;
+	_cooldownReadyAtSec = readyAt.MicrosecondsSinceUnixEpoch / 1_000_000.0;
+	_onCooldown = true;
+	_cooldownOverlay.Visible = true;
+	_cooldownLabel.Visible = true;
   }
 
   private void ClearCooldown()
   {
-    _onCooldown = false;
-    _cooldownOverlay.Value = 0;
-    _cooldownOverlay.Visible = false;
-    _cooldownLabel.Visible = false;
+	_onCooldown = false;
+	_cooldownOverlay.Value = 0;
+	_cooldownOverlay.Visible = false;
+	_cooldownLabel.Visible = false;
   }
 
   public override void _UnhandledInput(InputEvent @event)
   {
-    if (_abilityId == 0 || _keybind == Key.None) return;
-    if (@event is not InputEventKey key) return;
-    if (!key.Pressed || key.IsEcho()) return;
-    if (key.Keycode != _keybind) return;
+	if (_abilityId == 0 || _keybind == Key.None) return;
+	if (@event is not InputEventKey key) return;
+	if (!key.Pressed || key.IsEcho()) return;
+	if (key.Keycode != _keybind) return;
 
-    CastAbility();
-    GetViewport().SetInputAsHandled();
+	CastAbility();
+	GetViewport().SetInputAsHandled();
   }
 
   private bool RequiresTarget()
   {
-    return _validTargets.Contains(TargetType.Enemy) || _validTargets.Contains(TargetType.Ally);
+	return _validTargets.Contains(TargetType.Enemy) || _validTargets.Contains(TargetType.Ally);
   }
 
   private bool IsGroundTargeted()
   {
-    return _validTargets.Contains(TargetType.Ground)
-      && !_validTargets.Contains(TargetType.Enemy)
-      && !_validTargets.Contains(TargetType.Ally);
+	return _validTargets.Contains(TargetType.Ground)
+	  && !_validTargets.Contains(TargetType.Enemy)
+	  && !_validTargets.Contains(TargetType.Ally);
   }
 
   private void CastAbility()
   {
-    if (_abilityId == 0) return;
-    if (_onCooldown) return;
+	if (_abilityId == 0) return;
+	if (_onCooldown) return;
 
-    var mgr = SpacetimeNetworkManager.Instance;
-    if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
 
-    var conn = mgr.Conn;
+	var conn = mgr.Conn;
 
-    if (IsGroundTargeted() && _terrainSizeX > 0)
-    {
-      PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ);
-      GD.Print($"[Hotbar] Entering placement mode for {_abilityName}");
-      return;
-    }
+	if (IsGroundTargeted() && _terrainSizeX > 0)
+	{
+	  PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ);
+	  GD.Print($"[Hotbar] Entering placement mode for {_abilityName}");
+	  return;
+	}
 
-    ulong? targetId = RequiresTarget() ? Targeting.Instance?.CurrentTargetGamePlayerId : null;
+	ulong? targetId = RequiresTarget() ? Targeting.Instance?.CurrentTargetGamePlayerId : null;
 
-    if (RequiresTarget() && targetId == null)
-    {
-      GD.Print($"[Hotbar] {_abilityName} requires a target");
-      return;
-    }
+	if (RequiresTarget() && targetId == null)
+	{
+	  GD.Print($"[Hotbar] {_abilityName} requires a target");
+	  return;
+	}
 
-    conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId, null, null);
-    GD.Print($"[Hotbar] Casting {_abilityName}");
+	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId, null, null, null);
+	GD.Print($"[Hotbar] Casting {_abilityName}");
   }
 }

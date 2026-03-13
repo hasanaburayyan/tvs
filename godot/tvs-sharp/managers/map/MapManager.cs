@@ -12,6 +12,8 @@ public partial class MapManager : Node
 	{ TerrainType.Wall, GD.Load<PackedScene>("res://scenes/terrain/Wall.tscn") },
 	{ TerrainType.Building, GD.Load<PackedScene>("res://scenes/terrain/Building.tscn") },
 	{ TerrainType.CommandCenter, GD.Load<PackedScene>("res://scenes/terrain/CommandCenter.tscn") },
+	{ TerrainType.Outpost, GD.Load<PackedScene>("res://scenes/terrain/Outpost.tscn") },
+	{ TerrainType.Fortification, GD.Load<PackedScene>("res://scenes/terrain/Fortification.tscn") },
   };
 
   public ulong GameId { get; set; } = 0;

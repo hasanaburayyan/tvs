@@ -43,10 +43,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<WeaponDef, string> Name { get; }
         public global::SpacetimeDB.Col<WeaponDef, string> Description { get; }
         public global::SpacetimeDB.Col<WeaponDef, ulong> PrimaryAbilityId { get; }
-        public global::SpacetimeDB.Col<WeaponDef, ulong> SecondaryAbilityId { get; }
-        public global::SpacetimeDB.Col<WeaponDef, System.Collections.Generic.List<ulong>> BonusAbilityIds { get; }
-        public global::SpacetimeDB.Col<WeaponDef, System.Collections.Generic.List<AbilityMod>> PrimaryMods { get; }
-        public global::SpacetimeDB.Col<WeaponDef, System.Collections.Generic.List<AbilityMod>> SecondaryMods { get; }
+        public global::SpacetimeDB.Col<WeaponDef, bool> GrantsSupplies { get; }
 
         public WeaponDefCols(string tableName)
         {
@@ -54,10 +51,7 @@ namespace SpacetimeDB.Types
             Name = new global::SpacetimeDB.Col<WeaponDef, string>(tableName, "name");
             Description = new global::SpacetimeDB.Col<WeaponDef, string>(tableName, "description");
             PrimaryAbilityId = new global::SpacetimeDB.Col<WeaponDef, ulong>(tableName, "primary_ability_id");
-            SecondaryAbilityId = new global::SpacetimeDB.Col<WeaponDef, ulong>(tableName, "secondary_ability_id");
-            BonusAbilityIds = new global::SpacetimeDB.Col<WeaponDef, System.Collections.Generic.List<ulong>>(tableName, "bonus_ability_ids");
-            PrimaryMods = new global::SpacetimeDB.Col<WeaponDef, System.Collections.Generic.List<AbilityMod>>(tableName, "primary_mods");
-            SecondaryMods = new global::SpacetimeDB.Col<WeaponDef, System.Collections.Generic.List<AbilityMod>>(tableName, "secondary_mods");
+            GrantsSupplies = new global::SpacetimeDB.Col<WeaponDef, bool>(tableName, "grants_supplies");
         }
     }
 

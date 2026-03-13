@@ -16,5 +16,7 @@ namespace SpacetimeDB.Types
         RangePercent,
         CooldownPercent,
         RadiusPercent,
+        ArmorFlat,
+        SpeedPercent,
     }
 }

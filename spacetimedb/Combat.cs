@@ -31,22 +31,12 @@ public static partial class Module
   }
 
   static (int Power, float Range, float Radius, ulong CooldownMs) ResolveAbility(
-    ReducerContext ctx, AbilityDef ability, ulong gamePlayerId, Loadout loadout)
+    ReducerContext ctx, AbilityDef ability, ulong gamePlayerId)
   {
     int power = ability.BasePower;
     float range = ability.BaseRange;
     float radius = ability.BaseRadius;
     ulong cooldownMs = ability.CooldownMs;
-
-    if (ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId) is WeaponDef w)
-    {
-      List<AbilityMod>? mods = null;
-      if (w.PrimaryAbilityId == ability.Id) mods = w.PrimaryMods;
-      else if (w.SecondaryAbilityId == ability.Id) mods = w.SecondaryMods;
-
-      if (mods != null && mods.Count > 0)
-        ApplyMods(ref power, ref range, ref radius, ref cooldownMs, mods);
-    }
 
     foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gamePlayerId))
     {
@@ -66,7 +56,7 @@ public static partial class Module
 
     if (ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId) is WeaponDef w)
     {
-      if (w.PrimaryAbilityId == abilityId || w.SecondaryAbilityId == abilityId || w.BonusAbilityIds.Contains(abilityId))
+      if (w.PrimaryAbilityId == abilityId)
       {
         fromWeapon = true;
         return true;
@@ -76,6 +66,12 @@ public static partial class Module
     if (ctx.Db.skill_def.Id.Find(loadout.SkillDefId) is SkillDef s)
     {
       if (s.AbilityIds.Contains(abilityId))
+        return true;
+    }
+
+    if (ctx.Db.archetype_def.Id.Find(loadout.ArchetypeDefId) is ArchetypeDef a)
+    {
+      if (a.InnateAbilityIds.Contains(abilityId))
         return true;
     }
 
@@ -109,8 +105,33 @@ public static partial class Module
     return null;
   }
 
+  static void ClearResourcePools(ReducerContext ctx, ulong gamePlayerId)
+  {
+    foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gamePlayerId))
+      ctx.Db.resource_pool.Id.Delete(pool.Id);
+  }
+
+  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId, ArchetypeDef archetype, WeaponDef weapon, SkillDef skill)
+  {
+    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Stamina, Current = 100, Max = 100 });
+
+    if (weapon.GrantsSupplies)
+    {
+      int maxSupplies = 30;
+      if (skill.Name == "Commando") maxSupplies = 15;
+      else if (skill.Name == "Fire Support") maxSupplies = 50;
+      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Supplies, Current = maxSupplies, Max = maxSupplies });
+    }
+
+    if (skill.GrantsMana)
+      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Mana, Current = 100, Max = 100 });
+
+    if (archetype.Kind == ArchetypeKind.Officer)
+      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Command, Current = 100, Max = 100 });
+  }
+
   [SpacetimeDB.Reducer]
-  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, DbVector3? targetPosition, float? targetRotationY)
+  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetTerrainFeatureId, DbVector3? targetPosition, float? targetRotationY)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
@@ -143,7 +164,25 @@ public static partial class Module
         throw new Exception("Target is not in line of sight");
     }
 
-    // Check resource costs
+    TerrainFeature? terrainTarget = null;
+    if (targetTerrainFeatureId is ulong terrainTargetId)
+    {
+      terrainTarget = ctx.Db.terrain_feature.Id.Find(terrainTargetId)
+        ?? throw new Exception("Terrain target not found");
+      if (terrainTarget.Value.GameSessionId != gameId)
+        throw new Exception("Terrain target is not in the same game");
+      if (terrainTarget.Value.Expired || terrainTarget.Value.Health <= 0)
+        throw new Exception("Terrain target is already destroyed");
+
+      var terrainPos = new DbVector3(terrainTarget.Value.PosX, terrainTarget.Value.PosY, terrainTarget.Value.PosZ);
+      float tdx = terrainPos.x - gp.Position.x;
+      float tdz = terrainPos.z - gp.Position.z;
+      float terrainDist = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
+      var resolved2 = ResolveAbility(ctx, ability, gp.Id);
+      if (terrainDist > resolved2.Range)
+        throw new Exception("Terrain target is out of range");
+    }
+
     foreach (var cost in ability.ResourceCosts)
     {
       if (cost.Kind == ResourceKind.Health)
@@ -160,7 +199,6 @@ public static partial class Module
       }
     }
 
-    // Deduct resource costs
     foreach (var cost in ability.ResourceCosts)
     {
       if (cost.Kind == ResourceKind.Health)
@@ -176,9 +214,8 @@ public static partial class Module
       }
     }
 
-    var resolved = ResolveAbility(ctx, ability, gp.Id, loadout);
+    var resolved = ResolveAbility(ctx, ability, gp.Id);
 
-    // Handle terrain-spawning abilities
     if (ability.Type == AbilityType.Terrain && ability.SpawnedTerrainType is TerrainType terrainType)
     {
       if (targetPosition is not DbVector3 pos)
@@ -209,6 +246,8 @@ public static partial class Module
         TeamIndex = 0,
         CasterGamePlayerId = gp.Id,
         ExpiresAt = expiresAt,
+        Health = ability.TerrainMaxHealth,
+        MaxHealth = ability.TerrainMaxHealth,
       });
 
       if (expiresAt is Timestamp expiry)
@@ -220,16 +259,17 @@ public static partial class Module
           ScheduledAt = new ScheduleAt.Time(expiry),
         });
       }
+
+      if (terrainType == TerrainType.Outpost)
+        ScheduleOutpostRegen(ctx, inserted.Id);
     }
 
-    // Apply buff/debuff effects
     if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0)
     {
       var expiresAt = ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs);
 
       if (ability.Type == AbilityType.Buff)
       {
-        // Buff: apply to self or targeted ally
         ulong buffTargetId = targetGamePlayerId ?? gp.Id;
         ctx.Db.active_effect.Insert(new ActiveEffect
         {
@@ -257,7 +297,6 @@ public static partial class Module
       }
     }
 
-    // Upsert cooldown
     if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown cd)
     {
       ctx.Db.ability_cooldown.Id.Update(cd with
@@ -276,7 +315,6 @@ public static partial class Module
       });
     }
 
-    // Log to battle log
     ctx.Db.battle_log.Insert(new BattleLogEntry
     {
       Id = 0,
@@ -291,7 +329,6 @@ public static partial class Module
       ResolvedPower = resolved.Power,
     });
 
-    // Apply damage/healing to target
     if (resolved.Power > 0 && targetGamePlayerId is ulong dmgTargetId)
     {
       var dmgTarget = ctx.Db.game_player.Id.Find(dmgTargetId)!.Value;
@@ -307,7 +344,6 @@ public static partial class Module
         ctx.Db.game_player.Id.Update(dmgTarget with { Health = newHealth });
       }
     }
-    // Self-heal when no target specified
     else if (resolved.Power > 0 && ability.Type == AbilityType.Heal && targetGamePlayerId is null)
     {
       gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
@@ -315,11 +351,20 @@ public static partial class Module
       ctx.Db.game_player.Id.Update(gp with { Health = newHealth });
     }
 
-    Log.Info($"Player {player.Name} used {ability.Name} (power: {resolved.Power}, fromWeapon: {fromWeapon}, target: {targetGamePlayerId?.ToString() ?? "none"})");
+    if (resolved.Power > 0 && ability.Type == AbilityType.Damage && terrainTarget is TerrainFeature tt)
+    {
+      int newHp = Math.Max(0, tt.Health - resolved.Power);
+      var updated = tt with { Health = newHp };
+      if (newHp <= 0)
+        updated = updated with { Expired = true };
+      ctx.Db.terrain_feature.Id.Update(updated);
+    }
+
+    Log.Info($"Player {player.Name} used {ability.Name} (power: {resolved.Power}, fromWeapon: {fromWeapon}, target: {targetGamePlayerId?.ToString() ?? "none"}, terrain: {targetTerrainFeatureId?.ToString() ?? "none"})");
   }
 
   [SpacetimeDB.Reducer]
-  public static void SetLoadout(ReducerContext ctx, ulong gameId, ulong weaponDefId, ulong skillDefId)
+  public static void SetLoadout(ReducerContext ctx, ulong gameId, ulong archetypeDefId, ulong weaponDefId, ulong skillDefId)
   {
     var player = GetPlayerForSender(ctx);
 
@@ -332,16 +377,23 @@ public static partial class Module
     var gp = FindGamePlayer(ctx, player.Id, gameId)
       ?? throw new Exception("You are not in this game");
 
-    if (ctx.Db.weapon_def.Id.Find(weaponDefId) is not WeaponDef)
-      throw new Exception("Weapon not found");
+    var archetype = ctx.Db.archetype_def.Id.Find(archetypeDefId)
+      ?? throw new Exception("Archetype not found");
 
-    if (ctx.Db.skill_def.Id.Find(skillDefId) is not SkillDef)
-      throw new Exception("Skill not found");
+    var weapon = ctx.Db.weapon_def.Id.Find(weaponDefId)
+      ?? throw new Exception("Weapon not found");
+
+    var skill = ctx.Db.skill_def.Id.Find(skillDefId)
+      ?? throw new Exception("Skillset not found");
+
+    if (skill.ArchetypeDefId != archetypeDefId)
+      throw new Exception("Skillset does not belong to the selected archetype");
 
     if (FindLoadout(ctx, gameId, player.Id) is Loadout existing)
     {
       ctx.Db.loadout.Id.Update(existing with
       {
+        ArchetypeDefId = archetypeDefId,
         WeaponDefId = weaponDefId,
         SkillDefId = skillDefId,
       });
@@ -353,11 +405,26 @@ public static partial class Module
         Id = 0,
         GameSessionId = gameId,
         PlayerId = player.Id,
+        ArchetypeDefId = archetypeDefId,
         WeaponDefId = weaponDefId,
         SkillDefId = skillDefId,
       });
     }
 
-    Log.Info($"Player {player.Name} set loadout for game {gameId}");
+    int baseHealth = 100;
+    int baseArmor = 0;
+    int newMaxHealth = baseHealth + archetype.BonusHealth;
+    int newArmor = baseArmor + archetype.BonusArmor;
+    ctx.Db.game_player.Id.Update(gp with
+    {
+      Health = newMaxHealth,
+      MaxHealth = newMaxHealth,
+      Armor = newArmor,
+    });
+
+    ClearResourcePools(ctx, gp.Id);
+    SeedResourcePools(ctx, gp.Id, archetype, weapon, skill);
+
+    Log.Info($"Player {player.Name} set loadout for game {gameId}: {archetype.Name} / {weapon.Name} / {skill.Name}");
   }
 }

@@ -19,6 +19,8 @@ namespace SpacetimeDB.Types
         public ulong GameSessionId;
         [DataMember(Name = "player_id")]
         public ulong PlayerId;
+        [DataMember(Name = "archetype_def_id")]
+        public ulong ArchetypeDefId;
         [DataMember(Name = "weapon_def_id")]
         public ulong WeaponDefId;
         [DataMember(Name = "skill_def_id")]
@@ -28,6 +30,7 @@ namespace SpacetimeDB.Types
             ulong Id,
             ulong GameSessionId,
             ulong PlayerId,
+            ulong ArchetypeDefId,
             ulong WeaponDefId,
             ulong SkillDefId
         )
@@ -35,6 +38,7 @@ namespace SpacetimeDB.Types
             this.Id = Id;
             this.GameSessionId = GameSessionId;
             this.PlayerId = PlayerId;
+            this.ArchetypeDefId = ArchetypeDefId;
             this.WeaponDefId = WeaponDefId;
             this.SkillDefId = SkillDefId;
         }

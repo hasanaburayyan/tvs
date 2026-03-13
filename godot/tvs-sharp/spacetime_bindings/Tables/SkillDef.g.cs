@@ -17,6 +17,15 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "skill_def";
 
+            public sealed class ArchetypeDefIdIndex : BTreeIndexBase<ulong>
+            {
+                protected override ulong GetKey(SkillDef row) => row.ArchetypeDefId;
+
+                public ArchetypeDefIdIndex(SkillDefHandle table) : base(table) { }
+            }
+
+            public readonly ArchetypeDefIdIndex ArchetypeDefId;
+
             public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
             {
                 protected override ulong GetKey(SkillDef row) => row.Id;
@@ -28,6 +37,7 @@ namespace SpacetimeDB.Types
 
             internal SkillDefHandle(DbConnection conn) : base(conn)
             {
+                ArchetypeDefId = new(this);
                 Id = new(this);
             }
 
@@ -43,6 +53,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<SkillDef, string> Name { get; }
         public global::SpacetimeDB.Col<SkillDef, string> Description { get; }
         public global::SpacetimeDB.Col<SkillDef, System.Collections.Generic.List<ulong>> AbilityIds { get; }
+        public global::SpacetimeDB.Col<SkillDef, ulong> ArchetypeDefId { get; }
+        public global::SpacetimeDB.Col<SkillDef, bool> GrantsMana { get; }
 
         public SkillDefCols(string tableName)
         {
@@ -50,16 +62,20 @@ namespace SpacetimeDB.Types
             Name = new global::SpacetimeDB.Col<SkillDef, string>(tableName, "name");
             Description = new global::SpacetimeDB.Col<SkillDef, string>(tableName, "description");
             AbilityIds = new global::SpacetimeDB.Col<SkillDef, System.Collections.Generic.List<ulong>>(tableName, "ability_ids");
+            ArchetypeDefId = new global::SpacetimeDB.Col<SkillDef, ulong>(tableName, "archetype_def_id");
+            GrantsMana = new global::SpacetimeDB.Col<SkillDef, bool>(tableName, "grants_mana");
         }
     }
 
     public sealed class SkillDefIxCols
     {
         public global::SpacetimeDB.IxCol<SkillDef, ulong> Id { get; }
+        public global::SpacetimeDB.IxCol<SkillDef, ulong> ArchetypeDefId { get; }
 
         public SkillDefIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<SkillDef, ulong>(tableName, "id");
+            ArchetypeDefId = new global::SpacetimeDB.IxCol<SkillDef, ulong>(tableName, "archetype_def_id");
         }
     }
 }

@@ -160,7 +160,7 @@ public partial class PlacementMode : Node3D
 	if (mgr?.Conn == null) return;
 
 	var targetPos = new DbVector3 { X = pos.X, Y = pos.Y, Z = pos.Z };
-	mgr.Conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, _rotationDeg);
+	mgr.Conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, null, targetPos, _rotationDeg);
 	GD.Print($"[PlacementMode] Placed terrain at ({pos.X:F1}, {pos.Z:F1}) rot={_rotationDeg:F0}");
 
 	Deactivate();

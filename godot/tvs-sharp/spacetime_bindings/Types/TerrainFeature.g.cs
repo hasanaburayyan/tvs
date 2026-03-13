@@ -41,6 +41,10 @@ namespace SpacetimeDB.Types
         public SpacetimeDB.Timestamp? ExpiresAt;
         [DataMember(Name = "expired")]
         public bool Expired;
+        [DataMember(Name = "health")]
+        public int Health;
+        [DataMember(Name = "max_health")]
+        public int MaxHealth;
 
         public TerrainFeature(
             ulong Id,
@@ -56,7 +60,9 @@ namespace SpacetimeDB.Types
             byte TeamIndex,
             ulong? CasterGamePlayerId,
             SpacetimeDB.Timestamp? ExpiresAt,
-            bool Expired
+            bool Expired,
+            int Health,
+            int MaxHealth
         )
         {
             this.Id = Id;
@@ -73,6 +79,8 @@ namespace SpacetimeDB.Types
             this.CasterGamePlayerId = CasterGamePlayerId;
             this.ExpiresAt = ExpiresAt;
             this.Expired = Expired;
+            this.Health = Health;
+            this.MaxHealth = MaxHealth;
         }
 
         public TerrainFeature()

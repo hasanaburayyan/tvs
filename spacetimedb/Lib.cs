@@ -123,6 +123,7 @@ public static partial class Module
       MapSeed = seed,
     });
     GenerateMap(ctx, session.Id, seed);
+    SchedulePassiveRegen(ctx, session.Id);
   }
 
   [SpacetimeDB.Reducer]
@@ -138,6 +139,7 @@ public static partial class Module
       MapSeed = seed,
     });
     GenerateMap(ctx, session.Id, seed);
+    SchedulePassiveRegen(ctx, session.Id);
     JoinGame(ctx, session.Id);
   }
 
@@ -150,6 +152,11 @@ public static partial class Module
       {
         if (check.TerrainFeatureId == feature.Id)
           ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+      }
+      foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+      {
+        if (regen.TerrainFeatureId == feature.Id)
+          ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
       }
       ctx.Db.terrain_feature.Id.Delete(feature.Id);
     }
@@ -170,6 +177,12 @@ public static partial class Module
 
     foreach (var log in ctx.Db.battle_log.GameSessionId.Filter(gameId))
       ctx.Db.battle_log.Id.Delete(log.Id);
+
+    foreach (var regen in ctx.Db.passive_regen_tick.Iter())
+    {
+      if (regen.GameSessionId == gameId)
+        ctx.Db.passive_regen_tick.Id.Delete(regen.Id);
+    }
 
     ctx.Db.game_session.Id.Delete(gameId);
   }
@@ -233,7 +246,7 @@ public static partial class Module
       desired_spawn_location = desired_spawn_location * 2;
     }
 
-    var newGp = ctx.Db.game_player.Insert(new GamePlayer
+    ctx.Db.game_player.Insert(new GamePlayer
     {
       GameSessionId = gameSession.Id,
       PlayerId = player.Id,
@@ -244,15 +257,6 @@ public static partial class Module
       Position = desired_spawn_location,
       RotationY = 0f
     });
-
-    SeedResourcePools(ctx, newGp.Id);
-  }
-
-  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId)
-  {
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Mana, Current = 100, Max = 100 });
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Stamina, Current = 100, Max = 100 });
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Ammo, Current = 30, Max = 30 });
   }
 
   [SpacetimeDB.Reducer]

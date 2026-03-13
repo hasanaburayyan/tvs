@@ -31,6 +31,8 @@ public static partial class Module
     RangePercent,
     CooldownPercent,
     RadiusPercent,
+    ArmorFlat,
+    SpeedPercent,
   }
 
   [SpacetimeDB.Type]
@@ -44,9 +46,10 @@ public static partial class Module
   public enum ResourceKind : byte
   {
     Health,
-    Mana,
     Stamina,
-    Ammo,
+    Supplies,
+    Mana,
+    Command,
   }
 
   [SpacetimeDB.Type]
@@ -54,5 +57,14 @@ public static partial class Module
   {
     public ResourceKind Kind;
     public int Amount;
+  }
+
+  [SpacetimeDB.Type]
+  public enum ArchetypeKind : byte
+  {
+    Officer,
+    Infantry,
+    Support,
+    Scout,
   }
 }
