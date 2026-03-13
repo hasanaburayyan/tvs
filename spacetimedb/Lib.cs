@@ -121,6 +121,7 @@ public static partial class Module
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
       MapSeed = seed,
+      RespawnTimerSeconds = 15,
     });
     GenerateMap(ctx, session.Id, seed);
     SchedulePassiveRegen(ctx, session.Id);
@@ -137,6 +138,7 @@ public static partial class Module
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
       MapSeed = seed,
+      RespawnTimerSeconds = 15,
     });
     GenerateMap(ctx, session.Id, seed);
     SchedulePassiveRegen(ctx, session.Id);
@@ -183,6 +185,9 @@ public static partial class Module
       if (regen.GameSessionId == gameId)
         ctx.Db.passive_regen_tick.Id.Delete(regen.Id);
     }
+
+    foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
+      ctx.Db.corpse.Id.Delete(c.Id);
 
     ctx.Db.game_session.Id.Delete(gameId);
   }
@@ -287,10 +292,102 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
+  public static void SetTeam(ReducerContext ctx, ulong gameId, byte teamSlot)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    if (teamSlot > 2)
+      throw new Exception("Invalid team slot (0=Neutral, 1=Entente, 2=Central)");
+
+    ctx.Db.game_player.Id.Update(gp with { TeamSlot = teamSlot });
+    Log.Info($"Player {player.Name} joined team {teamSlot} in game {gameId}");
+  }
+
+  static DbVector3 GetTeamSpawn(byte teamSlot)
+  {
+    return teamSlot switch
+    {
+      1 => new DbVector3(0, 3, -85),
+      2 => new DbVector3(0, 3, 85),
+      _ => new DbVector3(0, 3, 0),
+    };
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void Respawn(ReducerContext ctx, ulong gameId)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    if (!gp.Dead)
+      throw new Exception("Player is not dead");
+
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (gp.DiedAt is Timestamp diedAt)
+    {
+      var requiredWait = TimeSpan.FromSeconds(session.RespawnTimerSeconds);
+      if (ctx.Timestamp < diedAt + requiredWait)
+        throw new Exception("Respawn timer has not expired yet");
+    }
+
+    var spawnPos = GetTeamSpawn(gp.TeamSlot);
+
+    ctx.Db.game_player.Id.Update(gp with
+    {
+      Health = gp.MaxHealth,
+      Dead = false,
+      DiedAt = null,
+      Position = spawnPos,
+      TargetGamePlayerId = null,
+    });
+
+    ctx.Db.PositionOverride.Insert(new PositionOverride
+    {
+      Id = 0,
+      PlayerId = player.Id,
+      GameSessionId = gameId,
+      Position = spawnPos,
+    });
+
+    foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
+    {
+      if (c.GamePlayerId == gp.Id)
+        ctx.Db.corpse.Id.Update(c with { GamePlayerId = null });
+    }
+
+    var loadout = FindLoadout(ctx, gameId, player.Id);
+    if (loadout is Loadout lo)
+    {
+      var archetype = ctx.Db.archetype_def.Id.Find(lo.ArchetypeDefId);
+      var weapon = ctx.Db.weapon_def.Id.Find(lo.WeaponDefId);
+      var skill = ctx.Db.skill_def.Id.Find(lo.SkillDefId);
+      if (archetype is ArchetypeDef a && weapon is WeaponDef w && skill is SkillDef s)
+      {
+        ClearResourcePools(ctx, gp.Id);
+        SeedResourcePools(ctx, gp.Id, a, w, s);
+      }
+    }
+
+    Log.Info($"Player {player.Name} respawned at team {gp.TeamSlot} spawn in game {gameId}");
+  }
+
+  [SpacetimeDB.Reducer]
   public static void SetTarget(ReducerContext ctx, ulong gameId, ulong? targetGamePlayerId)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.Dead)
+      throw new Exception("Cannot set target while dead");
 
     if (gp.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
@@ -351,6 +448,8 @@ public static partial class Module
         {
           ctx.Db.terrain_feature.Id.Delete(feature.Id);
         }
+        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameSession.Id))
+          ctx.Db.corpse.Id.Delete(c.Id);
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }
 

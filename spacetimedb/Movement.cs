@@ -22,6 +22,9 @@ public static partial class Module
     var player = GetPlayerForSender(ctx);
     var gamePlayer = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("Game player not found!");
 
+    if (gamePlayer.Dead)
+      throw new Exception("Cannot move while dead");
+
     ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition, RotationY = rotationY });
   }
 

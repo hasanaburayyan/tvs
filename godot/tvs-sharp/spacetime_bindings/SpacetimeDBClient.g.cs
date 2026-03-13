@@ -36,6 +36,7 @@ namespace SpacetimeDB.Types
             AddTable(ActiveEffect = new(conn));
             AddTable(ArchetypeDef = new(conn));
             AddTable(BattleLog = new(conn));
+            AddTable(Corpse = new(conn));
             AddTable(GamePlayer = new(conn));
             AddTable(GameSession = new(conn));
             AddTable(Loadout = new(conn));
@@ -549,6 +550,7 @@ namespace SpacetimeDB.Types
             new QueryBuilder().From.ActiveEffect().ToSql(),
             new QueryBuilder().From.ArchetypeDef().ToSql(),
             new QueryBuilder().From.BattleLog().ToSql(),
+            new QueryBuilder().From.Corpse().ToSql(),
             new QueryBuilder().From.GamePlayer().ToSql(),
             new QueryBuilder().From.GameSession().ToSql(),
             new QueryBuilder().From.Loadout().ToSql(),
@@ -572,6 +574,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Table<ActiveEffect, ActiveEffectCols, ActiveEffectIxCols> ActiveEffect() => new("active_effect", new ActiveEffectCols("active_effect"), new ActiveEffectIxCols("active_effect"));
         public global::SpacetimeDB.Table<ArchetypeDef, ArchetypeDefCols, ArchetypeDefIxCols> ArchetypeDef() => new("archetype_def", new ArchetypeDefCols("archetype_def"), new ArchetypeDefIxCols("archetype_def"));
         public global::SpacetimeDB.Table<BattleLogEntry, BattleLogCols, BattleLogIxCols> BattleLog() => new("battle_log", new BattleLogCols("battle_log"), new BattleLogIxCols("battle_log"));
+        public global::SpacetimeDB.Table<Corpse, CorpseCols, CorpseIxCols> Corpse() => new("corpse", new CorpseCols("corpse"), new CorpseIxCols("corpse"));
         public global::SpacetimeDB.Table<GamePlayer, GamePlayerCols, GamePlayerIxCols> GamePlayer() => new("game_player", new GamePlayerCols("game_player"), new GamePlayerIxCols("game_player"));
         public global::SpacetimeDB.Table<GameSession, GameSessionCols, GameSessionIxCols> GameSession() => new("game_session", new GameSessionCols("game_session"), new GameSessionIxCols("game_session"));
         public global::SpacetimeDB.Table<Loadout, LoadoutCols, LoadoutIxCols> Loadout() => new("loadout", new LoadoutCols("loadout"), new LoadoutIxCols("loadout"));
@@ -679,10 +682,12 @@ namespace SpacetimeDB.Types
                 Reducer.MovePlayer args => Reducers.InvokeMovePlayer(eventContext, args),
                 Reducer.RemoveChatSessionById args => Reducers.InvokeRemoveChatSessionById(eventContext, args),
                 Reducer.RemoveChatSessionByName args => Reducers.InvokeRemoveChatSessionByName(eventContext, args),
+                Reducer.Respawn args => Reducers.InvokeRespawn(eventContext, args),
                 Reducer.SelectPlayer args => Reducers.InvokeSelectPlayer(eventContext, args),
                 Reducer.SendMessage args => Reducers.InvokeSendMessage(eventContext, args),
                 Reducer.SetLoadout args => Reducers.InvokeSetLoadout(eventContext, args),
                 Reducer.SetTarget args => Reducers.InvokeSetTarget(eventContext, args),
+                Reducer.SetTeam args => Reducers.InvokeSetTeam(eventContext, args),
                 Reducer.SoftDeleteMessage args => Reducers.InvokeSoftDeleteMessage(eventContext, args),
                 Reducer.TeleportPlayer args => Reducers.InvokeTeleportPlayer(eventContext, args),
                 Reducer.UseAbility args => Reducers.InvokeUseAbility(eventContext, args),

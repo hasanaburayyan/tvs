@@ -1,5 +1,6 @@
 using Godot;
 using SpacetimeDB.Types;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -20,10 +21,150 @@ public partial class PlayerHud : MarginContainer
   private ulong _gamePlayerId;
   private bool _subscribedToUpdates;
 
+  private ColorRect _reticle;
+
+  private PanelContainer _deathOverlay;
+  private Label _deathTimerLabel;
+  private Button _respawnButton;
+  private double _respawnCountdown = -1;
+  private ulong _deathGameSessionId;
+
   public override void _Ready()
   {
 	_hotbar = GetNode<Control>("%Hotbar");
 	_resourceBars = GetNode<VBoxContainer>("%ResourceBars");
+	_reticle = CreateReticle();
+	BuildDeathOverlay();
+  }
+
+  public override void _Process(double delta)
+  {
+	var cam = GetViewport().GetCamera3D();
+	bool locked = cam is FreelookCamera fc && fc.CameraLocked;
+	_reticle.Visible = Visible && locked && !_deathOverlay.Visible;
+
+	if (_reticle.Visible)
+	{
+	  var center = GetViewport().GetVisibleRect().Size / 2;
+	  _reticle.Position = new Vector2(center.X - 3, center.Y - 3);
+	}
+
+	if (_deathOverlay.Visible && _respawnCountdown > 0)
+	{
+	  _respawnCountdown -= delta;
+	  if (_respawnCountdown <= 0)
+	  {
+		_respawnCountdown = 0;
+		_deathTimerLabel.Text = "You may now respawn";
+		_respawnButton.Visible = true;
+	  }
+	  else
+	  {
+		_deathTimerLabel.Text = $"Respawning in {Math.Ceiling(_respawnCountdown):0}";
+	  }
+	}
+  }
+
+  private void BuildDeathOverlay()
+  {
+	_deathOverlay = new PanelContainer();
+	_deathOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
+	_deathOverlay.Visible = false;
+	_deathOverlay.MouseFilter = MouseFilterEnum.Stop;
+
+	var stylebox = new StyleBoxFlat
+	{
+	  BgColor = new Color(0, 0, 0, 0.6f),
+	};
+	_deathOverlay.AddThemeStyleboxOverride("panel", stylebox);
+
+	var vbox = new VBoxContainer();
+	vbox.SetAnchorsPreset(LayoutPreset.Center);
+	vbox.GrowHorizontal = GrowDirection.Both;
+	vbox.GrowVertical = GrowDirection.Both;
+	vbox.Alignment = BoxContainer.AlignmentMode.Center;
+	vbox.CustomMinimumSize = new Vector2(400, 200);
+	vbox.Position = new Vector2(-200, -100);
+	_deathOverlay.AddChild(vbox);
+
+	var titleLabel = new Label();
+	titleLabel.Text = "YOU DIED";
+	titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
+	titleLabel.AddThemeFontSizeOverride("font_size", 48);
+	titleLabel.AddThemeColorOverride("font_color", new Color(0.8f, 0.15f, 0.15f));
+	vbox.AddChild(titleLabel);
+
+	var spacer = new Control();
+	spacer.CustomMinimumSize = new Vector2(0, 20);
+	vbox.AddChild(spacer);
+
+	_deathTimerLabel = new Label();
+	_deathTimerLabel.Text = "";
+	_deathTimerLabel.HorizontalAlignment = HorizontalAlignment.Center;
+	_deathTimerLabel.AddThemeFontSizeOverride("font_size", 24);
+	vbox.AddChild(_deathTimerLabel);
+
+	var spacer2 = new Control();
+	spacer2.CustomMinimumSize = new Vector2(0, 16);
+	vbox.AddChild(spacer2);
+
+	_respawnButton = new Button();
+	_respawnButton.Text = "Respawn";
+	_respawnButton.Visible = false;
+	_respawnButton.CustomMinimumSize = new Vector2(160, 40);
+	_respawnButton.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
+	_respawnButton.Pressed += OnRespawnPressed;
+	vbox.AddChild(_respawnButton);
+
+	AddChild(_deathOverlay);
+  }
+
+  public void ShowDeathOverlay(ulong gameSessionId, long diedAtMicros, uint respawnTimerSeconds)
+  {
+	_deathGameSessionId = gameSessionId;
+	_respawnCountdown = respawnTimerSeconds;
+
+	if (diedAtMicros > 0)
+	{
+	  var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+	  var diedAtMs = diedAtMicros / 1000;
+	  var elapsedSec = (now - diedAtMs) / 1000.0;
+	  _respawnCountdown = Math.Max(0, respawnTimerSeconds - elapsedSec);
+	}
+
+	_respawnButton.Visible = _respawnCountdown <= 0;
+	_deathTimerLabel.Text = _respawnCountdown > 0
+	  ? $"Respawning in {Math.Ceiling(_respawnCountdown):0}"
+	  : "You may now respawn";
+	_deathOverlay.Visible = true;
+  }
+
+  public void HideDeathOverlay()
+  {
+	_deathOverlay.Visible = false;
+	_respawnCountdown = -1;
+  }
+
+  private void OnRespawnPressed()
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+	conn.Reducers.Respawn(_deathGameSessionId);
+  }
+
+  private ColorRect CreateReticle()
+  {
+	var dot = new ColorRect
+	{
+	  Color = new Color(1f, 1f, 1f, 0.85f),
+	  CustomMinimumSize = new Vector2(6, 6),
+	  Size = new Vector2(6, 6),
+	  Visible = false,
+	  MouseFilter = Control.MouseFilterEnum.Ignore,
+	  TopLevel = true,
+	};
+	AddChild(dot);
+	return dot;
   }
 
   public void Initialize(ulong gameSessionId)

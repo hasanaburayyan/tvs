@@ -27,6 +27,13 @@ MapManager = NodePath("MapManager")
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1523776012]
 script = ExtResource("2_1bvp3")
 
+[node name="PlayerHud" parent="HUD" unique_id=522126320 instance=ExtResource("8_kek77")]
+unique_name_in_owner = true
+visible = false
+
+[node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("6_272bh")]
+unique_name_in_owner = true
+
 [node name="InGameMenu" parent="HUD" unique_id=1594831292 node_paths=PackedStringArray("hud") instance=ExtResource("5_7mycd")]
 unique_name_in_owner = true
 visible = false
@@ -51,13 +58,6 @@ hud = NodePath("..")
 unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
-
-[node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("6_272bh")]
-unique_name_in_owner = true
-
-[node name="PlayerHud" parent="HUD" unique_id=522126320 instance=ExtResource("8_kek77")]
-unique_name_in_owner = true
-visible = false
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1775772858]
 

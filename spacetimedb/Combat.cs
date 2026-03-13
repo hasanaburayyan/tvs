@@ -111,23 +111,52 @@ public static partial class Module
       ctx.Db.resource_pool.Id.Delete(pool.Id);
   }
 
-  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId, ArchetypeDef archetype, WeaponDef weapon, SkillDef skill)
+  static HashSet<ResourceKind> CollectRequiredResources(ReducerContext ctx, ArchetypeDef archetype, WeaponDef weapon, SkillDef skill)
   {
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Stamina, Current = 100, Max = 100 });
+    var kinds = new HashSet<ResourceKind>();
+    var abilityIds = new List<ulong>();
+    abilityIds.AddRange(archetype.InnateAbilityIds);
+    abilityIds.Add(weapon.PrimaryAbilityId);
+    abilityIds.AddRange(skill.AbilityIds);
 
-    if (weapon.GrantsSupplies)
+    foreach (var abilityId in abilityIds)
     {
-      int maxSupplies = 30;
-      if (skill.Name == "Commando") maxSupplies = 15;
-      else if (skill.Name == "Fire Support") maxSupplies = 50;
-      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Supplies, Current = maxSupplies, Max = maxSupplies });
+      if (ctx.Db.ability_def.Id.Find(abilityId) is AbilityDef ability)
+      {
+        foreach (var cost in ability.ResourceCosts)
+          kinds.Add(cost.Kind);
+      }
     }
 
-    if (skill.GrantsMana)
-      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Mana, Current = 100, Max = 100 });
+    kinds.Remove(ResourceKind.Health);
+    kinds.Add(ResourceKind.Stamina);
 
-    if (archetype.Kind == ArchetypeKind.Officer)
-      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Command, Current = 100, Max = 100 });
+    return kinds;
+  }
+
+  static int GetMaxForResource(ResourceKind kind, SkillDef skill)
+  {
+    switch (kind)
+    {
+      case ResourceKind.Supplies:
+        if (skill.Name == "Commando") return 15;
+        if (skill.Name == "Fire Support") return 50;
+        return 30;
+      case ResourceKind.Stamina: return 100;
+      case ResourceKind.Mana: return 100;
+      case ResourceKind.Command: return 100;
+      default: return 100;
+    }
+  }
+
+  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId, ArchetypeDef archetype, WeaponDef weapon, SkillDef skill)
+  {
+    var needed = CollectRequiredResources(ctx, archetype, weapon, skill);
+    foreach (var kind in needed)
+    {
+      int max = GetMaxForResource(kind, skill);
+      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = kind, Current = max, Max = max });
+    }
   }
 
   [SpacetimeDB.Reducer]
@@ -135,6 +164,9 @@ public static partial class Module
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.Dead)
+      throw new Exception("Cannot use abilities while dead");
 
     if (gp.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
@@ -336,7 +368,25 @@ public static partial class Module
       {
         int effectiveDamage = Math.Max(0, resolved.Power - dmgTarget.Armor);
         int newHealth = Math.Max(0, dmgTarget.Health - effectiveDamage);
-        ctx.Db.game_player.Id.Update(dmgTarget with { Health = newHealth });
+        var updated = dmgTarget with { Health = newHealth };
+
+        if (newHealth <= 0 && !dmgTarget.Dead)
+        {
+          updated = updated with { Dead = true, DiedAt = ctx.Timestamp };
+          ClearTargetsForGamePlayer(ctx, dmgTarget.Id, dmgTarget.GameSessionId);
+
+          ctx.Db.corpse.Insert(new Corpse
+          {
+            Id = 0,
+            GameSessionId = gameId,
+            GamePlayerId = dmgTarget.Id,
+            PlayerId = dmgTarget.PlayerId,
+            Position = dmgTarget.Position,
+            RotationY = dmgTarget.RotationY,
+          });
+        }
+
+        ctx.Db.game_player.Id.Update(updated);
       }
       else if (ability.Type == AbilityType.Heal)
       {

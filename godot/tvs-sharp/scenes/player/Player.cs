@@ -21,6 +21,8 @@ public partial class Player : CharacterBody3D
   public bool IsLocal;
   public String username;
 
+  public bool IsDead { get; private set; }
+
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
   private float _lastSyncedRotationY = 0.0f;
@@ -56,6 +58,7 @@ public partial class Player : CharacterBody3D
 
   public void OnStateUpdated(Vector3 newPosition, float newRotationY)
   {
+	if (IsDead) return;
 	_lerpTime = 0.0f;
 	_lerpStart = Position;
 	_lerpTarget = newPosition;
@@ -72,8 +75,32 @@ public partial class Player : CharacterBody3D
 	Velocity = Vector3.Zero;
   }
 
+  public void PlayDeath()
+  {
+	IsDead = true;
+	_animPlayer.Play("Death");
+  }
+
+  public void Revive()
+  {
+	IsDead = false;
+	_animPlayer.Stop();
+  }
+
+  public void SetTeamColor(byte teamSlot)
+  {
+	_nametag.Modulate = teamSlot switch
+	{
+	  1 => new Color(0.3f, 0.5f, 1.0f),
+	  2 => new Color(1.0f, 0.3f, 0.3f),
+	  _ => new Color(1f, 1f, 1f),
+	};
+  }
+
   public override void _PhysicsProcess(double delta)
   {
+	if (IsDead) return;
+
 	if (!IsLocal)
 	{
 	  _lerpTime = Mathf.Min(_lerpTime + (float)delta, LERP_DURATION);
@@ -136,6 +163,8 @@ public partial class Player : CharacterBody3D
 
   private void UpdateAnimation(bool isMoving)
   {
+	if (IsDead) return;
+
 	if (isMoving)
 	{
 	  if (_animPlayer.CurrentAnimation != "Rifle_Walk_Aiming")
