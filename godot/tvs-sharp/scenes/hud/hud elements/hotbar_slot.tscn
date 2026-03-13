@@ -8,6 +8,9 @@ size = Vector2(50, 50)
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_aeqnf"]
 size = Vector2(30, 30)
 
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_cd"]
+size = Vector2(50, 50)
+
 [node name="Slot1" type="VBoxContainer" unique_id=154432610]
 custom_minimum_size = Vector2(60, 0)
 script = ExtResource("1_e5pxt")
@@ -23,6 +26,33 @@ unique_name_in_owner = true
 layout_mode = 2
 texture_normal = SubResource("PlaceholderTexture2D_e5pxt")
 texture_pressed = SubResource("PlaceholderTexture2D_aeqnf")
+
+[node name="CooldownOverlay" type="TextureProgressBar" parent="Image"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+modulate = Color(0, 0, 0, 0.6)
+max_value = 1.0
+value = 0.0
+fill_mode = 4
+texture_progress = SubResource("PlaceholderTexture2D_cd")
+
+[node name="CooldownLabel" type="Label" parent="Image"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="NameLabel" type="Label" parent="." unique_id=1785272990]
 unique_name_in_owner = true
