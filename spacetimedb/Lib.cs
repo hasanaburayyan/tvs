@@ -125,6 +125,7 @@ public static partial class Module
     });
     GenerateMap(ctx, session.Id, seed);
     SchedulePassiveRegen(ctx, session.Id);
+    ScheduleLosCheck(ctx, session.Id);
   }
 
   [SpacetimeDB.Reducer]
@@ -142,7 +143,40 @@ public static partial class Module
     });
     GenerateMap(ctx, session.Id, seed);
     SchedulePassiveRegen(ctx, session.Id);
+    ScheduleLosCheck(ctx, session.Id);
     JoinGame(ctx, session.Id);
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void StartGame(ReducerContext ctx, ulong gameId)
+  {
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (session.OwnerIdentity != ctx.Sender)
+      throw new Exception("Only the game owner can start the game");
+
+    if (session.State != SessionState.Lobby)
+      throw new Exception("Game is not in lobby state");
+
+    ctx.Db.game_session.Id.Update(session with { State = SessionState.InProgress });
+    Log.Info($"Game {gameId} started");
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void EndGame(ReducerContext ctx, ulong gameId)
+  {
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (session.OwnerIdentity != ctx.Sender)
+      throw new Exception("Only the game owner can end the game");
+
+    if (session.State == SessionState.Ended)
+      throw new Exception("Game is already ended");
+
+    ctx.Db.game_session.Id.Update(session with { State = SessionState.Ended });
+    Log.Info($"Game {gameId} ended");
   }
 
   [SpacetimeDB.Reducer]
@@ -186,8 +220,23 @@ public static partial class Module
         ctx.Db.passive_regen_tick.Id.Delete(regen.Id);
     }
 
+    foreach (var los in ctx.Db.los_check_schedule.Iter())
+    {
+      if (los.GameSessionId == gameId)
+        ctx.Db.los_check_schedule.Id.Delete(los.Id);
+    }
+
     foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
       ctx.Db.corpse.Id.Delete(c.Id);
+
+    foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(gameId))
+      ctx.Db.capture_point.Id.Delete(cp.Id);
+
+    foreach (var ct in ctx.Db.capture_tick.Iter())
+    {
+      if (ct.GameSessionId == gameId)
+        ctx.Db.capture_tick.Id.Delete(ct.Id);
+    }
 
     ctx.Db.game_session.Id.Delete(gameId);
   }
@@ -234,13 +283,17 @@ public static partial class Module
 
     DeactivateGamePlayer(ctx, player.Id);
 
-    var desired_spawn_location = new DbVector3(0, floor_height + 1, 0);
+    float spawnY = floor_height + 1;
+    float spawnX = 0;
+    float spawnZ = 0;
+    float offset = 3f;
 
     var try_spawn_location = bool () =>
     {
+      var desired = new DbVector3(spawnX, spawnY, spawnZ);
       foreach (var other_player in ctx.Db.game_player.GameSessionId.Filter(gameId))
       {
-        if (other_player.Active && other_player.Position == desired_spawn_location)
+        if (other_player.Active && other_player.Position == desired)
           return false;
       }
       return true;
@@ -248,8 +301,10 @@ public static partial class Module
 
     while (!try_spawn_location())
     {
-      desired_spawn_location = desired_spawn_location * 2;
+      spawnX += offset;
     }
+
+    var desired_spawn_location = new DbVector3(spawnX, spawnY, spawnZ);
 
     ctx.Db.game_player.Insert(new GamePlayer
     {
@@ -446,10 +501,37 @@ public static partial class Module
           ctx.Db.battle_log.Id.Delete(log.Id);
         foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameSession.Id))
         {
+          foreach (var check in ctx.Db.terrain_expiry_check.Iter())
+          {
+            if (check.TerrainFeatureId == feature.Id)
+              ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+          }
+          foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+          {
+            if (regen.TerrainFeatureId == feature.Id)
+              ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
+          }
           ctx.Db.terrain_feature.Id.Delete(feature.Id);
+        }
+        foreach (var regen in ctx.Db.passive_regen_tick.Iter())
+        {
+          if (regen.GameSessionId == gameSession.Id)
+            ctx.Db.passive_regen_tick.Id.Delete(regen.Id);
+        }
+        foreach (var los in ctx.Db.los_check_schedule.Iter())
+        {
+          if (los.GameSessionId == gameSession.Id)
+            ctx.Db.los_check_schedule.Id.Delete(los.Id);
         }
         foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameSession.Id))
           ctx.Db.corpse.Id.Delete(c.Id);
+        foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(gameSession.Id))
+          ctx.Db.capture_point.Id.Delete(cp.Id);
+        foreach (var ct in ctx.Db.capture_tick.Iter())
+        {
+          if (ct.GameSessionId == gameSession.Id)
+            ctx.Db.capture_tick.Id.Delete(ct.Id);
+        }
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }
 

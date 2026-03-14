@@ -84,7 +84,14 @@ public partial class Player : CharacterBody3D
   public void Revive()
   {
 	IsDead = false;
-	_animPlayer.Stop();
+	if (_animPlayer.HasAnimation("RESET"))
+	  _animPlayer.Play("RESET");
+	else
+	{
+	  _animPlayer.Play("Rifle_Walk_Aiming");
+	  _animPlayer.Seek(0, true);
+	  _animPlayer.Stop();
+	}
   }
 
   public void SetTeamColor(byte teamSlot)

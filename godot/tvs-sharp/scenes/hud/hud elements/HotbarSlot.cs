@@ -64,6 +64,8 @@ public partial class HotbarSlot : VBoxContainer
 	_cooldownLabel.Text = remaining >= 10 ? $"{remaining:F0}" : $"{remaining:F1}";
   }
 
+  private bool _subscribed;
+
   public void SetAbility(AbilityDef ability, string keybindLabel, ulong gameSessionId)
   {
 	_abilityId = ability.Id;
@@ -87,10 +89,33 @@ public partial class HotbarSlot : VBoxContainer
 	if (ResourceLoader.Exists(iconPath))
 	  _image.TextureNormal = GD.Load<Texture2D>(iconPath);
 
+	SubscribeToCooldowns();
+  }
+
+  private void SubscribeToCooldowns()
+  {
+	if (_subscribed) return;
+	_subscribed = true;
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	conn.Db.AbilityCooldown.OnInsert += OnAbilityCoolDownInsert;
 	conn.Db.AbilityCooldown.OnUpdate += OnAbilityCoolDownUpdate;
 	conn.Db.AbilityCooldown.OnDelete += OnAbilityCoolDownDelete;
+  }
+
+  private void UnsubscribeFromCooldowns()
+  {
+	if (!_subscribed) return;
+	_subscribed = false;
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+	conn.Db.AbilityCooldown.OnInsert -= OnAbilityCoolDownInsert;
+	conn.Db.AbilityCooldown.OnUpdate -= OnAbilityCoolDownUpdate;
+	conn.Db.AbilityCooldown.OnDelete -= OnAbilityCoolDownDelete;
+  }
+
+  public override void _ExitTree()
+  {
+	UnsubscribeFromCooldowns();
   }
 
   public void OnAbilityCoolDownInsert(EventContext ctx, AbilityCooldown ac)

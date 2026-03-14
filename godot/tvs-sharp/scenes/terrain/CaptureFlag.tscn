@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scenes/terrain/CaptureFlag.cs" id="script_1"]
+
+[sub_resource type="StandardMaterial3D" id="mat_pole"]
+albedo_color = Color(0.35, 0.25, 0.15, 1)
+
+[sub_resource type="CylinderMesh" id="mesh_pole"]
+material = SubResource("mat_pole")
+top_radius = 0.06
+bottom_radius = 0.08
+height = 4.0
+
+[sub_resource type="BoxMesh" id="mesh_flag"]
+size = Vector3(1.2, 0.8, 0.05)
+
+[sub_resource type="CylinderMesh" id="mesh_circle"]
+top_radius = 10.0
+bottom_radius = 10.0
+height = 0.02
+
+[sub_resource type="CylinderMesh" id="mesh_base"]
+material = SubResource("mat_pole")
+top_radius = 0.3
+bottom_radius = 0.35
+height = 0.15
+
+[node name="CaptureFlag" type="Node3D"]
+script = ExtResource("script_1")
+
+[node name="Pole" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
+mesh = SubResource("mesh_pole")
+
+[node name="Flag" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.66, 3.6, 0)
+mesh = SubResource("mesh_flag")
+
+[node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.075, 0)
+mesh = SubResource("mesh_base")
+
+[node name="CaptureRadius" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
+mesh = SubResource("mesh_circle")

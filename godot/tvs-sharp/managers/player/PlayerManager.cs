@@ -23,6 +23,9 @@ public partial class PlayerManager : Node
   [Signal]
   public delegate void LocalPlayerRevivedEventHandler();
 
+  [Signal]
+  public delegate void PlayerKilledEventHandler(string killerName, string victimName, byte killerTeam, byte victimTeam);
+
   public void LoadLobby() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	foreach (var gamePlayer in conn.Db.GamePlayer.GameSessionId.Filter(GameId)) {
@@ -111,9 +114,31 @@ public partial class PlayerManager : Node
 		{
 		  player.PlayDeath();
 
+		  var conn = SpacetimeNetworkManager.Instance.Conn;
+		  string victimName = conn.Db.Player.Id.Find(newGamePlayer.PlayerId)?.Name ?? "Unknown";
+		  string killerName = "Unknown";
+		  byte killerTeam = 0;
+
+		  foreach (var log in conn.Db.BattleLog.Iter())
+		  {
+			if (log.GameSessionId != GameId) continue;
+			if (!log.TargetGamePlayerIds.Contains(newGamePlayer.Id)) continue;
+			var ability = conn.Db.AbilityDef.Id.Find(log.AbilityId);
+			if (ability?.Type != AbilityType.Damage) continue;
+
+			var actorGp = conn.Db.GamePlayer.Id.Find(log.ActorGamePlayerId);
+			if (actorGp != null)
+			{
+			  killerName = conn.Db.Player.Id.Find(actorGp.PlayerId)?.Name ?? "Unknown";
+			  killerTeam = actorGp.TeamSlot;
+			}
+		  }
+
+		  EmitSignal(SignalName.PlayerKilled, killerName, victimName, killerTeam, newGamePlayer.TeamSlot);
+
 		  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
 		  {
-			var session = SpacetimeNetworkManager.Instance.Conn.Db.GameSession.Id.Find(GameId);
+			var session = conn.Db.GameSession.Id.Find(GameId);
 			uint timer = session?.RespawnTimerSeconds ?? 15;
 			long diedMicros = newGamePlayer.DiedAt?.MicrosecondsSinceUnixEpoch ?? 0;
 			EmitSignal(SignalName.LocalPlayerDied, GameId, diedMicros, timer);
@@ -226,7 +251,7 @@ public partial class PlayerManager : Node
   public void DestroyLobby() {
 	foreach (var child in PlayerSpawnPath.GetChildren()) {
 	  if (child is Player) {
-		PlayerSpawnPath.RemoveChild(child);
+		child.QueueFree();
 	  }
 	}
 

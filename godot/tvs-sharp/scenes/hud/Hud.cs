@@ -180,4 +180,19 @@ public partial class Hud : CanvasLayer
   {
 	_playerHud.HideDeathOverlay();
   }
+
+  public void AddKillFeedEntry(string killerName, string victimName, byte killerTeam, byte victimTeam)
+  {
+	_playerHud.AddKillFeedEntry(killerName, victimName, killerTeam, victimTeam);
+  }
+
+  public void UpdateCapturePoint(ulong pointId, float posX, float posZ, float radius, int inf1, int inf2, int max, byte owner)
+  {
+	_playerHud.UpdateCapturePoint(pointId, posX, posZ, radius, inf1, inf2, max, owner);
+  }
+
+  public void RemoveCapturePoint(ulong pointId)
+  {
+	_playerHud.RemoveCapturePoint(pointId);
+  }
 }

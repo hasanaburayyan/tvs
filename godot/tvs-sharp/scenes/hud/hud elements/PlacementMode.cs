@@ -84,9 +84,9 @@ public partial class PlacementMode : Node3D
 	var rayOrigin = _camera.ProjectRayOrigin(mousePos);
 	var rayDir = _camera.ProjectRayNormal(mousePos);
 
-	// Intersect with Y=0 ground plane
+	const float floorSurfaceY = 1f;
 	if (Mathf.Abs(rayDir.Y) < 0.001f) return;
-	float t = -rayOrigin.Y / rayDir.Y;
+	float t = (floorSurfaceY - rayOrigin.Y) / rayDir.Y;
 	if (t < 0) return;
 
 	var hitPoint = rayOrigin + rayDir * t;
@@ -154,7 +154,7 @@ public partial class PlacementMode : Node3D
 	if (_ghost == null) return;
 
 	var pos = _ghost.GlobalPosition;
-	pos.Y = 0;
+	pos.Y = 0f;
 
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.Conn == null) return;

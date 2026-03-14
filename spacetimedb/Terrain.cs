@@ -70,7 +70,9 @@ public static partial class Module {
     if (ctx.Db.terrain_feature.Id.Find(tick.TerrainFeatureId) is not TerrainFeature outpost)
       return;
 
-    if (outpost.Expired || outpost.Health <= 0 || outpost.Type != TerrainType.Outpost)
+    if (outpost.Expired || outpost.Health <= 0)
+      return;
+    if (outpost.Type != TerrainType.Outpost && outpost.Type != TerrainType.CommandCenter)
       return;
 
     float ox = outpost.PosX;
@@ -79,7 +81,8 @@ public static partial class Module {
 
     foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(outpost.GameSessionId))
     {
-      if (!gp.Active) continue;
+      if (!gp.Active || gp.Dead) continue;
+      if (outpost.TeamIndex != 0 && gp.TeamSlot != outpost.TeamIndex) continue;
 
       float dx = gp.Position.x - ox;
       float dz = gp.Position.z - oz;
@@ -137,7 +140,15 @@ public static partial class Module {
 
     foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(tick.GameSessionId))
     {
-      if (!gp.Active || gp.Dead) continue;
+      if (!gp.Active) continue;
+
+      foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
+      {
+        if (effect.ExpiresAt.MicrosecondsSinceUnixEpoch < ctx.Timestamp.MicrosecondsSinceUnixEpoch)
+          ctx.Db.active_effect.Id.Delete(effect.Id);
+      }
+
+      if (gp.Dead) continue;
 
       if (FindResourcePool(ctx, gp.Id, ResourceKind.Stamina) is ResourcePool stamina && stamina.Current < stamina.Max)
       {
@@ -167,6 +178,136 @@ public static partial class Module {
       Id = 0,
       GameSessionId = gameSessionId,
       ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(PassiveRegenIntervalMs)),
+    });
+  }
+
+  // --- Capture Points ---
+
+  const int CaptureInfluencePerPlayer = 1;
+  const int CaptureMaxInfluence = 100;
+  const float CaptureRadius = 10f;
+  const ulong CaptureTickIntervalMs = 1000;
+
+  [SpacetimeDB.Table(Accessor = "capture_point", Public = true)]
+  public partial struct CapturePoint
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+
+    [SpacetimeDB.Index.BTree]
+    public ulong GameSessionId;
+
+    public float PosX;
+    public float PosZ;
+    public float Radius;
+
+    public byte OwningTeam;
+    public int InfluenceTeam1;
+    public int InfluenceTeam2;
+    public int MaxInfluence;
+  }
+
+  [SpacetimeDB.Table(Accessor = "capture_tick", Scheduled = nameof(CapturePointTick))]
+  public partial struct CaptureTickSchedule
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+    public ulong GameSessionId;
+    public ScheduleAt ScheduledAt;
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void CapturePointTick(ReducerContext ctx, CaptureTickSchedule tick)
+  {
+    if (ctx.Db.game_session.Id.Find(tick.GameSessionId) is not GameSession session)
+      return;
+
+    if (session.State == SessionState.Ended)
+      return;
+
+    foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(tick.GameSessionId))
+    {
+      float radiusSq = cp.Radius * cp.Radius;
+      int team1Count = 0;
+      int team2Count = 0;
+
+      foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(tick.GameSessionId))
+      {
+        if (!gp.Active || gp.Dead || gp.TeamSlot == 0) continue;
+
+        float dx = gp.Position.x - cp.PosX;
+        float dz = gp.Position.z - cp.PosZ;
+        if (dx * dx + dz * dz > radiusSq) continue;
+
+        if (gp.TeamSlot == 1) team1Count++;
+        else if (gp.TeamSlot == 2) team2Count++;
+      }
+
+      int net = (team1Count - team2Count) * CaptureInfluencePerPlayer;
+      if (net == 0) continue;
+
+      int inf1 = cp.InfluenceTeam1;
+      int inf2 = cp.InfluenceTeam2;
+
+      if (net > 0)
+      {
+        if (inf2 > 0)
+        {
+          inf2 -= net;
+          if (inf2 < 0) { inf1 += -inf2; inf2 = 0; }
+        }
+        else
+        {
+          inf1 += net;
+        }
+      }
+      else
+      {
+        int absNet = -net;
+        if (inf1 > 0)
+        {
+          inf1 -= absNet;
+          if (inf1 < 0) { inf2 += -inf1; inf1 = 0; }
+        }
+        else
+        {
+          inf2 += absNet;
+        }
+      }
+
+      inf1 = Math.Clamp(inf1, 0, cp.MaxInfluence);
+      inf2 = Math.Clamp(inf2, 0, cp.MaxInfluence);
+
+      byte owner = cp.OwningTeam;
+      if (inf1 >= cp.MaxInfluence) owner = 1;
+      else if (inf2 >= cp.MaxInfluence) owner = 2;
+      else if (inf1 == 0 && inf2 == 0) owner = 0;
+
+      ctx.Db.capture_point.Id.Update(cp with
+      {
+        InfluenceTeam1 = inf1,
+        InfluenceTeam2 = inf2,
+        OwningTeam = owner,
+      });
+    }
+
+    ctx.Db.capture_tick.Insert(new CaptureTickSchedule
+    {
+      Id = 0,
+      GameSessionId = tick.GameSessionId,
+      ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(CaptureTickIntervalMs)),
+    });
+  }
+
+  static void ScheduleCaptureTick(ReducerContext ctx, ulong gameSessionId)
+  {
+    ctx.Db.capture_tick.Insert(new CaptureTickSchedule
+    {
+      Id = 0,
+      GameSessionId = gameSessionId,
+      ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(CaptureTickIntervalMs)),
     });
   }
 }

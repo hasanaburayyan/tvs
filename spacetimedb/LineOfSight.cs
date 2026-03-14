@@ -114,16 +114,19 @@ public static partial class Module
   public static void CheckLineOfSight(ReducerContext ctx, LosCheckSchedule schedule)
   {
     var session = ctx.Db.game_session.Id.Find(schedule.GameSessionId);
-    if (session is not GameSession gs || gs.State != SessionState.InProgress)
+    if (session is not GameSession gs)
+      return;
+
+    if (gs.State == SessionState.Ended)
       return;
 
     foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(schedule.GameSessionId))
     {
-      if (!gp.Active || gp.TargetGamePlayerId is not ulong targetId) continue;
+      if (!gp.Active || gp.Dead || gp.TargetGamePlayerId is not ulong targetId) continue;
 
       if (ctx.Db.game_player.Id.Find(targetId) is not GamePlayer target) continue;
 
-      if (!HasLineOfSight(ctx, gp.Position, target.Position, schedule.GameSessionId))
+      if (target.Dead || !HasLineOfSight(ctx, gp.Position, target.Position, schedule.GameSessionId))
         ctx.Db.game_player.Id.Update(gp with { TargetGamePlayerId = null });
     }
 
@@ -131,6 +134,16 @@ public static partial class Module
     {
       Id = 0,
       GameSessionId = schedule.GameSessionId,
+      ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(500)),
+    });
+  }
+
+  static void ScheduleLosCheck(ReducerContext ctx, ulong gameSessionId)
+  {
+    ctx.Db.los_check_schedule.Insert(new LosCheckSchedule
+    {
+      Id = 0,
+      GameSessionId = gameSessionId,
       ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(500)),
     });
   }

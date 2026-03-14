@@ -29,12 +29,23 @@ public partial class PlayerHud : MarginContainer
   private double _respawnCountdown = -1;
   private ulong _deathGameSessionId;
 
+  private VBoxContainer _killFeed;
+  private readonly List<(Label label, double ttl)> _killFeedEntries = new();
+
+  private Control _captureBarContainer;
+  private ColorRect _captureBarBg;
+  private ColorRect _captureBarFill;
+  private readonly Dictionary<ulong, (float posX, float posZ, float radius, int inf1, int inf2, int max, byte owner)> _captureStates = new();
+  private ulong? _activeCapturePointId;
+
   public override void _Ready()
   {
 	_hotbar = GetNode<Control>("%Hotbar");
 	_resourceBars = GetNode<VBoxContainer>("%ResourceBars");
 	_reticle = CreateReticle();
 	BuildDeathOverlay();
+	BuildKillFeed();
+	BuildCaptureBar();
   }
 
   public override void _Process(double delta)
@@ -61,6 +72,25 @@ public partial class PlayerHud : MarginContainer
 	  else
 	  {
 		_deathTimerLabel.Text = $"Respawning in {Math.Ceiling(_respawnCountdown):0}";
+	  }
+	}
+
+	PositionKillFeed();
+	PositionCaptureBar();
+	for (int i = _killFeedEntries.Count - 1; i >= 0; i--)
+	{
+	  var (label, ttl) = _killFeedEntries[i];
+	  ttl -= delta;
+	  if (ttl <= 0)
+	  {
+		label.QueueFree();
+		_killFeedEntries.RemoveAt(i);
+	  }
+	  else
+	  {
+		float alpha = (float)Math.Min(1.0, ttl);
+		label.Modulate = new Color(1f, 1f, 1f, alpha);
+		_killFeedEntries[i] = (label, ttl);
 	  }
 	}
   }
@@ -152,6 +182,203 @@ public partial class PlayerHud : MarginContainer
 	conn.Reducers.Respawn(_deathGameSessionId);
   }
 
+  private void BuildKillFeed()
+  {
+	_killFeed = new VBoxContainer
+	{
+	  TopLevel = true,
+	  CustomMinimumSize = new Vector2(300, 0),
+	};
+	_killFeed.AddThemeConstantOverride("separation", 4);
+	AddChild(_killFeed);
+  }
+
+  private void PositionKillFeed()
+  {
+	if (_killFeed == null) return;
+	var viewSize = GetViewport().GetVisibleRect().Size;
+	_killFeed.Position = new Vector2(viewSize.X - 310, 10);
+  }
+
+  public void AddKillFeedEntry(string killerName, string victimName, byte killerTeam, byte victimTeam)
+  {
+	var label = new Label
+	{
+	  HorizontalAlignment = HorizontalAlignment.Right,
+	  MouseFilter = MouseFilterEnum.Ignore,
+	};
+	label.AddThemeFontSizeOverride("font_size", 14);
+
+	var killerColor = GetTeamColorHex(killerTeam);
+	var victimColor = GetTeamColorHex(victimTeam);
+	label.Text = $"{killerName} killed {victimName}";
+	label.Modulate = new Color(1f, 1f, 1f, 1f);
+
+	_killFeed.AddChild(label);
+	_killFeedEntries.Add((label, 5.0));
+
+	while (_killFeedEntries.Count > 6)
+	{
+	  _killFeedEntries[0].label.QueueFree();
+	  _killFeedEntries.RemoveAt(0);
+	}
+  }
+
+  private static Color GetTeamColorHex(byte team)
+  {
+	return team switch
+	{
+	  1 => new Color(0.3f, 0.5f, 1f),
+	  2 => new Color(1f, 0.3f, 0.3f),
+	  _ => new Color(0.7f, 0.7f, 0.7f),
+	};
+  }
+
+  private void BuildCaptureBar()
+  {
+	_captureBarContainer = new Control
+	{
+	  TopLevel = true,
+	  MouseFilter = MouseFilterEnum.Ignore,
+	};
+	AddChild(_captureBarContainer);
+
+	_captureBarBg = new ColorRect
+	{
+	  Color = new Color(0.15f, 0.15f, 0.15f, 0.7f),
+	  Size = new Vector2(200, 14),
+	  MouseFilter = MouseFilterEnum.Ignore,
+	};
+	_captureBarContainer.AddChild(_captureBarBg);
+
+	_captureBarFill = new ColorRect
+	{
+	  Color = new Color(1f, 1f, 1f, 0.9f),
+	  Size = new Vector2(0, 10),
+	  Position = new Vector2(0, 2),
+	  MouseFilter = MouseFilterEnum.Ignore,
+	};
+	_captureBarBg.AddChild(_captureBarFill);
+
+	_captureBarContainer.Visible = false;
+  }
+
+  public void UpdateCapturePoint(ulong pointId, float posX, float posZ, float radius, int inf1, int inf2, int max, byte owner)
+  {
+	_captureStates[pointId] = (posX, posZ, radius, inf1, inf2, max, owner);
+	if (_activeCapturePointId == pointId)
+	  RefreshCaptureBar(pointId);
+	else
+	  CheckCaptureProximity();
+  }
+
+  public void RemoveCapturePoint(ulong pointId)
+  {
+	_captureStates.Remove(pointId);
+	if (_activeCapturePointId == pointId)
+	{
+	  _activeCapturePointId = null;
+	  _captureBarContainer.Visible = false;
+	}
+  }
+
+  private void CheckCaptureProximity()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || _gamePlayerId == 0)
+	{
+	  ClearActiveCapturePoint();
+	  return;
+	}
+
+	var gp = mgr.Conn.Db.GamePlayer.Id.Find(_gamePlayerId);
+	if (gp == null || gp.Dead)
+	{
+	  ClearActiveCapturePoint();
+	  return;
+	}
+
+	CheckCaptureProximityAt(gp.Position.X, gp.Position.Z);
+  }
+
+  private void CheckCaptureProximityAt(float px, float pz)
+  {
+	ulong? inside = null;
+	foreach (var (id, state) in _captureStates)
+	{
+	  float dx = px - state.posX;
+	  float dz = pz - state.posZ;
+	  if (dx * dx + dz * dz <= state.radius * state.radius)
+	  {
+		inside = id;
+		break;
+	  }
+	}
+
+	if (inside != _activeCapturePointId)
+	{
+	  _activeCapturePointId = inside;
+	  if (inside == null)
+		_captureBarContainer.Visible = false;
+	  else
+		RefreshCaptureBar(inside.Value);
+	}
+  }
+
+  private void ClearActiveCapturePoint()
+  {
+	if (_activeCapturePointId != null)
+	{
+	  _activeCapturePointId = null;
+	  _captureBarContainer.Visible = false;
+	}
+  }
+
+  private void RefreshCaptureBar(ulong pointId)
+  {
+	if (!_captureStates.TryGetValue(pointId, out var state))
+	{
+	  _captureBarContainer.Visible = false;
+	  return;
+	}
+
+	_captureBarContainer.Visible = true;
+
+	float barWidth = 200f;
+	float barInner = barWidth - 4f;
+
+	if (state.max <= 0)
+	{
+	  _captureBarFill.Size = new Vector2(0, 10);
+	  return;
+	}
+
+	float t1 = state.inf1 / (float)state.max;
+	float t2 = state.inf2 / (float)state.max;
+
+	if (t1 >= t2)
+	{
+	  float fillW = t1 * barInner;
+	  _captureBarFill.Size = new Vector2(fillW, 10);
+	  _captureBarFill.Position = new Vector2(2, 2);
+	  _captureBarFill.Color = new Color(0.3f, 0.5f, 1f, 0.9f);
+	}
+	else
+	{
+	  float fillW = t2 * barInner;
+	  _captureBarFill.Size = new Vector2(fillW, 10);
+	  _captureBarFill.Position = new Vector2(barWidth - 2 - fillW, 2);
+	  _captureBarFill.Color = new Color(1f, 0.3f, 0.3f, 0.9f);
+	}
+  }
+
+  private void PositionCaptureBar()
+  {
+	if (_captureBarContainer == null || !_captureBarContainer.Visible) return;
+	var viewSize = GetViewport().GetVisibleRect().Size;
+	_captureBarContainer.Position = new Vector2((viewSize.X - 200) / 2f, 10);
+  }
+
   private ColorRect CreateReticle()
   {
 	var dot = new ColorRect
@@ -179,7 +406,7 @@ public partial class PlayerHud : MarginContainer
 
   public void Teardown()
   {
-	_subscribedToUpdates = false;
+	UnsubscribeFromUpdates();
 	ClearHotbar();
 	ClearResourceBars();
   }
@@ -314,10 +541,27 @@ public partial class PlayerHud : MarginContainer
 	conn.Db.ResourcePool.OnUpdate += OnResourcePoolUpdate;
   }
 
+  private void UnsubscribeFromUpdates()
+  {
+	if (!_subscribedToUpdates) return;
+	_subscribedToUpdates = false;
+
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	conn.Db.GamePlayer.OnUpdate -= OnGamePlayerUpdate;
+	conn.Db.ResourcePool.OnUpdate -= OnResourcePoolUpdate;
+  }
+
   private void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGp, GamePlayer newGp)
   {
 	if (newGp.Id != _gamePlayerId) return;
 	_healthBar?.SetValues(newGp.Health, newGp.MaxHealth);
+
+	if (newGp.Dead)
+	  ClearActiveCapturePoint();
+	else if (oldGp.Position.X != newGp.Position.X || oldGp.Position.Z != newGp.Position.Z || oldGp.Dead != newGp.Dead)
+	  CheckCaptureProximityAt(newGp.Position.X, newGp.Position.Z);
   }
 
   private void OnResourcePoolUpdate(EventContext ctx, ResourcePool oldPool, ResourcePool newPool)

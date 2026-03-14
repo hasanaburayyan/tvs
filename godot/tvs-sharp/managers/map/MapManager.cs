@@ -5,6 +5,12 @@ using System.Collections.Generic;
 
 public partial class MapManager : Node
 {
+  [Signal]
+  public delegate void CapturePointUpdatedEventHandler(long pointId, float posX, float posZ, float radius, int inf1, int inf2, int max, int owner);
+
+  [Signal]
+  public delegate void CapturePointRemovedEventHandler(long pointId);
+
   private static readonly Dictionary<TerrainType, PackedScene> TerrainScenes = new()
   {
 	{ TerrainType.Trench, GD.Load<PackedScene>("res://scenes/terrain/Trench.tscn") },
@@ -15,6 +21,8 @@ public partial class MapManager : Node
 	{ TerrainType.Outpost, GD.Load<PackedScene>("res://scenes/terrain/Outpost.tscn") },
 	{ TerrainType.Fortification, GD.Load<PackedScene>("res://scenes/terrain/Fortification.tscn") },
   };
+
+  private static readonly PackedScene CaptureFlagScene = GD.Load<PackedScene>("res://scenes/terrain/CaptureFlag.tscn");
 
   private CsgBox3D _floor;
 
@@ -31,9 +39,18 @@ public partial class MapManager : Node
 	  SpawnFeature(feature);
 	}
 
+	foreach (var cp in conn.Db.CapturePoint.GameSessionId.Filter(GameId))
+	{
+	  SpawnCaptureFlag(cp);
+	}
+
 	conn.Db.TerrainFeature.OnInsert += OnTerrainFeatureInsert;
 	conn.Db.TerrainFeature.OnUpdate += OnTerrainFeatureUpdate;
 	conn.Db.TerrainFeature.OnDelete += OnTerrainFeatureDelete;
+
+	conn.Db.CapturePoint.OnInsert += OnCapturePointInsert;
+	conn.Db.CapturePoint.OnUpdate += OnCapturePointUpdate;
+	conn.Db.CapturePoint.OnDelete += OnCapturePointDelete;
   }
 
   private void SpawnFeature(TerrainFeature feature)
@@ -94,6 +111,41 @@ public partial class MapManager : Node
   {
 	if (feature.GameSessionId != GameId) return;
 	FindFeatureNode(feature.Id)?.QueueFree();
+  }
+
+  private void SpawnCaptureFlag(SpacetimeDB.Types.CapturePoint cp)
+  {
+	var node = CaptureFlagScene.Instantiate<CaptureFlag>();
+	node.Name = $"CP_{cp.Id}";
+	node.PointId = cp.Id;
+	node.Position = new Vector3(cp.PosX, 1f, cp.PosZ);
+	AddChild(node);
+	node.SetOwningTeam(cp.OwningTeam);
+	node.SetInfluence(cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence);
+	EmitSignal(SignalName.CapturePointUpdated, (long)cp.Id, cp.PosX, cp.PosZ, cp.Radius, cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence, (int)cp.OwningTeam);
+  }
+
+  private void OnCapturePointInsert(EventContext ctx, SpacetimeDB.Types.CapturePoint cp)
+  {
+	if (cp.GameSessionId != GameId) return;
+	SpawnCaptureFlag(cp);
+  }
+
+  private void OnCapturePointUpdate(EventContext ctx, SpacetimeDB.Types.CapturePoint oldCp, SpacetimeDB.Types.CapturePoint newCp)
+  {
+	if (newCp.GameSessionId != GameId) return;
+	var node = GetNodeOrNull<CaptureFlag>($"CP_{newCp.Id}");
+	if (node == null) return;
+	node.SetOwningTeam(newCp.OwningTeam);
+	node.SetInfluence(newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence);
+	EmitSignal(SignalName.CapturePointUpdated, (long)newCp.Id, newCp.PosX, newCp.PosZ, newCp.Radius, newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence, (int)newCp.OwningTeam);
+  }
+
+  private void OnCapturePointDelete(EventContext ctx, SpacetimeDB.Types.CapturePoint cp)
+  {
+	if (cp.GameSessionId != GameId) return;
+	GetNodeOrNull<CaptureFlag>($"CP_{cp.Id}")?.QueueFree();
+	EmitSignal(SignalName.CapturePointRemoved, (long)cp.Id);
   }
 
   public void DestroyMap()

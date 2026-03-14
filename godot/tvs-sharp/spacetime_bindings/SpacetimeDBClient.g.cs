@@ -36,6 +36,7 @@ namespace SpacetimeDB.Types
             AddTable(ActiveEffect = new(conn));
             AddTable(ArchetypeDef = new(conn));
             AddTable(BattleLog = new(conn));
+            AddTable(CapturePoint = new(conn));
             AddTable(Corpse = new(conn));
             AddTable(GamePlayer = new(conn));
             AddTable(GameSession = new(conn));
@@ -550,6 +551,7 @@ namespace SpacetimeDB.Types
             new QueryBuilder().From.ActiveEffect().ToSql(),
             new QueryBuilder().From.ArchetypeDef().ToSql(),
             new QueryBuilder().From.BattleLog().ToSql(),
+            new QueryBuilder().From.CapturePoint().ToSql(),
             new QueryBuilder().From.Corpse().ToSql(),
             new QueryBuilder().From.GamePlayer().ToSql(),
             new QueryBuilder().From.GameSession().ToSql(),
@@ -574,6 +576,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Table<ActiveEffect, ActiveEffectCols, ActiveEffectIxCols> ActiveEffect() => new("active_effect", new ActiveEffectCols("active_effect"), new ActiveEffectIxCols("active_effect"));
         public global::SpacetimeDB.Table<ArchetypeDef, ArchetypeDefCols, ArchetypeDefIxCols> ArchetypeDef() => new("archetype_def", new ArchetypeDefCols("archetype_def"), new ArchetypeDefIxCols("archetype_def"));
         public global::SpacetimeDB.Table<BattleLogEntry, BattleLogCols, BattleLogIxCols> BattleLog() => new("battle_log", new BattleLogCols("battle_log"), new BattleLogIxCols("battle_log"));
+        public global::SpacetimeDB.Table<CapturePoint, CapturePointCols, CapturePointIxCols> CapturePoint() => new("capture_point", new CapturePointCols("capture_point"), new CapturePointIxCols("capture_point"));
         public global::SpacetimeDB.Table<Corpse, CorpseCols, CorpseIxCols> Corpse() => new("corpse", new CorpseCols("corpse"), new CorpseIxCols("corpse"));
         public global::SpacetimeDB.Table<GamePlayer, GamePlayerCols, GamePlayerIxCols> GamePlayer() => new("game_player", new GamePlayerCols("game_player"), new GamePlayerIxCols("game_player"));
         public global::SpacetimeDB.Table<GameSession, GameSessionCols, GameSessionIxCols> GameSession() => new("game_session", new GameSessionCols("game_session"), new GameSessionIxCols("game_session"));
@@ -673,6 +676,7 @@ namespace SpacetimeDB.Types
                 Reducer.DeleteGame args => Reducers.InvokeDeleteGame(eventContext, args),
                 Reducer.DeletePlayer args => Reducers.InvokeDeletePlayer(eventContext, args),
                 Reducer.DeselectPlayer args => Reducers.InvokeDeselectPlayer(eventContext, args),
+                Reducer.EndGame args => Reducers.InvokeEndGame(eventContext, args),
                 Reducer.HardDeleteMessage args => Reducers.InvokeHardDeleteMessage(eventContext, args),
                 Reducer.JoinChatSession args => Reducers.InvokeJoinChatSession(eventContext, args),
                 Reducer.JoinGame args => Reducers.InvokeJoinGame(eventContext, args),
@@ -689,6 +693,7 @@ namespace SpacetimeDB.Types
                 Reducer.SetTarget args => Reducers.InvokeSetTarget(eventContext, args),
                 Reducer.SetTeam args => Reducers.InvokeSetTeam(eventContext, args),
                 Reducer.SoftDeleteMessage args => Reducers.InvokeSoftDeleteMessage(eventContext, args),
+                Reducer.StartGame args => Reducers.InvokeStartGame(eventContext, args),
                 Reducer.TeleportPlayer args => Reducers.InvokeTeleportPlayer(eventContext, args),
                 Reducer.UseAbility args => Reducers.InvokeUseAbility(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")

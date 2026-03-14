@@ -192,6 +192,20 @@ public static partial class Module
         throw new Exception("Target is not in the same game");
       if (!target.Active)
         throw new Exception("Target is not active");
+      if (target.Dead)
+        throw new Exception("Target is dead");
+
+      if (ability.Type == AbilityType.Damage || ability.Type == AbilityType.Debuff)
+      {
+        if (gp.TeamSlot != 0 && target.TeamSlot != 0 && gp.TeamSlot == target.TeamSlot)
+          throw new Exception("Cannot use hostile abilities on teammates");
+      }
+      else if (ability.Type == AbilityType.Heal || ability.Type == AbilityType.Buff)
+      {
+        if (gp.TeamSlot != 0 && target.TeamSlot != 0 && gp.TeamSlot != target.TeamSlot)
+          throw new Exception("Cannot use allied abilities on enemies");
+      }
+
       if (!HasLineOfSight(ctx, gp.Position, target.Position, gameId))
         throw new Exception("Target is not in line of sight");
     }
@@ -215,34 +229,41 @@ public static partial class Module
         throw new Exception("Terrain target is out of range");
     }
 
-    foreach (var cost in ability.ResourceCosts)
-    {
-      if (cost.Kind == ResourceKind.Health)
-      {
-        if (gp.Health < cost.Amount)
-          throw new Exception($"Insufficient Health (need {cost.Amount}, have {gp.Health})");
-      }
-      else
-      {
-        var pool = FindResourcePool(ctx, gp.Id, cost.Kind)
-          ?? throw new Exception($"No {cost.Kind} pool found");
-        if (pool.Current < cost.Amount)
-          throw new Exception($"Insufficient {cost.Kind} (need {cost.Amount}, have {pool.Current})");
-      }
-    }
+    bool isDryFire = ability.Type == AbilityType.Damage
+      && targetGamePlayerId is null
+      && targetTerrainFeatureId is null;
 
-    foreach (var cost in ability.ResourceCosts)
+    if (!isDryFire)
     {
-      if (cost.Kind == ResourceKind.Health)
+      foreach (var cost in ability.ResourceCosts)
       {
-        gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
-        ctx.Db.game_player.Id.Update(gp with { Health = gp.Health - cost.Amount });
-        gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
+        if (cost.Kind == ResourceKind.Health)
+        {
+          if (gp.Health < cost.Amount)
+            throw new Exception($"Insufficient Health (need {cost.Amount}, have {gp.Health})");
+        }
+        else
+        {
+          var pool = FindResourcePool(ctx, gp.Id, cost.Kind)
+            ?? throw new Exception($"No {cost.Kind} pool found");
+          if (pool.Current < cost.Amount)
+            throw new Exception($"Insufficient {cost.Kind} (need {cost.Amount}, have {pool.Current})");
+        }
       }
-      else
+
+      foreach (var cost in ability.ResourceCosts)
       {
-        var pool = FindResourcePool(ctx, gp.Id, cost.Kind)!.Value;
-        ctx.Db.resource_pool.Id.Update(pool with { Current = pool.Current - cost.Amount });
+        if (cost.Kind == ResourceKind.Health)
+        {
+          gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
+          ctx.Db.game_player.Id.Update(gp with { Health = gp.Health - cost.Amount });
+          gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
+        }
+        else
+        {
+          var pool = FindResourcePool(ctx, gp.Id, cost.Kind)!.Value;
+          ctx.Db.resource_pool.Id.Update(pool with { Current = pool.Current - cost.Amount });
+        }
       }
     }
 
@@ -275,7 +296,7 @@ public static partial class Module
         SizeY = ability.TerrainSizeY,
         SizeZ = ability.TerrainSizeZ,
         RotationY = targetRotationY ?? gp.RotationY,
-        TeamIndex = 0,
+        TeamIndex = gp.TeamSlot,
         CasterGamePlayerId = gp.Id,
         ExpiresAt = expiresAt,
         Health = ability.TerrainMaxHealth,
@@ -292,7 +313,7 @@ public static partial class Module
         });
       }
 
-      if (terrainType == TerrainType.Outpost)
+      if (terrainType == TerrainType.Outpost || terrainType == TerrainType.CommandCenter)
         ScheduleOutpostRegen(ctx, inserted.Id);
     }
 
@@ -329,44 +350,36 @@ public static partial class Module
       }
     }
 
-    if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown cd)
+    if (!isDryFire)
     {
-      ctx.Db.ability_cooldown.Id.Update(cd with
+      if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown cd)
       {
-        ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
-      });
-    }
-    else
-    {
-      ctx.Db.ability_cooldown.Insert(new AbilityCooldown
+        ctx.Db.ability_cooldown.Id.Update(cd with
+        {
+          ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
+        });
+      }
+      else
       {
-        Id = 0,
-        GamePlayerId = gp.Id,
-        AbilityId = abilityId,
-        ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
-      });
+        ctx.Db.ability_cooldown.Insert(new AbilityCooldown
+        {
+          Id = 0,
+          GamePlayerId = gp.Id,
+          AbilityId = abilityId,
+          ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
+        });
+      }
     }
 
-    ctx.Db.battle_log.Insert(new BattleLogEntry
-    {
-      Id = 0,
-      GameSessionId = gameId,
-      OccurredAt = ctx.Timestamp,
-      ActorGamePlayerId = gp.Id,
-      AbilityId = abilityId,
-      FromWeapon = fromWeapon,
-      TargetGamePlayerIds = targetGamePlayerId is ulong tid
-        ? new List<ulong> { tid }
-        : new List<ulong>(),
-      ResolvedPower = resolved.Power,
-    });
+    int effectivePower = resolved.Power;
 
     if (resolved.Power > 0 && targetGamePlayerId is ulong dmgTargetId)
     {
       var dmgTarget = ctx.Db.game_player.Id.Find(dmgTargetId)!.Value;
-      if (ability.Type == AbilityType.Damage)
+      if (ability.Type == AbilityType.Damage && !dmgTarget.Dead)
       {
         int effectiveDamage = Math.Max(0, resolved.Power - dmgTarget.Armor);
+        effectivePower = effectiveDamage;
         int newHealth = Math.Max(0, dmgTarget.Health - effectiveDamage);
         var updated = dmgTarget with { Health = newHealth };
 
@@ -388,7 +401,7 @@ public static partial class Module
 
         ctx.Db.game_player.Id.Update(updated);
       }
-      else if (ability.Type == AbilityType.Heal)
+      else if (ability.Type == AbilityType.Heal && !dmgTarget.Dead)
       {
         int newHealth = Math.Min(dmgTarget.MaxHealth, dmgTarget.Health + resolved.Power);
         ctx.Db.game_player.Id.Update(dmgTarget with { Health = newHealth });
@@ -397,8 +410,11 @@ public static partial class Module
     else if (resolved.Power > 0 && ability.Type == AbilityType.Heal && targetGamePlayerId is null)
     {
       gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
-      int newHealth = Math.Min(gp.MaxHealth, gp.Health + resolved.Power);
-      ctx.Db.game_player.Id.Update(gp with { Health = newHealth });
+      if (!gp.Dead)
+      {
+        int newHealth = Math.Min(gp.MaxHealth, gp.Health + resolved.Power);
+        ctx.Db.game_player.Id.Update(gp with { Health = newHealth });
+      }
     }
 
     if (resolved.Power > 0 && ability.Type == AbilityType.Damage && terrainTarget is TerrainFeature tt)
@@ -410,7 +426,21 @@ public static partial class Module
       ctx.Db.terrain_feature.Id.Update(updated);
     }
 
-    Log.Info($"Player {player.Name} used {ability.Name} (power: {resolved.Power}, fromWeapon: {fromWeapon}, target: {targetGamePlayerId?.ToString() ?? "none"}, terrain: {targetTerrainFeatureId?.ToString() ?? "none"})");
+    ctx.Db.battle_log.Insert(new BattleLogEntry
+    {
+      Id = 0,
+      GameSessionId = gameId,
+      OccurredAt = ctx.Timestamp,
+      ActorGamePlayerId = gp.Id,
+      AbilityId = abilityId,
+      FromWeapon = fromWeapon,
+      TargetGamePlayerIds = targetGamePlayerId is ulong tid
+        ? new List<ulong> { tid }
+        : new List<ulong>(),
+      ResolvedPower = effectivePower,
+    });
+
+    Log.Info($"Player {player.Name} used {ability.Name} (power: {effectivePower}, fromWeapon: {fromWeapon}, target: {targetGamePlayerId?.ToString() ?? "none"}, terrain: {targetTerrainFeatureId?.ToString() ?? "none"})");
   }
 
   [SpacetimeDB.Reducer]

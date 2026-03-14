@@ -46,6 +46,21 @@ public partial class Main : Node3D
 	{
 	  Hud.HideDeathOverlay();
 	};
+
+	PlayerManager.PlayerKilled += (string killerName, string victimName, byte killerTeam, byte victimTeam) =>
+	{
+	  Hud.AddKillFeedEntry(killerName, victimName, killerTeam, victimTeam);
+	};
+
+	MapManager.CapturePointUpdated += (long pointId, float posX, float posZ, float radius, int inf1, int inf2, int max, int owner) =>
+	{
+	  Hud.UpdateCapturePoint((ulong)pointId, posX, posZ, radius, inf1, inf2, max, (byte)owner);
+	};
+
+	MapManager.CapturePointRemoved += (long pointId) =>
+	{
+	  Hud.RemoveCapturePoint((ulong)pointId);
+	};
   }
 
 	public override void _Process(double delta)

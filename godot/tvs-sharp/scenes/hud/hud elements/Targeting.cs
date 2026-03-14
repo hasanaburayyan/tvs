@@ -104,9 +104,9 @@ public partial class Targeting : Control
     var conn = mgr.Conn;
 
     GamePlayer? localGp = null;
-    foreach (var gp in conn.Db.GamePlayer.Iter())
+    foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
     {
-      if (gp.PlayerId == mgr.ActivePlayerId && gp.Active)
+      if (gp.Active)
       {
         localGp = gp;
         break;
@@ -181,12 +181,10 @@ public partial class Targeting : Control
     if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
 
     var conn = mgr.Conn;
-    var localPlayer = conn.Db.Player.Id.Find(mgr.ActivePlayerId.Value);
-    if (localPlayer == null) return;
 
-    foreach (var gp in conn.Db.GamePlayer.Iter())
+    foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
     {
-      if (gp.PlayerId == mgr.ActivePlayerId && gp.Active)
+      if (gp.Active)
       {
         conn.Reducers.SetTarget(gp.GameSessionId, gamePlayerId);
         return;
