@@ -269,7 +269,7 @@ public static partial class Module
         GameSessionId = gameId,
         Type = terrainType,
         PosX = pos.x,
-        PosY = pos.y,
+        PosY = 0f,
         PosZ = pos.z,
         SizeX = ability.TerrainSizeX,
         SizeY = ability.TerrainSizeY,

@@ -19,10 +19,11 @@ size = Vector3(1, 0.3, 0.4)
 [node name="Fortification" type="StaticBody3D"]
 
 [node name="Wall" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 0)
 mesh = SubResource("mesh_wall")
 
 [node name="Sandbags" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0.25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0.25)
 mesh = SubResource("mesh_sandbag")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

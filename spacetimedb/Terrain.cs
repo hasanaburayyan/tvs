@@ -135,12 +135,9 @@ public static partial class Module {
     if (session.State == SessionState.Ended)
       return;
 
-    bool hasActivePlayers = false;
-
     foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(tick.GameSessionId))
     {
-      if (!gp.Active) continue;
-      hasActivePlayers = true;
+      if (!gp.Active || gp.Dead) continue;
 
       if (FindResourcePool(ctx, gp.Id, ResourceKind.Stamina) is ResourcePool stamina && stamina.Current < stamina.Max)
       {
@@ -154,9 +151,6 @@ public static partial class Module {
         ctx.Db.resource_pool.Id.Update(mana with { Current = newVal });
       }
     }
-
-    if (!hasActivePlayers)
-      return;
 
     ctx.Db.passive_regen_tick.Insert(new PassiveRegenTickSchedule
     {

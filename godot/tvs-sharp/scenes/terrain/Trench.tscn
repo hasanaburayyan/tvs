@@ -1,18 +1,9 @@
 [gd_scene format=3 uid="uid://wgk0q8oni612"]
 
 [sub_resource type="StandardMaterial3D" id="mat_1"]
-albedo_color = Color(0.4, 0.28, 0.15, 1)
+albedo_color = Color(0.3, 0.2, 0.1, 1)
 
-[sub_resource type="BoxMesh" id="mesh_1"]
+[node name="Trench" type="CSGBox3D" unique_id=1283096364]
+operation = 2
+use_collision = true
 material = SubResource("mat_1")
-
-[sub_resource type="BoxShape3D" id="shape_1"]
-
-[node name="Trench" type="StaticBody3D" unique_id=1283096364]
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=634391907]
-transform = Transform3D(1, 0, 0, 0, 0.04364527, 0, 0, 0, 1, 0, 0, 0)
-mesh = SubResource("mesh_1")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1809709692]
-shape = SubResource("shape_1")

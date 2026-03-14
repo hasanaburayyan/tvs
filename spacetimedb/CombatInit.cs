@@ -25,10 +25,7 @@ public static partial class Module
       BaseRange = 20f,
       BaseRadius = 0f,
       CooldownMs = 400,
-      ResourceCosts = new List<ResourceCost>
-      {
-        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 3 },
-      },
+      ResourceCosts = new List<ResourceCost>(),
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
@@ -48,7 +45,6 @@ public static partial class Module
       ResourceCosts = new List<ResourceCost>
       {
         new ResourceCost { Kind = ResourceKind.Supplies, Amount = 1 },
-        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 2 },
       },
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
@@ -69,7 +65,6 @@ public static partial class Module
       ResourceCosts = new List<ResourceCost>
       {
         new ResourceCost { Kind = ResourceKind.Supplies, Amount = 1 },
-        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 5 },
       },
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
@@ -90,7 +85,6 @@ public static partial class Module
       ResourceCosts = new List<ResourceCost>
       {
         new ResourceCost { Kind = ResourceKind.Supplies, Amount = 2 },
-        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 5 },
       },
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,

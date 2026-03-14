@@ -19,10 +19,11 @@ size = Vector3(1.05, 0.35, 1.05)
 [node name="Outpost" type="StaticBody3D"]
 
 [node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0)
 mesh = SubResource("mesh_base")
 
 [node name="Roof" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.475, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.275, 0)
 mesh = SubResource("mesh_roof")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]

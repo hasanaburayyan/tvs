@@ -239,6 +239,7 @@ public partial class PlayerHud : MarginContainer
 
 	  var slot = HotbarSlotScene.Instantiate<HotbarSlot>();
 	  _hotbar.AddChild(slot);
+	  slot._gamePlayerId = _gamePlayerId;
 	  slot.SetAbility(ability, KeybindLabels[slotIndex], _gameSessionId);
 	  slotIndex++;
 	}

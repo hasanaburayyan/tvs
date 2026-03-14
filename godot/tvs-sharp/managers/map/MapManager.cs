@@ -16,10 +16,14 @@ public partial class MapManager : Node
 	{ TerrainType.Fortification, GD.Load<PackedScene>("res://scenes/terrain/Fortification.tscn") },
   };
 
+  private CsgBox3D _floor;
+
   public ulong GameId { get; set; } = 0;
 
   public void LoadMap()
   {
+	_floor = GetNode<CsgBox3D>("%Floor");
+
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 
 	foreach (var feature in conn.Db.TerrainFeature.GameSessionId.Filter(GameId))
@@ -43,9 +47,28 @@ public partial class MapManager : Node
 	var node = scene.Instantiate<Node3D>();
 	node.Name = feature.Id.ToString();
 	node.Position = new Vector3(feature.PosX, 1f + (feature.SizeY / 2f) + feature.PosY, feature.PosZ);
-	node.Scale = new Vector3(feature.SizeX, feature.SizeY, feature.SizeZ);
 	node.RotationDegrees = new Vector3(0, feature.RotationY, 0);
-	AddChild(node);
+
+	if (feature.Type == TerrainType.Trench && node is CsgBox3D csgTrench)
+	{
+	  csgTrench.Size = new Vector3(feature.SizeX, feature.SizeY, feature.SizeZ);
+	  _floor.AddChild(csgTrench);
+	}
+	else
+	{
+	  node.Scale = new Vector3(feature.SizeX, feature.SizeY, feature.SizeZ);
+	  AddChild(node);
+	}
+  }
+
+  private Node3D FindFeatureNode(ulong featureId)
+  {
+	var name = featureId.ToString();
+	var node = GetNodeOrNull<Node3D>(name);
+	if (node != null) return node;
+	if (_floor != null)
+	  node = _floor.GetNodeOrNull<Node3D>(name);
+	return node;
   }
 
   private void OnTerrainFeatureInsert(EventContext ctx, TerrainFeature feature)
@@ -59,8 +82,7 @@ public partial class MapManager : Node
 	if (newFeature.GameSessionId != GameId) return;
 	if (!oldFeature.Expired && newFeature.Expired)
 	{
-	  var node = GetNodeOrNull<Node3D>(oldFeature.Id.ToString());
-	  node?.QueueFree();
+	  FindFeatureNode(oldFeature.Id)?.QueueFree();
 	}
 	else if (oldFeature.Expired && !newFeature.Expired)
 	{
@@ -71,8 +93,7 @@ public partial class MapManager : Node
   private void OnTerrainFeatureDelete(EventContext ctx, TerrainFeature feature)
   {
 	if (feature.GameSessionId != GameId) return;
-	var node = GetNodeOrNull<Node3D>(feature.Id.ToString());
-	node?.QueueFree();
+	FindFeatureNode(feature.Id)?.QueueFree();
   }
 
   public void DestroyMap()
@@ -80,6 +101,13 @@ public partial class MapManager : Node
 	foreach (var child in GetChildren())
 	{
 	  child.QueueFree();
+	}
+	if (_floor != null)
+	{
+	  foreach (var child in _floor.GetChildren())
+	  {
+		child.QueueFree();
+	  }
 	}
   }
 }
