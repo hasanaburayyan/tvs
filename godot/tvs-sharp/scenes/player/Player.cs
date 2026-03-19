@@ -33,7 +33,7 @@ public partial class Player : CharacterBody3D
   private float _rotLerpStart;
   private float _rotLerpTarget;
   private Label3D _nametag;
-  private AnimationPlayer _animPlayer;
+  public AnimationPlayer _animPlayer;
 
   public override void _Ready()
   {

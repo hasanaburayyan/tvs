@@ -119,9 +119,8 @@ public partial class PlayerManager : Node
 		  string killerName = "Unknown";
 		  byte killerTeam = 0;
 
-		  foreach (var log in conn.Db.BattleLog.Iter())
+		  foreach (var log in conn.Db.BattleLog.GameSessionId.Filter(GameId))
 		  {
-			if (log.GameSessionId != GameId) continue;
 			if (!log.TargetGamePlayerIds.Contains(newGamePlayer.Id)) continue;
 			var ability = conn.Db.AbilityDef.Id.Find(log.AbilityId);
 			if (ability?.Type != AbilityType.Damage) continue;

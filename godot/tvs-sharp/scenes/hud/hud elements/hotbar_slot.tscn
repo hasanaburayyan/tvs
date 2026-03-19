@@ -23,8 +23,8 @@ horizontal_alignment = 1
 
 [node name="Image" type="TextureButton" parent="." unique_id=1785272989]
 unique_name_in_owner = true
-layout_mode = 2
 custom_minimum_size = Vector2(50, 50)
+layout_mode = 2
 texture_normal = SubResource("PlaceholderTexture2D_e5pxt")
 texture_pressed = SubResource("PlaceholderTexture2D_aeqnf")
 ignore_texture_size = true

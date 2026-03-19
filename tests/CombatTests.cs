@@ -22,73 +22,59 @@ public class CombatDefinitionTests : IDisposable
   public void AbilityDefs_SeededOnInit()
   {
     var abilities = _client.Db.AbilityDef.Iter().ToList();
-    Assert.True(abilities.Count >= 13, $"Expected at least 13 abilities, got {abilities.Count}");
+    Assert.True(abilities.Count >= 25, $"Expected at least 25 abilities, got {abilities.Count}");
   }
 
   [Fact]
-  public void AbilityDef_ShootBullet_HasCorrectStats()
+  public void AbilityDef_FireRifle_HasCorrectStats()
   {
-    var bullet = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Shoot Bullet");
-    Assert.NotNull(bullet);
-    Assert.Equal(AbilityType.Damage, bullet.Type);
-    Assert.Equal(20, bullet.BasePower);
-    Assert.Equal(40f, bullet.BaseRange);
-    Assert.Equal(0f, bullet.BaseRadius);
-    Assert.Contains(TargetType.Enemy, bullet.ValidTargets);
+    var fireRifle = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Fire Rifle");
+    Assert.NotNull(fireRifle);
+    Assert.Equal(AbilityType.Damage, fireRifle.Type);
+    Assert.Equal(30, fireRifle.BasePower);
+    Assert.Equal(45f, fireRifle.BaseRange);
+    Assert.Equal(0f, fireRifle.BaseRadius);
+    Assert.Contains(TargetType.Enemy, fireRifle.ValidTargets);
   }
 
   [Fact]
-  public void AbilityDef_FireEmpowerment_HasBuffFields()
+  public void AbilityDef_Rally_HasBuffFields()
   {
-    var buff = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Fire Empowerment");
+    var buff = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Rally");
     Assert.NotNull(buff);
     Assert.Equal(AbilityType.Buff, buff.Type);
     Assert.NotEmpty(buff.GrantedMods);
     Assert.True(buff.EffectDurationMs > 0);
-    Assert.NotEmpty(buff.AffectedAbilityIds);
     Assert.Contains(TargetType.SelfOnly, buff.ValidTargets);
     Assert.Contains(TargetType.Ally, buff.ValidTargets);
   }
 
   [Fact]
-  public void AbilityDef_Weaken_IsDebuff()
+  public void AbilityDef_Suppress_IsDebuff()
   {
-    var debuff = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Weaken");
+    var debuff = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Suppress");
     Assert.NotNull(debuff);
     Assert.Equal(AbilityType.Debuff, debuff.Type);
     Assert.NotEmpty(debuff.GrantedMods);
     Assert.Contains(TargetType.Enemy, debuff.ValidTargets);
     var damageMod = debuff.GrantedMods.First(m => m.Type == ModType.DamagePercent);
-    Assert.True(damageMod.Value < 0, "Weaken should have a negative damage modifier");
+    Assert.True(damageMod.Value < 0, "Suppress should have a negative damage modifier");
   }
 
   [Fact]
   public void WeaponDefs_SeededOnInit()
   {
     var weapons = _client.Db.WeaponDef.Iter().ToList();
-    Assert.True(weapons.Count >= 3, $"Expected at least 3 weapons, got {weapons.Count}");
+    Assert.True(weapons.Count >= 4, $"Expected at least 4 weapons, got {weapons.Count}");
   }
 
   [Fact]
-  public void WeaponDef_SniperRifle_HasMods()
+  public void WeaponDef_Rifle_HasCorrectFields()
   {
-    var sniper = _client.Db.WeaponDef.Iter().FirstOrDefault(w => w.Name == "Sniper Rifle");
-    Assert.NotNull(sniper);
-    Assert.NotEmpty(sniper.PrimaryMods);
-    Assert.Contains(sniper.PrimaryMods, m => m.Type == ModType.DamagePercent);
-    Assert.Contains(sniper.PrimaryMods, m => m.Type == ModType.RangePercent);
-  }
-
-  [Fact]
-  public void WeaponDef_StandardRifle_HasBonusAbility()
-  {
-    var rifle = _client.Db.WeaponDef.Iter().FirstOrDefault(w => w.Name == "Standard Rifle");
+    var rifle = _client.Db.WeaponDef.Iter().FirstOrDefault(w => w.Name == "Rifle");
     Assert.NotNull(rifle);
-    Assert.NotEmpty(rifle.BonusAbilityIds);
-
-    var bayonet = _client.Db.AbilityDef.Iter().FirstOrDefault(a => a.Name == "Bayonet Stab");
-    Assert.NotNull(bayonet);
-    Assert.Contains(bayonet.Id, rifle.BonusAbilityIds);
+    Assert.True(rifle.GrantsSupplies);
+    Assert.NotNull(_client.Db.AbilityDef.Id.Find(rifle.PrimaryAbilityId));
   }
 
   [Fact]
@@ -97,32 +83,55 @@ public class CombatDefinitionTests : IDisposable
     foreach (var weapon in _client.Db.WeaponDef.Iter())
     {
       Assert.NotNull(_client.Db.AbilityDef.Id.Find(weapon.PrimaryAbilityId));
-      Assert.NotNull(_client.Db.AbilityDef.Id.Find(weapon.SecondaryAbilityId));
-      foreach (var bonusId in weapon.BonusAbilityIds)
-        Assert.NotNull(_client.Db.AbilityDef.Id.Find(bonusId));
     }
+  }
+
+  [Fact]
+  public void ArchetypeDefs_SeededOnInit()
+  {
+    var archetypes = _client.Db.ArchetypeDef.Iter().ToList();
+    Assert.True(archetypes.Count >= 4, $"Expected at least 4 archetypes, got {archetypes.Count}");
+  }
+
+  [Fact]
+  public void ArchetypeDef_Infantry_HasBonuses()
+  {
+    var infantry = _client.Db.ArchetypeDef.Iter().FirstOrDefault(a => a.Name == "Infantry");
+    Assert.NotNull(infantry);
+    Assert.Equal(30, infantry.BonusHealth);
+    Assert.Equal(5, infantry.BonusArmor);
+    Assert.NotEmpty(infantry.InnateAbilityIds);
   }
 
   [Fact]
   public void SkillDefs_SeededOnInit()
   {
     var skills = _client.Db.SkillDef.Iter().ToList();
-    Assert.True(skills.Count >= 3, $"Expected at least 3 skills, got {skills.Count}");
+    Assert.True(skills.Count >= 12, $"Expected at least 12 skills, got {skills.Count}");
   }
 
   [Fact]
-  public void SkillDef_Grenadier_HasCorrectAbilities()
+  public void SkillDef_Evoker_HasCorrectAbilities()
   {
-    var grenadier = _client.Db.SkillDef.Iter().FirstOrDefault(s => s.Name == "Grenadier");
-    Assert.NotNull(grenadier);
-    Assert.Equal(3, grenadier.AbilityIds.Count);
+    var evoker = _client.Db.SkillDef.Iter().FirstOrDefault(s => s.Name == "Evoker");
+    Assert.NotNull(evoker);
+    Assert.Equal(3, evoker.AbilityIds.Count);
 
-    var abilityNames = grenadier.AbilityIds
+    var abilityNames = evoker.AbilityIds
       .Select(id => _client.Db.AbilityDef.Id.Find(id)?.Name)
       .ToList();
-    Assert.Contains("Frag Grenade", abilityNames);
-    Assert.Contains("Bazooka Shot", abilityNames);
-    Assert.Contains("Landmine", abilityNames);
+    Assert.Contains("Fireball", abilityNames);
+    Assert.Contains("Enchant Weapon", abilityNames);
+    Assert.Contains("Arcane Barrage", abilityNames);
+  }
+
+  [Fact]
+  public void SkillDef_ArchetypeReferences_AreValid()
+  {
+    foreach (var skill in _client.Db.SkillDef.Iter())
+    {
+      Assert.NotNull(_client.Db.ArchetypeDef.Id.Find(skill.ArchetypeDefId));
+    }
   }
 
   [Fact]
@@ -152,23 +161,25 @@ public class LoadoutTests : IDisposable
     _client.Dispose();
   }
 
-  private (ulong gameId, ulong weaponId, ulong skillId) SetupLobby()
+  private (ulong gameId, ulong archetypeId, ulong weaponId, ulong skillId) SetupLobby()
   {
     _client.CreatePlayerAndGetId("LoadoutPlayer");
     var gameId = _client.CreateGameAndJoin(4);
+    var archetype = _client.Db.ArchetypeDef.Iter().First();
     var weapon = _client.Db.WeaponDef.Iter().First();
-    var skill = _client.Db.SkillDef.Iter().First();
-    return (gameId, weapon.Id, skill.Id);
+    var skill = _client.Db.SkillDef.Iter().First(s => s.ArchetypeDefId == archetype.Id);
+    return (gameId, archetype.Id, weapon.Id, skill.Id);
   }
 
   [Fact]
   public void SetLoadout_InLobby_Succeeds()
   {
-    var (gameId, weaponId, skillId) = SetupLobby();
-    _client.Call(r => r.SetLoadout(gameId, weaponId, skillId));
+    var (gameId, archetypeId, weaponId, skillId) = SetupLobby();
+    _client.Call(r => r.SetLoadout(gameId, archetypeId, weaponId, skillId));
 
     var loadouts = _client.Db.Loadout.GameSessionId.Filter(gameId).ToList();
     Assert.Single(loadouts);
+    Assert.Equal(archetypeId, loadouts[0].ArchetypeDefId);
     Assert.Equal(weaponId, loadouts[0].WeaponDefId);
     Assert.Equal(skillId, loadouts[0].SkillDefId);
   }
@@ -176,12 +187,13 @@ public class LoadoutTests : IDisposable
   [Fact]
   public void SetLoadout_UpdateExisting_Succeeds()
   {
-    var (gameId, weaponId, skillId) = SetupLobby();
-    _client.Call(r => r.SetLoadout(gameId, weaponId, skillId));
+    var (gameId, archetypeId, weaponId, skillId) = SetupLobby();
+    _client.Call(r => r.SetLoadout(gameId, archetypeId, weaponId, skillId));
 
     var weapon2 = _client.Db.WeaponDef.Iter().Skip(1).First();
-    var skill2 = _client.Db.SkillDef.Iter().Skip(1).First();
-    _client.Call(r => r.SetLoadout(gameId, weapon2.Id, skill2.Id));
+    var skill2 = _client.Db.SkillDef.Iter().Where(s => s.ArchetypeDefId == archetypeId).Skip(1).FirstOrDefault()
+      ?? _client.Db.SkillDef.Iter().First(s => s.ArchetypeDefId == archetypeId);
+    _client.Call(r => r.SetLoadout(gameId, archetypeId, weapon2.Id, skill2.Id));
 
     var loadouts = _client.Db.Loadout.GameSessionId.Filter(gameId).ToList();
     Assert.Single(loadouts);
@@ -192,15 +204,15 @@ public class LoadoutTests : IDisposable
   [Fact]
   public void SetLoadout_InvalidWeapon_Fails()
   {
-    var (gameId, _, skillId) = SetupLobby();
-    _client.CallExpectFailure(r => r.SetLoadout(gameId, 999999, skillId));
+    var (gameId, archetypeId, _, skillId) = SetupLobby();
+    _client.CallExpectFailure(r => r.SetLoadout(gameId, archetypeId, 999999, skillId));
   }
 
   [Fact]
   public void SetLoadout_InvalidSkill_Fails()
   {
-    var (gameId, weaponId, _) = SetupLobby();
-    _client.CallExpectFailure(r => r.SetLoadout(gameId, weaponId, 999999));
+    var (gameId, archetypeId, weaponId, _) = SetupLobby();
+    _client.CallExpectFailure(r => r.SetLoadout(gameId, archetypeId, weaponId, 999999));
   }
 
   [Fact]
@@ -208,16 +220,28 @@ public class LoadoutTests : IDisposable
   {
     _client.CreatePlayerAndGetId("Outsider");
     var gameId = _client.CreateGame(4);
+    var archetype = _client.Db.ArchetypeDef.Iter().First();
     var weapon = _client.Db.WeaponDef.Iter().First();
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.CallExpectFailure(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var skill = _client.Db.SkillDef.Iter().First(s => s.ArchetypeDefId == archetype.Id);
+    _client.CallExpectFailure(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
   }
 
   [Fact]
   public void SetLoadout_NoActivePlayer_Fails()
   {
     using var noPlayer = SpacetimeTestClient.Create();
-    noPlayer.CallExpectFailure(r => r.SetLoadout(1, 1, 1));
+    noPlayer.CallExpectFailure(r => r.SetLoadout(1, 1, 1, 1));
+  }
+
+  [Fact]
+  public void SetLoadout_SkillArchetypeMismatch_Fails()
+  {
+    _client.CreatePlayerAndGetId("MismatchPlayer");
+    var gameId = _client.CreateGameAndJoin(4);
+    var infantry = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var officerSkill = _client.Db.SkillDef.Iter().First(s => s.Name == "Commissar");
+    var weapon = _client.Db.WeaponDef.Iter().First();
+    _client.CallExpectFailure(r => r.SetLoadout(gameId, infantry.Id, weapon.Id, officerSkill.Id));
   }
 }
 
@@ -236,22 +260,23 @@ public class UseAbilityTests : IDisposable
     _client.Dispose();
   }
 
-  private (ulong gameId, ulong gpId, WeaponDef weapon, SkillDef skill) SetupWithLoadout(string playerName = "CombatPlayer")
+  private (ulong gameId, ulong gpId, WeaponDef weapon, SkillDef skill, ArchetypeDef archetype) SetupWithLoadout(string playerName = "CombatPlayer")
   {
     _client.CreatePlayerAndGetId(playerName);
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Grenadier");
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
     var gp = _client.GetGamePlayer(gameId);
-    return (gameId, gp.Id, weapon, skill);
+    return (gameId, gp.Id, weapon, skill, archetype);
   }
 
   [Fact]
   public void UseAbility_WeaponPrimary_Succeeds()
   {
-    var (gameId, gpId, weapon, _) = SetupWithLoadout();
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    var (gameId, gpId, weapon, _, _) = SetupWithLoadout();
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
 
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
@@ -261,36 +286,11 @@ public class UseAbilityTests : IDisposable
   }
 
   [Fact]
-  public void UseAbility_WeaponSecondary_Succeeds()
-  {
-    var (gameId, _, weapon, _) = SetupWithLoadout();
-    _client.Call(r => r.UseAbility(gameId, weapon.SecondaryAbilityId, null, null, null));
-
-    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
-    Assert.Single(logs);
-    Assert.Equal(weapon.SecondaryAbilityId, logs[0].AbilityId);
-    Assert.True(logs[0].FromWeapon);
-  }
-
-  [Fact]
-  public void UseAbility_WeaponBonus_Succeeds()
-  {
-    var (gameId, _, weapon, _) = SetupWithLoadout();
-    var bonusId = weapon.BonusAbilityIds.First();
-    _client.Call(r => r.UseAbility(gameId, bonusId, null, null, null));
-
-    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
-    Assert.Single(logs);
-    Assert.Equal(bonusId, logs[0].AbilityId);
-    Assert.True(logs[0].FromWeapon);
-  }
-
-  [Fact]
   public void UseAbility_SkillAbility_Succeeds()
   {
-    var (gameId, _, _, skill) = SetupWithLoadout();
+    var (gameId, _, _, skill, _) = SetupWithLoadout();
     var abilityId = skill.AbilityIds.First();
-    _client.Call(r => r.UseAbility(gameId, abilityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, abilityId, null, null, null, null));
 
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
@@ -299,11 +299,24 @@ public class UseAbilityTests : IDisposable
   }
 
   [Fact]
+  public void UseAbility_ArchetypeInnate_Succeeds()
+  {
+    var (gameId, _, _, _, archetype) = SetupWithLoadout();
+    var innateId = archetype.InnateAbilityIds.First();
+    _client.Call(r => r.UseAbility(gameId, innateId, null, null, null, null));
+
+    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
+    Assert.Single(logs);
+    Assert.Equal(innateId, logs[0].AbilityId);
+    Assert.False(logs[0].FromWeapon);
+  }
+
+  [Fact]
   public void UseAbility_AbilityNotInLoadout_Fails()
   {
-    var (gameId, _, _, _) = SetupWithLoadout();
-    var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.CallExpectFailure(r => r.UseAbility(gameId, arcaneBarrage.Id, null, null, null));
+    var (gameId, _, _, _, _) = SetupWithLoadout();
+    var healingMist = _client.Db.AbilityDef.Iter().First(a => a.Name == "Healing Mist");
+    _client.CallExpectFailure(r => r.UseAbility(gameId, healingMist.Id, null, null, null, null));
   }
 
   [Fact]
@@ -312,21 +325,21 @@ public class UseAbilityTests : IDisposable
     _client.CreatePlayerAndGetId("NoLoadout");
     var gameId = _client.CreateGameAndJoin(4);
     var ability = _client.Db.AbilityDef.Iter().First();
-    _client.CallExpectFailure(r => r.UseAbility(gameId, ability.Id, null, null, null));
+    _client.CallExpectFailure(r => r.UseAbility(gameId, ability.Id, null, null, null, null));
   }
 
   [Fact]
   public void UseAbility_InvalidAbility_Fails()
   {
-    var (gameId, _, _, _) = SetupWithLoadout();
-    _client.CallExpectFailure(r => r.UseAbility(gameId, 999999, null, null, null));
+    var (gameId, _, _, _, _) = SetupWithLoadout();
+    _client.CallExpectFailure(r => r.UseAbility(gameId, 999999, null, null, null, null));
   }
 
   [Fact]
   public void UseAbility_WrongGame_Fails()
   {
-    var (_, _, weapon, _) = SetupWithLoadout();
-    _client.CallExpectFailure(r => r.UseAbility(999999, weapon.PrimaryAbilityId, null, null, null));
+    var (_, _, weapon, _, _) = SetupWithLoadout();
+    _client.CallExpectFailure(r => r.UseAbility(999999, weapon.PrimaryAbilityId, null, null, null, null));
   }
 
   [Fact]
@@ -339,14 +352,15 @@ public class UseAbilityTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     other.Call(r => r.JoinGame(gameId));
 
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId != _client.Db.Player.Iter().First(p => p.ControllerIdentity == _client.Identity).Id);
 
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null));
 
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
@@ -358,18 +372,18 @@ public class UseAbilityTests : IDisposable
   [Fact]
   public void UseAbility_InvalidTarget_Fails()
   {
-    var (gameId, _, weapon, _) = SetupWithLoadout();
-    _client.CallExpectFailure(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, 999999, null, null));
+    var (gameId, _, weapon, _, _) = SetupWithLoadout();
+    _client.CallExpectFailure(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, 999999, null, null, null));
   }
 
   [Fact]
   public void UseAbility_MultipleUses_LogsMultiple()
   {
-    var (gameId, _, weapon, _) = SetupWithLoadout();
+    var (gameId, _, weapon, skill, _) = SetupWithLoadout();
 
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
-    _client.Call(r => r.UseAbility(gameId, weapon.SecondaryAbilityId, null, null, null));
-    _client.Call(r => r.UseAbility(gameId, weapon.BonusAbilityIds.First(), null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, skill.AbilityIds[0], null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, skill.AbilityIds[1], null, null, null, null));
 
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Equal(3, logs.Count);
@@ -396,16 +410,19 @@ public class CooldownTests : IDisposable
   {
     _client.CreatePlayerAndGetId("CooldownPlayer");
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
     var gp = _client.GetGamePlayer(gameId);
 
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    // Use a Buff ability (not Damage) so isDryFire=false and cooldown is set
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
     var cooldowns = _client.Db.AbilityCooldown.GamePlayerId.Filter(gp.Id).ToList();
     Assert.Single(cooldowns);
-    Assert.Equal(weapon.PrimaryAbilityId, cooldowns[0].AbilityId);
+    Assert.Equal(enchantWeapon.Id, cooldowns[0].AbilityId);
   }
 
   [Fact]
@@ -414,15 +431,17 @@ public class CooldownTests : IDisposable
     _client.CreatePlayerAndGetId("CooldownBlock");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Grenadier");
-    var weapon = _client.Db.WeaponDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
-    var fragGrenade = _client.Db.AbilityDef.Iter().First(a => a.Name == "Frag Grenade");
-    _client.Call(r => r.UseAbility(gameId, fragGrenade.Id, null, null, null));
+    // Use a Buff ability so cooldown is actually recorded (damage with no target = dry fire)
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
-    // Frag Grenade has 6000ms cooldown - immediate reuse should fail
-    _client.CallExpectFailure(r => r.UseAbility(gameId, fragGrenade.Id, null, null, null));
+    // Enchant Weapon has 20000ms cooldown - immediate reuse should fail
+    _client.CallExpectFailure(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
   }
 
   [Fact]
@@ -430,90 +449,22 @@ public class CooldownTests : IDisposable
   {
     _client.CreatePlayerAndGetId("MultiCD");
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Grenadier");
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    // Use non-damage abilities so cooldowns are actually recorded
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
-    // Using a different ability should still work even though primary is on cooldown
-    var fragGrenade = _client.Db.AbilityDef.Iter().First(a => a.Name == "Frag Grenade");
-    _client.Call(r => r.UseAbility(gameId, fragGrenade.Id, null, null, null));
+    // Fortify is Infantry innate (Buff, cooldown 20000ms)
+    var fortify = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fortify");
+    _client.Call(r => r.UseAbility(gameId, fortify.Id, null, null, null, null));
 
     var gp = _client.GetGamePlayer(gameId);
     var cooldowns = _client.Db.AbilityCooldown.GamePlayerId.Filter(gp.Id).ToList();
     Assert.Equal(2, cooldowns.Count);
-  }
-}
-
-public class WeaponModTests : IDisposable
-{
-  private readonly SpacetimeTestClient _client;
-
-  public WeaponModTests()
-  {
-    _client = SpacetimeTestClient.Create();
-  }
-
-  public void Dispose()
-  {
-    _client.ClearData();
-    _client.Dispose();
-  }
-
-  [Fact]
-  public void UseAbility_SniperRifle_AppliesDamageMods()
-  {
-    _client.CreatePlayerAndGetId("SniperUser");
-    var gameId = _client.CreateGameAndJoin(4);
-    var sniper = _client.Db.WeaponDef.Iter().First(w => w.Name == "Sniper Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, sniper.Id, skill.Id));
-
-    _client.Call(r => r.UseAbility(gameId, sniper.PrimaryAbilityId, null, null, null));
-
-    var shootBullet = _client.Db.AbilityDef.Id.Find(sniper.PrimaryAbilityId)!;
-    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
-    Assert.Single(logs);
-    // Sniper has +30% damage mod, so resolved power should be > base power
-    Assert.True(logs[0].ResolvedPower > shootBullet.BasePower,
-      $"Expected resolved power ({logs[0].ResolvedPower}) > base power ({shootBullet.BasePower})");
-  }
-
-  [Fact]
-  public void UseAbility_StandardRifle_NoMods_BasePower()
-  {
-    _client.CreatePlayerAndGetId("RifleUser");
-    var gameId = _client.CreateGameAndJoin(4);
-    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, rifle.Id, skill.Id));
-
-    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, null, null, null));
-
-    var shootBullet = _client.Db.AbilityDef.Id.Find(rifle.PrimaryAbilityId)!;
-    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
-    Assert.Single(logs);
-    // Standard rifle has no primary mods, so resolved power == base power
-    Assert.Equal(shootBullet.BasePower, logs[0].ResolvedPower);
-  }
-
-  [Fact]
-  public void UseAbility_SkillAbility_NotModdedByWeapon()
-  {
-    _client.CreatePlayerAndGetId("SkillPure");
-    var gameId = _client.CreateGameAndJoin(4);
-    var sniper = _client.Db.WeaponDef.Iter().First(w => w.Name == "Sniper Rifle");
-    var grenadier = _client.Db.SkillDef.Iter().First(s => s.Name == "Grenadier");
-    _client.Call(r => r.SetLoadout(gameId, sniper.Id, grenadier.Id));
-
-    var fragGrenade = _client.Db.AbilityDef.Iter().First(a => a.Name == "Frag Grenade");
-    _client.Call(r => r.UseAbility(gameId, fragGrenade.Id, null, null, null));
-
-    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
-    Assert.Single(logs);
-    // Skill abilities should not be affected by weapon mods
-    Assert.Equal(fragGrenade.BasePower, logs[0].ResolvedPower);
   }
 }
 
@@ -538,22 +489,21 @@ public class BuffDebuffTests : IDisposable
     _client.CreatePlayerAndGetId("BuffCaster");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, evoker.Id));
 
-    var fireEmpowerment = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Empowerment");
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
     var gp = _client.GetGamePlayer(gameId);
 
-    // Self-cast buff (no target = self)
-    _client.Call(r => r.UseAbility(gameId, fireEmpowerment.Id, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
     var effects = _client.Db.ActiveEffect.GamePlayerId.Filter(gp.Id).ToList();
     Assert.Single(effects);
-    Assert.Equal(fireEmpowerment.Id, effects[0].SourceAbilityId);
+    Assert.Equal(enchantWeapon.Id, effects[0].SourceAbilityId);
     Assert.Equal(gp.Id, effects[0].CasterGamePlayerId);
     Assert.NotEmpty(effects[0].Mods);
-    Assert.NotEmpty(effects[0].AffectedAbilityIds);
   }
 
   [Fact]
@@ -566,22 +516,23 @@ public class BuffDebuffTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var combatMedic = _client.Db.SkillDef.Iter().First(s => s.Name == "Combat Medic");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, combatMedic.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Officer");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var commissar = _client.Db.SkillDef.Iter().First(s => s.Name == "Commissar");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, commissar.Id));
 
-    var weaken = _client.Db.AbilityDef.Iter().First(a => a.Name == "Weaken");
+    var suppress = _client.Db.AbilityDef.Iter().First(a => a.Name == "Suppress");
     var casterGp = _client.GetGamePlayer(gameId);
 
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "DebuffTarget");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
 
-    _client.Call(r => r.UseAbility(gameId, weaken.Id, targetGp.Id, null, null));
+    _client.Call(r => r.UseAbility(gameId, suppress.Id, targetGp.Id, null, null, null));
 
     var effects = _client.Db.ActiveEffect.GamePlayerId.Filter(targetGp.Id).ToList();
     Assert.Single(effects);
-    Assert.Equal(weaken.Id, effects[0].SourceAbilityId);
+    Assert.Equal(suppress.Id, effects[0].SourceAbilityId);
     Assert.Equal(casterGp.Id, effects[0].CasterGamePlayerId);
 
     target.ClearData();
@@ -593,54 +544,46 @@ public class BuffDebuffTests : IDisposable
     _client.CreatePlayerAndGetId("BuffedAttacker");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, evoker.Id));
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    var fireEmpowerment = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Empowerment");
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
 
-    // Apply fire empowerment buff first
-    _client.Call(r => r.UseAbility(gameId, fireEmpowerment.Id, null, null, null));
+    // Apply Enchant Weapon buff first (+15 flat damage, affects all abilities)
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
-    // Now use fireball - it should have increased power from the buff + weapon mods
-    // Arcane Staff has +15% primary mod on Fireball, Fire Empowerment adds +15 flat damage
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, null, null, null));
+    // Now use Fireball - it should have increased power from the buff
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, null, null, null, null));
 
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
       .Where(l => l.AbilityId == fireball.Id).ToList();
     Assert.Single(logs);
 
-    // Base power (50) + 15% weapon mod = 57, then +15 flat from buff = 72
+    // Base power (50) + 15 flat from buff = 65
     Assert.True(logs[0].ResolvedPower > fireball.BasePower,
       $"Buffed power ({logs[0].ResolvedPower}) should be > base power ({fireball.BasePower})");
   }
 
   [Fact]
-  public void UseAbility_Buff_DoesNotAffectUnrelatedAbilities()
+  public void UseAbility_NoBuff_BasePower()
   {
-    _client.CreatePlayerAndGetId("BuffScope");
+    _client.CreatePlayerAndGetId("NoBuff");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, evoker.Id));
 
-    var iceLance = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ice Lance");
-    var fireEmpowerment = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Empowerment");
+    var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, null, null, null, null));
 
-    // Apply fire empowerment (only affects Fireball and Arcane Barrage, not Ice Lance)
-    _client.Call(r => r.UseAbility(gameId, fireEmpowerment.Id, null, null, null));
-
-    // Use Ice Lance - the buff should NOT affect it since Ice Lance is not in AffectedAbilityIds
-    // Arcane Staff has +20% range mod on secondary (Ice Lance) but no damage mods
-    _client.Call(r => r.UseAbility(gameId, iceLance.Id, null, null, null));
-
-    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
-      .Where(l => l.AbilityId == iceLance.Id).ToList();
+    var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
-    // Ice Lance base power is 40, no damage mods from weapon or buff
-    Assert.Equal(iceLance.BasePower, logs[0].ResolvedPower);
+    Assert.Equal(fireball.BasePower, logs[0].ResolvedPower);
   }
 }
 
@@ -664,11 +607,12 @@ public class BattleLogTests : IDisposable
   {
     _client.CreatePlayerAndGetId("TimePlayer");
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First();
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
 
     var log = _client.Db.BattleLog.GameSessionId.Filter(gameId).First();
     Assert.True(log.OccurredAt.MicrosecondsSinceUnixEpoch > 0);
@@ -684,20 +628,20 @@ public class BattleLogTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     other.Call(r => r.JoinGame(gameId));
 
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
-    other.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+    other.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     var myGp = _client.GetGamePlayer(gameId);
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
 
     var otherPlayer = other.Db.Player.Iter().First(p => p.Name == "OtherActor");
     var otherGp = other.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == otherPlayer.Id);
-    other.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    other.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
 
-    // Each client reads their own logs from their own cache
     var myLogs = _client.Db.BattleLog.ActorGamePlayerId.Filter(myGp.Id).ToList();
     Assert.Single(myLogs);
     Assert.Equal(myGp.Id, myLogs[0].ActorGamePlayerId);
@@ -714,11 +658,12 @@ public class BattleLogTests : IDisposable
   {
     _client.CreatePlayerAndGetId("SoloPlayer");
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First();
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
 
     var log = _client.Db.BattleLog.GameSessionId.Filter(gameId).First();
     Assert.Empty(log.TargetGamePlayerIds);
@@ -741,7 +686,7 @@ public class HealthArmorTests : IDisposable
   }
 
   [Fact]
-  public void JoinGame_SetsHealthAndArmor()
+  public void JoinGame_SetsDefaultHealthAndArmor()
   {
     _client.CreatePlayerAndGetId("HealthPlayer");
     var gameId = _client.CreateGameAndJoin(4);
@@ -749,6 +694,23 @@ public class HealthArmorTests : IDisposable
     Assert.Equal(100, gp.Health);
     Assert.Equal(100, gp.MaxHealth);
     Assert.Equal(0, gp.Armor);
+  }
+
+  [Fact]
+  public void SetLoadout_UpdatesHealthAndArmor()
+  {
+    _client.CreatePlayerAndGetId("ArchetypePlayer");
+    var gameId = _client.CreateGameAndJoin(4);
+
+    var infantry = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First();
+    var skill = _client.Db.SkillDef.Iter().First(s => s.ArchetypeDefId == infantry.Id);
+    _client.Call(r => r.SetLoadout(gameId, infantry.Id, weapon.Id, skill.Id));
+
+    var gp = _client.GetGamePlayer(gameId);
+    Assert.Equal(130, gp.MaxHealth); // 100 base + 30 Infantry bonus
+    Assert.Equal(130, gp.Health);
+    Assert.Equal(5, gp.Armor); // 0 base + 5 Infantry bonus
   }
 
   [Fact]
@@ -761,16 +723,17 @@ public class HealthArmorTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "DmgTarget");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
 
     int healthBefore = targetGp.Health;
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null));
 
     var targetAfter = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
     Assert.True(targetAfter.Health < healthBefore,
@@ -789,21 +752,22 @@ public class HealthArmorTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var grenadier = _client.Db.SkillDef.Iter().First(s => s.Name == "Grenadier");
-    _client.Call(r => r.SetLoadout(gameId, rifle.Id, grenadier.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
 
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "TankTarget_HP");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
 
-    // Use different abilities to avoid cooldowns. Combined damage > 100hp.
-    // Shoot Bullet (20) + Pistol Shot (15) + Bayonet Stab (35) + Frag Grenade (45) = 115
-    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.Id, null, null));
-    _client.Call(r => r.UseAbility(gameId, rifle.SecondaryAbilityId, targetGp.Id, null, null));
-    _client.Call(r => r.UseAbility(gameId, rifle.BonusAbilityIds.First(), targetGp.Id, null, null));
-    var frag = _client.Db.AbilityDef.Iter().First(a => a.Name == "Frag Grenade");
-    _client.Call(r => r.UseAbility(gameId, frag.Id, targetGp.Id, null, null));
+    // Use different abilities to avoid cooldowns. Target has 100 HP, 0 armor (no loadout).
+    // Fire Rifle (30) + Fireball (50) + Arcane Barrage (60) = 140 > 100
+    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.Id, null, null, null));
+    var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null));
+    var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null));
 
     var targetAfter = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
     Assert.Equal(0, targetAfter.Health);
@@ -816,12 +780,13 @@ public class HealthArmorTests : IDisposable
   {
     _client.CreatePlayerAndGetId("SoloShooter");
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     var gpBefore = _client.GetGamePlayer(gameId);
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
 
     var gpAfter = _client.Db.GamePlayer.Id.Find(gpBefore.Id)!;
     Assert.Equal(gpBefore.Health, gpAfter.Health);
@@ -844,12 +809,17 @@ public class ResourceTests : IDisposable
   }
 
   [Fact]
-  public void JoinGame_SeedsResourcePools()
+  public void SetLoadout_SeedsResourcePools()
   {
     _client.CreatePlayerAndGetId("PoolPlayer");
     var gameId = _client.CreateGameAndJoin(4);
-    var gp = _client.GetGamePlayer(gameId);
 
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+
+    var gp = _client.GetGamePlayer(gameId);
     var pools = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).ToList();
     Assert.Equal(3, pools.Count);
 
@@ -861,32 +831,40 @@ public class ResourceTests : IDisposable
     Assert.Equal(100, stamina.Current);
     Assert.Equal(100, stamina.Max);
 
-    var ammo = pools.First(p => p.Kind == ResourceKind.Ammo);
-    Assert.Equal(30, ammo.Current);
-    Assert.Equal(30, ammo.Max);
+    var supplies = pools.First(p => p.Kind == ResourceKind.Supplies);
+    Assert.Equal(30, supplies.Current);
+    Assert.Equal(30, supplies.Max);
   }
 
   [Fact]
-  public void UseAbility_DeductsAmmoAndStamina()
+  public void UseAbility_DeductsSupplies()
   {
-    _client.CreatePlayerAndGetId("AmmoUser");
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("SupplyTarget");
+
+    _client.CreatePlayerAndGetId("SupplyUser");
     var gameId = _client.CreateGameAndJoin(4);
-    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, weapon.Id, skill.Id));
+    target.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     var gp = _client.GetGamePlayer(gameId);
-    var ammoBefore = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Ammo).Current;
-    var staminaBefore = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Stamina).Current;
+    var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "SupplyTarget");
+    var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
+      .First(g => g.PlayerId == targetPlayer.Id);
 
-    // Shoot Bullet costs 1 Ammo + 5 Stamina
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null));
+    var suppliesBefore = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Supplies).Current;
 
-    var ammoAfter = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Ammo).Current;
-    var staminaAfter = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Stamina).Current;
+    // Fire Rifle costs 1 Supplies (not dry fire since we have a target)
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null));
 
-    Assert.Equal(ammoBefore - 1, ammoAfter);
-    Assert.Equal(staminaBefore - 5, staminaAfter);
+    var suppliesAfter = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Supplies).Current;
+    Assert.Equal(suppliesBefore - 1, suppliesAfter);
+
+    target.ClearData();
   }
 
   [Fact]
@@ -894,18 +872,20 @@ public class ResourceTests : IDisposable
   {
     _client.CreatePlayerAndGetId("ManaUser");
     var gameId = _client.CreateGameAndJoin(4);
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, evoker.Id));
 
     var gp = _client.GetGamePlayer(gameId);
     var manaBefore = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Mana).Current;
 
-    // Fireball costs 25 Mana
-    _client.Call(r => r.UseAbility(gameId, staff.PrimaryAbilityId, null, null, null));
+    // Enchant Weapon is a Buff (not Damage), so it always consumes resources (no dry-fire skip)
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
     var manaAfter = _client.Db.ResourcePool.GamePlayerId.Filter(gp.Id).First(p => p.Kind == ResourceKind.Mana).Current;
-    Assert.Equal(manaBefore - 25, manaAfter);
+    Assert.Equal(manaBefore - 30, manaAfter);
   }
 
   [Fact]
@@ -913,36 +893,36 @@ public class ResourceTests : IDisposable
   {
     _client.CreatePlayerAndGetId("BrokePlayer");
     var gameId = _client.CreateGameAndJoin(4);
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
 
-    // Use diverse abilities to drain mana without hitting cooldowns.
-    // Fireball(25) + Ice Lance(20) + Arcane Barrage(30) = 75 mana used, 25 left
-    _client.Call(r => r.UseAbility(gameId, staff.PrimaryAbilityId, null, null, null));
-    _client.Call(r => r.UseAbility(gameId, staff.SecondaryAbilityId, null, null, null));
-    var barrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, barrage.Id, null, null, null));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Support");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Pistol");
+    var priest = _client.Db.SkillDef.Iter().First(s => s.Name == "Priest");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, priest.Id));
 
-    // Fire Empowerment costs 30 mana but only 25 left -- should fail
-    var fireEmp = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Empowerment");
-    _client.CallExpectFailure(r => r.UseAbility(gameId, fireEmp.Id, null, null, null));
+    // Healing Mist (30 Mana) + Divine Shield (35 Mana) = 65 Mana used, 35 left
+    var healingMist = _client.Db.AbilityDef.Iter().First(a => a.Name == "Healing Mist");
+    _client.Call(r => r.UseAbility(gameId, healingMist.Id, null, null, null, null));
+
+    var divineShield = _client.Db.AbilityDef.Iter().First(a => a.Name == "Divine Shield");
+    _client.Call(r => r.UseAbility(gameId, divineShield.Id, null, null, null, null));
+
+    // Holy Resurrect costs 60 Mana but only 35 left -- should fail
+    var holyResurrect = _client.Db.AbilityDef.Iter().First(a => a.Name == "Holy Resurrect");
+    _client.CallExpectFailure(r => r.UseAbility(gameId, holyResurrect.Id, null, null, null, null));
   }
 
   [Fact]
   public void ResourceCosts_AbilityDef_HasCorrectCosts()
   {
-    var shootBullet = _client.Db.AbilityDef.Iter().First(a => a.Name == "Shoot Bullet");
-    Assert.Equal(2, shootBullet.ResourceCosts.Count);
-    Assert.Contains(shootBullet.ResourceCosts, c => c.Kind == ResourceKind.Ammo && c.Amount == 1);
-    Assert.Contains(shootBullet.ResourceCosts, c => c.Kind == ResourceKind.Stamina && c.Amount == 5);
+    var fireRifle = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Rifle");
+    Assert.Single(fireRifle.ResourceCosts);
+    Assert.Contains(fireRifle.ResourceCosts, c => c.Kind == ResourceKind.Supplies && c.Amount == 1);
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
     Assert.Single(fireball.ResourceCosts);
     Assert.Equal(ResourceKind.Mana, fireball.ResourceCosts[0].Kind);
     Assert.Equal(25, fireball.ResourceCosts[0].Amount);
   }
-
 }
 
 public class DamageTests : IDisposable
@@ -970,27 +950,28 @@ public class DamageTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     attacker.Call(r => r.JoinGame(gameId));
 
-    // Set up both loadouts before combat
-    var rifle = attacker.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var gSkill = attacker.Db.SkillDef.Iter().First();
-    attacker.Call(r => r.SetLoadout(gameId, rifle.Id, gSkill.Id));
+    // Set up attacker loadout
+    var infantry = attacker.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var rifle = attacker.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = attacker.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    attacker.Call(r => r.SetLoadout(gameId, infantry.Id, rifle.Id, evoker.Id));
 
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var combatMedic = _client.Db.SkillDef.Iter().First(s => s.Name == "Combat Medic");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, combatMedic.Id));
+    // Set up medic loadout
+    var support = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Support");
+    var pistol = _client.Db.WeaponDef.Iter().First(w => w.Name == "Pistol");
+    var priest = _client.Db.SkillDef.Iter().First(s => s.Name == "Priest");
+    _client.Call(r => r.SetLoadout(gameId, support.Id, pistol.Id, priest.Id));
 
     // Attacker damages medic
     var medicGp = _client.GetGamePlayer(gameId);
-    attacker.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, medicGp.Id, null, null));
+    attacker.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, medicGp.Id, null, null, null));
 
-    // Medic heals themselves -- this Call also pumps the client cache to pick up the damage
+    // Medic heals themselves
     var healingMist = _client.Db.AbilityDef.Iter().First(a => a.Name == "Healing Mist");
-    _client.Call(r => r.UseAbility(gameId, healingMist.Id, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, healingMist.Id, null, null, null, null));
 
-    // After 20 damage + 40 heal, health should be 100 (capped at MaxHealth)
-    // But the key assertion: health went down then back up, net result is capped at max.
     var medicHealed = _client.Db.GamePlayer.Id.Find(medicGp.Id)!;
-    Assert.Equal(100, medicHealed.Health);
+    Assert.Equal(medicGp.Health, medicHealed.Health);
 
     attacker.ClearData();
   }
@@ -1001,24 +982,23 @@ public class DamageTests : IDisposable
     _client.CreatePlayerAndGetId("BuffNoDmg");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, evoker.Id));
 
     var gp = _client.GetGamePlayer(gameId);
-    var fireEmpowerment = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Empowerment");
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
 
-    _client.Call(r => r.UseAbility(gameId, fireEmpowerment.Id, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
 
     var gpAfter = _client.Db.GamePlayer.Id.Find(gp.Id)!;
-    Assert.Equal(100, gpAfter.Health);
+    Assert.Equal(gp.Health, gpAfter.Health);
   }
 
   [Fact]
   public void UseAbility_DamageRespectsArmor()
   {
-    // This test verifies the armor formula works. With default armor=0,
-    // damage should be applied at full. We verify damage equals resolved power.
     using var target = SpacetimeTestClient.Create();
     target.CreatePlayerAndGetId("ArmorTarget");
 
@@ -1026,20 +1006,21 @@ public class DamageTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Standard Rifle");
-    var skill = _client.Db.SkillDef.Iter().First();
-    _client.Call(r => r.SetLoadout(gameId, rifle.Id, skill.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, skill.Id));
 
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "ArmorTarget");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
 
-    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.Id, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.Id, null, null, null));
 
     var log = _client.Db.BattleLog.GameSessionId.Filter(gameId).First();
     var targetAfter = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
 
-    // With 0 armor, damage = resolved power, so health = 100 - resolvedPower
+    // Target has 0 armor (no loadout), so damage = resolved power, health = 100 - resolvedPower
     Assert.Equal(100 - log.ResolvedPower, targetAfter.Health);
 
     target.ClearData();
@@ -1061,13 +1042,14 @@ public class TerrainAbilityTests : IDisposable
     _client.Dispose();
   }
 
-  private (ulong gameId, ulong gpId) SetupBattleMage(string name = "TerrainCaster")
+  private (ulong gameId, ulong gpId) SetupTechnician(string name = "TerrainCaster")
   {
     _client.CreatePlayerAndGetId(name);
     var gameId = _client.CreateGameAndJoin(4);
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Support");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var technician = _client.Db.SkillDef.Iter().First(s => s.Name == "Technician");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, technician.Id));
     var gp = _client.GetGamePlayer(gameId);
     return (gameId, gp.Id);
   }
@@ -1075,45 +1057,45 @@ public class TerrainAbilityTests : IDisposable
   [Fact]
   public void UseAbility_TerrainAbility_CreatesTerrainFeature()
   {
-    var (gameId, gpId) = SetupBattleMage();
-    var wardOfEarth = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ward of Earth");
+    var (gameId, gpId) = SetupTechnician();
+    var buildFortification = _client.Db.AbilityDef.Iter().First(a => a.Name == "Build Fortification");
 
     var terrainBefore = _client.Db.TerrainFeature.GameSessionId.Filter(gameId)
       .Count(t => t.CasterGamePlayerId != null);
 
     var targetPos = new SpacetimeDB.Types.DbVector3(5f, 0f, 5f);
-    _client.Call(r => r.UseAbility(gameId, wardOfEarth.Id, null, targetPos, null));
+    _client.Call(r => r.UseAbility(gameId, buildFortification.Id, null, null, targetPos, null));
 
     var playerTerrain = _client.Db.TerrainFeature.GameSessionId.Filter(gameId)
       .Where(t => t.CasterGamePlayerId != null).ToList();
     Assert.Equal(terrainBefore + 1, playerTerrain.Count);
 
     var wall = playerTerrain.Last();
-    Assert.Equal(TerrainType.Wall, wall.Type);
+    Assert.Equal(TerrainType.Fortification, wall.Type);
     Assert.Equal(gpId, wall.CasterGamePlayerId);
-    Assert.Equal(10f, wall.SizeX);
-    Assert.Equal(3f, wall.SizeY);
+    Assert.Equal(8f, wall.SizeX);
+    Assert.Equal(2.5f, wall.SizeY);
     Assert.Equal(1f, wall.SizeZ);
   }
 
   [Fact]
   public void UseAbility_TerrainAbility_RequiresPosition()
   {
-    var (gameId, _) = SetupBattleMage("TerrainNoPos");
-    var wardOfEarth = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ward of Earth");
+    var (gameId, _) = SetupTechnician("TerrainNoPos");
+    var buildFortification = _client.Db.AbilityDef.Iter().First(a => a.Name == "Build Fortification");
 
-    _client.CallExpectFailure(r => r.UseAbility(gameId, wardOfEarth.Id, null, null, null));
+    _client.CallExpectFailure(r => r.UseAbility(gameId, buildFortification.Id, null, null, null, null));
   }
 
   [Fact]
   public void UseAbility_TerrainAbility_OutOfRange_Fails()
   {
-    var (gameId, _) = SetupBattleMage("TerrainRange");
-    var wardOfEarth = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ward of Earth");
+    var (gameId, _) = SetupTechnician("TerrainRange");
+    var buildFortification = _client.Db.AbilityDef.Iter().First(a => a.Name == "Build Fortification");
 
-    // Ward of Earth has BaseRange=20, place at distance 100 (way out of range)
+    // Build Fortification has BaseRange=12, place at distance 100 (way out of range)
     var farPos = new SpacetimeDB.Types.DbVector3(100f, 0f, 100f);
-    _client.CallExpectFailure(r => r.UseAbility(gameId, wardOfEarth.Id, null, farPos, null));
+    _client.CallExpectFailure(r => r.UseAbility(gameId, buildFortification.Id, null, null, farPos, null));
   }
 }
 
@@ -1142,14 +1124,12 @@ public class LineOfSightTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    // Move both players to known positions with clear line of sight
     _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -50f), 0f));
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "LoSTarget");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
     target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -40f), 0f));
 
-    // Setting target should succeed (clear LoS)
     _client.Call(r => r.SetTarget(gameId, targetGp.Id));
 
     var shooter = _client.GetGamePlayer(gameId);
@@ -1168,24 +1148,27 @@ public class LineOfSightTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    // Position players far apart along Z axis at Y=3
-    _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -20f), 0f));
-    target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, 20f), 0f));
+    // Position players along Z axis at Y=3
+    _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -10f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, 10f), 0f));
 
-    // Place a tall wall directly between them using Ward of Earth
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
-    var wardOfEarth = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ward of Earth");
+    // Set up Support/Technician loadout and place an outpost between them
+    var support = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Support");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var technician = _client.Db.SkillDef.Iter().First(s => s.Name == "Technician");
+    _client.Call(r => r.SetLoadout(gameId, support.Id, weapon.Id, technician.Id));
+
+    // Deploy Outpost (innate, range 15) creates a 4x3x4 structure (top at Y=3)
+    var deployOutpost = _client.Db.AbilityDef.Iter().First(a => a.Name == "Deploy Outpost");
     var wallPos = new SpacetimeDB.Types.DbVector3(0f, 0f, 0f);
-    _client.Call(r => r.UseAbility(gameId, wardOfEarth.Id, null, wallPos, null));
+    _client.Call(r => r.UseAbility(gameId, deployOutpost.Id, null, null, wallPos, null));
 
-    // Verify the wall was placed
+    // Verify the outpost was placed
     var walls = _client.Db.TerrainFeature.GameSessionId.Filter(gameId)
       .Where(t => t.CasterGamePlayerId != null).ToList();
     Assert.NotEmpty(walls);
 
-    // Now try to set target -- should fail because wall blocks LoS
+    // Try to set target -- should fail because outpost blocks LoS
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "BlockedTarget");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
@@ -1207,23 +1190,24 @@ public class LineOfSightTests : IDisposable
     target.Call(r => r.JoinGame(gameId));
 
     // Position players
-    _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -20f), 0f));
-    target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, 20f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -10f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, 10f), 0f));
 
-    // Set up Battle Mage loadout and place wall
-    var staff = _client.Db.WeaponDef.Iter().First(w => w.Name == "Arcane Staff");
-    var battleMage = _client.Db.SkillDef.Iter().First(s => s.Name == "Battle Mage");
-    _client.Call(r => r.SetLoadout(gameId, staff.Id, battleMage.Id));
-    var wardOfEarth = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ward of Earth");
-    _client.Call(r => r.UseAbility(gameId, wardOfEarth.Id, null, new SpacetimeDB.Types.DbVector3(0f, 0f, 0f), null));
+    // Set up Support/Technician loadout and place an outpost
+    var support = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Support");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var technician = _client.Db.SkillDef.Iter().First(s => s.Name == "Technician");
+    _client.Call(r => r.SetLoadout(gameId, support.Id, weapon.Id, technician.Id));
 
-    // Try targeted ability through wall
-    var iceLance = _client.Db.AbilityDef.Iter().First(a => a.Name == "Ice Lance");
+    var deployOutpost = _client.Db.AbilityDef.Iter().First(a => a.Name == "Deploy Outpost");
+    _client.Call(r => r.UseAbility(gameId, deployOutpost.Id, null, null, new SpacetimeDB.Types.DbVector3(0f, 0f, 0f), null));
+
+    // Try targeted ability through the outpost
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "AbilityBlockTarget");
     var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
 
-    var error = _client.CallExpectFailure(r => r.UseAbility(gameId, iceLance.Id, targetGp.Id, null, null));
+    var error = _client.CallExpectFailure(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null));
     Assert.Contains("line of sight", error.ToLower());
 
     target.ClearData();
@@ -1239,7 +1223,6 @@ public class LineOfSightTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    // Move players close together with clear LoS
     _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -5f), 0f));
     target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, 5f), 0f));
 
@@ -1251,7 +1234,6 @@ public class LineOfSightTests : IDisposable
     var shooter = _client.GetGamePlayer(gameId);
     Assert.Equal(targetGp.Id, shooter.TargetGamePlayerId);
 
-    // Clear target (null) should always succeed
     _client.Call(r => r.SetTarget(gameId, null));
     shooter = _client.GetGamePlayer(gameId);
     Assert.Null(shooter.TargetGamePlayerId);
@@ -1269,8 +1251,7 @@ public class LineOfSightTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     target.Call(r => r.JoinGame(gameId));
 
-    // Players at Y=3 (standing height), trenches are at PosY=-1 with SizeY=2 (top at Y=1)
-    // So trenches should NOT block LoS at player height
+    // Players at Y=3 (standing height), map trenches are below player height
     _client.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -50f), 0f));
     target.Call(r => r.MovePlayer(gameId, new SpacetimeDB.Types.DbVector3(0f, 3f, -40f), 0f));
 

@@ -52,7 +52,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<AbilityDef, System.Collections.Generic.List<AbilityMod>> GrantedMods { get; }
         public global::SpacetimeDB.Col<AbilityDef, ulong> EffectDurationMs { get; }
         public global::SpacetimeDB.Col<AbilityDef, System.Collections.Generic.List<ulong>> AffectedAbilityIds { get; }
-        public global::SpacetimeDB.NullableCol<AbilityDef, TerrainType> SpawnedTerrainType { get; }
+        public global::SpacetimeDB.Col<AbilityDef, TerrainType> SpawnedTerrainType { get; }
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeX { get; }
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeY { get; }
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeZ { get; }
@@ -73,7 +73,7 @@ namespace SpacetimeDB.Types
             GrantedMods = new global::SpacetimeDB.Col<AbilityDef, System.Collections.Generic.List<AbilityMod>>(tableName, "granted_mods");
             EffectDurationMs = new global::SpacetimeDB.Col<AbilityDef, ulong>(tableName, "effect_duration_ms");
             AffectedAbilityIds = new global::SpacetimeDB.Col<AbilityDef, System.Collections.Generic.List<ulong>>(tableName, "affected_ability_ids");
-            SpawnedTerrainType = new global::SpacetimeDB.NullableCol<AbilityDef, TerrainType>(tableName, "spawned_terrain_type");
+            SpawnedTerrainType = new global::SpacetimeDB.Col<AbilityDef, TerrainType>(tableName, "spawned_terrain_type");
             TerrainSizeX = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_x");
             TerrainSizeY = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_y");
             TerrainSizeZ = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_z");

@@ -60,8 +60,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeZ { get; }
         public global::SpacetimeDB.Col<TerrainFeature, float> RotationY { get; }
         public global::SpacetimeDB.Col<TerrainFeature, byte> TeamIndex { get; }
-        public global::SpacetimeDB.NullableCol<TerrainFeature, ulong> CasterGamePlayerId { get; }
-        public global::SpacetimeDB.NullableCol<TerrainFeature, SpacetimeDB.Timestamp> ExpiresAt { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, ulong> CasterGamePlayerId { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp> ExpiresAt { get; }
         public global::SpacetimeDB.Col<TerrainFeature, bool> Expired { get; }
         public global::SpacetimeDB.Col<TerrainFeature, int> Health { get; }
         public global::SpacetimeDB.Col<TerrainFeature, int> MaxHealth { get; }
@@ -79,8 +79,8 @@ namespace SpacetimeDB.Types
             SizeZ = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_z");
             RotationY = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "rotation_y");
             TeamIndex = new global::SpacetimeDB.Col<TerrainFeature, byte>(tableName, "team_index");
-            CasterGamePlayerId = new global::SpacetimeDB.NullableCol<TerrainFeature, ulong>(tableName, "caster_game_player_id");
-            ExpiresAt = new global::SpacetimeDB.NullableCol<TerrainFeature, SpacetimeDB.Timestamp>(tableName, "expires_at");
+            CasterGamePlayerId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "caster_game_player_id");
+            ExpiresAt = new global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp>(tableName, "expires_at");
             Expired = new global::SpacetimeDB.Col<TerrainFeature, bool>(tableName, "expired");
             Health = new global::SpacetimeDB.Col<TerrainFeature, int>(tableName, "health");
             MaxHealth = new global::SpacetimeDB.Col<TerrainFeature, int>(tableName, "max_health");
