@@ -63,6 +63,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<TerrainFeature, ulong> CasterGamePlayerId { get; }
         public global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp> ExpiresAt { get; }
         public global::SpacetimeDB.Col<TerrainFeature, bool> Expired { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, int> Health { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, int> MaxHealth { get; }
 
         public TerrainFeatureCols(string tableName)
         {
@@ -80,6 +82,8 @@ namespace SpacetimeDB.Types
             CasterGamePlayerId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "caster_game_player_id");
             ExpiresAt = new global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp>(tableName, "expires_at");
             Expired = new global::SpacetimeDB.Col<TerrainFeature, bool>(tableName, "expired");
+            Health = new global::SpacetimeDB.Col<TerrainFeature, int>(tableName, "health");
+            MaxHealth = new global::SpacetimeDB.Col<TerrainFeature, int>(tableName, "max_health");
         }
     }
 

@@ -35,6 +35,10 @@ namespace SpacetimeDB.Types
         public float RotationY;
         [DataMember(Name = "target_game_player_id")]
         public ulong? TargetGamePlayerId;
+        [DataMember(Name = "dead")]
+        public bool Dead;
+        [DataMember(Name = "died_at")]
+        public SpacetimeDB.Timestamp? DiedAt;
 
         public GamePlayer(
             ulong Id,
@@ -47,7 +51,9 @@ namespace SpacetimeDB.Types
             int Armor,
             DbVector3 Position,
             float RotationY,
-            ulong? TargetGamePlayerId
+            ulong? TargetGamePlayerId,
+            bool Dead,
+            SpacetimeDB.Timestamp? DiedAt
         )
         {
             this.Id = Id;
@@ -61,6 +67,8 @@ namespace SpacetimeDB.Types
             this.Position = Position;
             this.RotationY = RotationY;
             this.TargetGamePlayerId = TargetGamePlayerId;
+            this.Dead = Dead;
+            this.DiedAt = DiedAt;
         }
 
         public GamePlayer()

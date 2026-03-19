@@ -21,43 +21,28 @@ namespace SpacetimeDB.Types
         public string Description;
         [DataMember(Name = "primary_ability_id")]
         public ulong PrimaryAbilityId;
-        [DataMember(Name = "secondary_ability_id")]
-        public ulong SecondaryAbilityId;
-        [DataMember(Name = "bonus_ability_ids")]
-        public System.Collections.Generic.List<ulong> BonusAbilityIds;
-        [DataMember(Name = "primary_mods")]
-        public System.Collections.Generic.List<AbilityMod> PrimaryMods;
-        [DataMember(Name = "secondary_mods")]
-        public System.Collections.Generic.List<AbilityMod> SecondaryMods;
+        [DataMember(Name = "grants_supplies")]
+        public bool GrantsSupplies;
 
         public WeaponDef(
             ulong Id,
             string Name,
             string Description,
             ulong PrimaryAbilityId,
-            ulong SecondaryAbilityId,
-            System.Collections.Generic.List<ulong> BonusAbilityIds,
-            System.Collections.Generic.List<AbilityMod> PrimaryMods,
-            System.Collections.Generic.List<AbilityMod> SecondaryMods
+            bool GrantsSupplies
         )
         {
             this.Id = Id;
             this.Name = Name;
             this.Description = Description;
             this.PrimaryAbilityId = PrimaryAbilityId;
-            this.SecondaryAbilityId = SecondaryAbilityId;
-            this.BonusAbilityIds = BonusAbilityIds;
-            this.PrimaryMods = PrimaryMods;
-            this.SecondaryMods = SecondaryMods;
+            this.GrantsSupplies = GrantsSupplies;
         }
 
         public WeaponDef()
         {
             this.Name = "";
             this.Description = "";
-            this.BonusAbilityIds = new();
-            this.PrimaryMods = new();
-            this.SecondaryMods = new();
         }
     }
 }

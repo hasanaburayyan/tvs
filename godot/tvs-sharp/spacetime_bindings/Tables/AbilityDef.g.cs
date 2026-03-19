@@ -56,6 +56,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeX { get; }
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeY { get; }
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeZ { get; }
+        public global::SpacetimeDB.Col<AbilityDef, int> TerrainMaxHealth { get; }
 
         public AbilityDefCols(string tableName)
         {
@@ -76,6 +77,7 @@ namespace SpacetimeDB.Types
             TerrainSizeX = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_x");
             TerrainSizeY = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_y");
             TerrainSizeZ = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_z");
+            TerrainMaxHealth = new global::SpacetimeDB.Col<AbilityDef, int>(tableName, "terrain_max_health");
         }
     }
 

@@ -12,11 +12,8 @@
 [ext_resource type="Script" uid="uid://xl5mwtfqyuul" path="res://managers/map/MapManager.cs" id="9_kek77"]
 [ext_resource type="PackedScene" path="res://scenes/menus/loadout_select/LoadoutSelect.tscn" id="10_ldout"]
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_1bvp3"]
-size = Vector3(200, 2, 200)
-
-[sub_resource type="BoxMesh" id="BoxMesh_lquwl"]
-size = Vector3(200, 2, 200)
+[sub_resource type="StandardMaterial3D" id="FloorMaterial_1"]
+albedo_color = Color(0.45, 0.38, 0.28, 1)
 
 [node name="Main" type="Node3D" unique_id=115939296 node_paths=PackedStringArray("PlayerManager", "Hud", "MapManager")]
 script = ExtResource("1_ig7tw")
@@ -26,6 +23,13 @@ MapManager = NodePath("MapManager")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1523776012]
 script = ExtResource("2_1bvp3")
+
+[node name="PlayerHud" parent="HUD" unique_id=522126320 instance=ExtResource("8_kek77")]
+unique_name_in_owner = true
+visible = false
+
+[node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("6_272bh")]
+unique_name_in_owner = true
 
 [node name="InGameMenu" parent="HUD" unique_id=1594831292 node_paths=PackedStringArray("hud") instance=ExtResource("5_7mycd")]
 unique_name_in_owner = true
@@ -52,20 +56,11 @@ unique_name_in_owner = true
 visible = false
 hud = NodePath("..")
 
-[node name="Targeting" parent="HUD" unique_id=984442675 instance=ExtResource("6_272bh")]
+[node name="Floor" type="CSGBox3D" parent="." unique_id=1775772858]
 unique_name_in_owner = true
-
-[node name="PlayerHud" parent="HUD" unique_id=522126320 instance=ExtResource("8_kek77")]
-unique_name_in_owner = true
-visible = false
-
-[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1775772858]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=279912995]
-shape = SubResource("BoxShape3D_1bvp3")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D" unique_id=1521590559]
-mesh = SubResource("BoxMesh_lquwl")
+size = Vector3(200, 2, 200)
+material = SubResource("FloorMaterial_1")
+use_collision = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=364786149]
 transform = Transform3D(1, 0, 0, 0, -0.960318, 0.27890733, 0, -0.27890733, -0.960318, 0, 5.475296, 0)

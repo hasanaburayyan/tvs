@@ -15,5 +15,9 @@ namespace SpacetimeDB.Types
         Wall,
         Building,
         CommandCenter,
+        Outpost,
+        Trap,
+        Fortification,
+        MountedWeapon,
     }
 }

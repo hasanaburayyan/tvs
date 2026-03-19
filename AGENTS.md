@@ -1,3 +1,9 @@
+# Repo Rules
+
+## Making changes to spacetimedb backedn server
+
+- Anytime code here is changed, especially for any schema or api changes, ensure that tests are updated in the tests directory
+
 # SpacetimeDB Rules (All Languages)
 
 ## Migrating from 1.0 to 2.0?

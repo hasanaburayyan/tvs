@@ -70,6 +70,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GamePlayer, DbVector3> Position { get; }
         public global::SpacetimeDB.Col<GamePlayer, float> RotationY { get; }
         public global::SpacetimeDB.Col<GamePlayer, ulong> TargetGamePlayerId { get; }
+        public global::SpacetimeDB.Col<GamePlayer, bool> Dead { get; }
+        public global::SpacetimeDB.Col<GamePlayer, SpacetimeDB.Timestamp> DiedAt { get; }
 
         public GamePlayerCols(string tableName)
         {
@@ -84,6 +86,8 @@ namespace SpacetimeDB.Types
             Position = new global::SpacetimeDB.Col<GamePlayer, DbVector3>(tableName, "position");
             RotationY = new global::SpacetimeDB.Col<GamePlayer, float>(tableName, "rotation_y");
             TargetGamePlayerId = new global::SpacetimeDB.Col<GamePlayer, ulong>(tableName, "target_game_player_id");
+            Dead = new global::SpacetimeDB.Col<GamePlayer, bool>(tableName, "dead");
+            DiedAt = new global::SpacetimeDB.Col<GamePlayer, SpacetimeDB.Timestamp>(tableName, "died_at");
         }
     }
 

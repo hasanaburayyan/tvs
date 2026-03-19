@@ -9,6 +9,9 @@ public partial class InGameMenu : PopulableMenu
 
   private Button _stuckButton;
   private Button _leaveGameButton;
+  private Button _joinEntenteButton;
+  private Button _joinCentralButton;
+  private Button _joinNeutralButton;
   private Control _player_list_container;
 
   private static readonly PackedScene PlayerRowScene = GD.Load<PackedScene>("uid://v441cmkknglk");
@@ -17,12 +20,23 @@ public partial class InGameMenu : PopulableMenu
   {
 	_stuckButton = GetNode<Button>("%StuckButton");
 	_leaveGameButton = GetNode<Button>("%LeaveGameButton");
+	_joinEntenteButton = GetNode<Button>("%JoinEntenteButton");
+	_joinCentralButton = GetNode<Button>("%JoinCentralButton");
+	_joinNeutralButton = GetNode<Button>("%JoinNeutralButton");
 	_player_list_container = GetNode<Control>("%PlayerListContainer");
 
 	_stuckButton.Pressed += OnStuckButtonPressed;
 	_leaveGameButton.Pressed += OnLeaveGamePressed;
+	_joinEntenteButton.Pressed += () => SetTeam(1);
+	_joinCentralButton.Pressed += () => SetTeam(2);
+	_joinNeutralButton.Pressed += () => SetTeam(0);
 
 	SpacetimeNetworkManager.Instance.SubscriptionApplied += RegisterCallbacks;
+  }
+
+  private void SetTeam(byte teamSlot)
+  {
+	SpacetimeNetworkManager.Instance.Conn.Reducers.SetTeam(hud.sessionID, teamSlot);
   }
 
   void RegisterCallbacks()

@@ -37,14 +37,44 @@ public partial class Targeting : Control
     return _camera;
   }
 
+  private bool IsCameraLocked()
+  {
+    var cam = GetActiveCamera();
+    return cam is FreelookCamera fc && fc.CameraLocked;
+  }
+
   public override void _UnhandledInput(InputEvent @event)
   {
-    if (@event is not InputEventMouseButton mb) return;
-    if (mb.ButtonIndex != MouseButton.Left || !mb.Pressed) return;
+    if (@event is not InputEventMouseButton mb || !mb.Pressed) return;
     if (PlacementMode.Instance?.IsActive == true) return;
 
     var cam = GetActiveCamera();
     if (cam == null) return;
+
+    if (IsCameraLocked())
+      HandleLockedInput(mb, cam);
+    else
+      HandleUnlockedInput(mb, cam);
+  }
+
+  private void HandleLockedInput(InputEventMouseButton mb, Camera3D cam)
+  {
+    if (mb.ButtonIndex == MouseButton.Right)
+    {
+      var (target, targetable) = RaycastFromScreenCenter(cam);
+      SetTarget(target, targetable);
+    }
+    else if (mb.ButtonIndex == MouseButton.Left)
+    {
+      var (target, targetable) = RaycastFromScreenCenter(cam);
+      SetTarget(target, targetable);
+      FirePrimaryAbility(targetable?.GamePlayerId);
+    }
+  }
+
+  private void HandleUnlockedInput(InputEventMouseButton mb, Camera3D cam)
+  {
+    if (mb.ButtonIndex != MouseButton.Left) return;
 
     var mousePos = mb.Position;
     var rayOrigin = cam.ProjectRayOrigin(mousePos);
@@ -54,6 +84,56 @@ public partial class Targeting : Control
 
     var (target, targetable) = ResolveTarget(result);
     SetTarget(target, targetable);
+  }
+
+  private (Node3D, Targetable) RaycastFromScreenCenter(Camera3D cam)
+  {
+    var center = GetViewport().GetVisibleRect().Size / 2;
+    var rayOrigin = cam.ProjectRayOrigin(center);
+    var rayEnd = rayOrigin + cam.ProjectRayNormal(center) * RayLength;
+    var query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
+    var result = GetViewport().World3D.DirectSpaceState.IntersectRay(query);
+    return ResolveTarget(result);
+  }
+
+  private void FirePrimaryAbility(ulong? targetGamePlayerId)
+  {
+    var mgr = SpacetimeNetworkManager.Instance;
+    if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
+
+    var conn = mgr.Conn;
+
+    GamePlayer? localGp = null;
+    foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+    {
+      if (gp.Active)
+      {
+        localGp = gp;
+        break;
+      }
+    }
+    if (localGp == null) return;
+
+    Loadout? loadout = null;
+    foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localGp.GameSessionId))
+    {
+      if (lo.PlayerId == mgr.ActivePlayerId)
+      {
+        loadout = lo;
+        break;
+      }
+    }
+    if (loadout == null) return;
+
+    var weapon = conn.Db.WeaponDef.Id.Find(loadout.WeaponDefId);
+    if (weapon == null) return;
+
+    conn.Reducers.UseAbility(
+      localGp.GameSessionId,
+      weapon.PrimaryAbilityId,
+      targetGamePlayerId,
+      null, null, null
+    );
   }
 
   public override void _Process(double delta)
@@ -101,12 +181,10 @@ public partial class Targeting : Control
     if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
 
     var conn = mgr.Conn;
-    var localPlayer = conn.Db.Player.Id.Find(mgr.ActivePlayerId.Value);
-    if (localPlayer == null) return;
 
-    foreach (var gp in conn.Db.GamePlayer.Iter())
+    foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
     {
-      if (gp.PlayerId == mgr.ActivePlayerId && gp.Active)
+      if (gp.Active)
       {
         conn.Reducers.SetTarget(gp.GameSessionId, gamePlayerId);
         return;

@@ -7,20 +7,25 @@ public partial class LoadoutSelect : PopulableMenu
   [Export]
   public Hud hud;
 
+  private VBoxContainer _archetypeList;
   private VBoxContainer _weaponList;
   private VBoxContainer _skillList;
   private Button _confirmButton;
+  private Label _selectedArchetypeLabel;
   private Label _selectedWeaponLabel;
   private Label _selectedSkillLabel;
 
+  private ulong? _selectedArchetypeId;
   private ulong? _selectedWeaponId;
   private ulong? _selectedSkillId;
 
   public override void _Ready()
   {
+    _archetypeList = GetNode<VBoxContainer>("%ArchetypeList");
     _weaponList = GetNode<VBoxContainer>("%WeaponList");
     _skillList = GetNode<VBoxContainer>("%SkillList");
     _confirmButton = GetNode<Button>("%ConfirmButton");
+    _selectedArchetypeLabel = GetNode<Label>("%SelectedArchetypeLabel");
     _selectedWeaponLabel = GetNode<Label>("%SelectedWeaponLabel");
     _selectedSkillLabel = GetNode<Label>("%SelectedSkillLabel");
 
@@ -29,11 +34,31 @@ public partial class LoadoutSelect : PopulableMenu
 
   public override void Populate()
   {
+    _selectedArchetypeId = null;
     _selectedWeaponId = null;
     _selectedSkillId = null;
     UpdateSelectionLabels();
+    PopulateArchetypes();
     PopulateWeapons();
     PopulateSkills();
+  }
+
+  private void PopulateArchetypes()
+  {
+    ClearList(_archetypeList);
+    var conn = SpacetimeNetworkManager.Instance?.Conn;
+    if (conn == null) return;
+
+    foreach (var archetype in conn.Db.ArchetypeDef.Iter())
+    {
+      var btn = new Button();
+      btn.Text = $"{archetype.Name}\n{archetype.Description}";
+      btn.ClipText = true;
+      btn.CustomMinimumSize = new Vector2(0, 48);
+      var id = archetype.Id;
+      btn.Pressed += () => SelectArchetype(id);
+      _archetypeList.AddChild(btn);
+    }
   }
 
   private void PopulateWeapons()
@@ -49,7 +74,7 @@ public partial class LoadoutSelect : PopulableMenu
       btn.ClipText = true;
       btn.CustomMinimumSize = new Vector2(0, 48);
       var id = weapon.Id;
-      btn.Pressed += () => SelectWeapon(id, weapon.Name);
+      btn.Pressed += () => SelectWeapon(id);
       _weaponList.AddChild(btn);
     }
   }
@@ -62,23 +87,34 @@ public partial class LoadoutSelect : PopulableMenu
 
     foreach (var skill in conn.Db.SkillDef.Iter())
     {
+      if (_selectedArchetypeId != null && skill.ArchetypeDefId != _selectedArchetypeId)
+        continue;
+
       var btn = new Button();
       btn.Text = $"{skill.Name}\n{skill.Description}";
       btn.ClipText = true;
       btn.CustomMinimumSize = new Vector2(0, 48);
       var id = skill.Id;
-      btn.Pressed += () => SelectSkill(id, skill.Name);
+      btn.Pressed += () => SelectSkill(id);
       _skillList.AddChild(btn);
     }
   }
 
-  private void SelectWeapon(ulong id, string name)
+  private void SelectArchetype(ulong id)
+  {
+    _selectedArchetypeId = id;
+    _selectedSkillId = null;
+    UpdateSelectionLabels();
+    PopulateSkills();
+  }
+
+  private void SelectWeapon(ulong id)
   {
     _selectedWeaponId = id;
     UpdateSelectionLabels();
   }
 
-  private void SelectSkill(ulong id, string name)
+  private void SelectSkill(ulong id)
   {
     _selectedSkillId = id;
     UpdateSelectionLabels();
@@ -87,6 +123,16 @@ public partial class LoadoutSelect : PopulableMenu
   private void UpdateSelectionLabels()
   {
     var conn = SpacetimeNetworkManager.Instance?.Conn;
+
+    if (_selectedArchetypeId != null && conn != null)
+    {
+      var a = conn.Db.ArchetypeDef.Id.Find(_selectedArchetypeId.Value);
+      _selectedArchetypeLabel.Text = a != null ? $"Archetype: {a.Name}" : "Archetype: ???";
+    }
+    else
+    {
+      _selectedArchetypeLabel.Text = "Archetype: (none)";
+    }
 
     if (_selectedWeaponId != null && conn != null)
     {
@@ -101,29 +147,29 @@ public partial class LoadoutSelect : PopulableMenu
     if (_selectedSkillId != null && conn != null)
     {
       var s = conn.Db.SkillDef.Id.Find(_selectedSkillId.Value);
-      _selectedSkillLabel.Text = s != null ? $"Skill: {s.Name}" : "Skill: ???";
+      _selectedSkillLabel.Text = s != null ? $"Skillset: {s.Name}" : "Skillset: ???";
     }
     else
     {
-      _selectedSkillLabel.Text = "Skill: (none)";
+      _selectedSkillLabel.Text = "Skillset: (none)";
     }
 
-    _confirmButton.Disabled = _selectedWeaponId == null || _selectedSkillId == null;
+    _confirmButton.Disabled = _selectedArchetypeId == null || _selectedWeaponId == null || _selectedSkillId == null;
   }
 
   private void OnConfirmPressed()
   {
-    if (_selectedWeaponId == null || _selectedSkillId == null) return;
+    if (_selectedArchetypeId == null || _selectedWeaponId == null || _selectedSkillId == null) return;
 
     var conn = SpacetimeNetworkManager.Instance?.Conn;
     if (conn == null) return;
 
     conn.Reducers.OnSetLoadout += OnSetLoadoutResult;
-    conn.Reducers.SetLoadout(hud.sessionID, _selectedWeaponId.Value, _selectedSkillId.Value);
+    conn.Reducers.SetLoadout(hud.sessionID, _selectedArchetypeId.Value, _selectedWeaponId.Value, _selectedSkillId.Value);
     _confirmButton.Disabled = true;
   }
 
-  private void OnSetLoadoutResult(ReducerEventContext ctx, ulong gameId, ulong weaponDefId, ulong skillDefId)
+  private void OnSetLoadoutResult(ReducerEventContext ctx, ulong gameId, ulong archetypeDefId, ulong weaponDefId, ulong skillDefId)
   {
     var conn = SpacetimeNetworkManager.Instance?.Conn;
     if (conn == null) return;

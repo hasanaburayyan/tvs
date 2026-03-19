@@ -121,8 +121,11 @@ public static partial class Module
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
       MapSeed = seed,
+      RespawnTimerSeconds = 15,
     });
     GenerateMap(ctx, session.Id, seed);
+    SchedulePassiveRegen(ctx, session.Id);
+    ScheduleLosCheck(ctx, session.Id);
   }
 
   [SpacetimeDB.Reducer]
@@ -136,9 +139,44 @@ public static partial class Module
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
       MapSeed = seed,
+      RespawnTimerSeconds = 15,
     });
     GenerateMap(ctx, session.Id, seed);
+    SchedulePassiveRegen(ctx, session.Id);
+    ScheduleLosCheck(ctx, session.Id);
     JoinGame(ctx, session.Id);
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void StartGame(ReducerContext ctx, ulong gameId)
+  {
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (session.OwnerIdentity != ctx.Sender)
+      throw new Exception("Only the game owner can start the game");
+
+    if (session.State != SessionState.Lobby)
+      throw new Exception("Game is not in lobby state");
+
+    ctx.Db.game_session.Id.Update(session with { State = SessionState.InProgress });
+    Log.Info($"Game {gameId} started");
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void EndGame(ReducerContext ctx, ulong gameId)
+  {
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (session.OwnerIdentity != ctx.Sender)
+      throw new Exception("Only the game owner can end the game");
+
+    if (session.State == SessionState.Ended)
+      throw new Exception("Game is already ended");
+
+    ctx.Db.game_session.Id.Update(session with { State = SessionState.Ended });
+    Log.Info($"Game {gameId} ended");
   }
 
   [SpacetimeDB.Reducer]
@@ -150,6 +188,11 @@ public static partial class Module
       {
         if (check.TerrainFeatureId == feature.Id)
           ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+      }
+      foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+      {
+        if (regen.TerrainFeatureId == feature.Id)
+          ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
       }
       ctx.Db.terrain_feature.Id.Delete(feature.Id);
     }
@@ -170,6 +213,30 @@ public static partial class Module
 
     foreach (var log in ctx.Db.battle_log.GameSessionId.Filter(gameId))
       ctx.Db.battle_log.Id.Delete(log.Id);
+
+    foreach (var regen in ctx.Db.passive_regen_tick.Iter())
+    {
+      if (regen.GameSessionId == gameId)
+        ctx.Db.passive_regen_tick.Id.Delete(regen.Id);
+    }
+
+    foreach (var los in ctx.Db.los_check_schedule.Iter())
+    {
+      if (los.GameSessionId == gameId)
+        ctx.Db.los_check_schedule.Id.Delete(los.Id);
+    }
+
+    foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
+      ctx.Db.corpse.Id.Delete(c.Id);
+
+    foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(gameId))
+      ctx.Db.capture_point.Id.Delete(cp.Id);
+
+    foreach (var ct in ctx.Db.capture_tick.Iter())
+    {
+      if (ct.GameSessionId == gameId)
+        ctx.Db.capture_tick.Id.Delete(ct.Id);
+    }
 
     ctx.Db.game_session.Id.Delete(gameId);
   }
@@ -216,13 +283,17 @@ public static partial class Module
 
     DeactivateGamePlayer(ctx, player.Id);
 
-    var desired_spawn_location = new DbVector3(0, floor_height + 1, 0);
+    float spawnY = floor_height + 1;
+    float spawnX = 0;
+    float spawnZ = 0;
+    float offset = 3f;
 
     var try_spawn_location = bool () =>
     {
+      var desired = new DbVector3(spawnX, spawnY, spawnZ);
       foreach (var other_player in ctx.Db.game_player.GameSessionId.Filter(gameId))
       {
-        if (other_player.Active && other_player.Position == desired_spawn_location)
+        if (other_player.Active && other_player.Position == desired)
           return false;
       }
       return true;
@@ -230,10 +301,12 @@ public static partial class Module
 
     while (!try_spawn_location())
     {
-      desired_spawn_location = desired_spawn_location * 2;
+      spawnX += offset;
     }
 
-    var newGp = ctx.Db.game_player.Insert(new GamePlayer
+    var desired_spawn_location = new DbVector3(spawnX, spawnY, spawnZ);
+
+    ctx.Db.game_player.Insert(new GamePlayer
     {
       GameSessionId = gameSession.Id,
       PlayerId = player.Id,
@@ -244,15 +317,6 @@ public static partial class Module
       Position = desired_spawn_location,
       RotationY = 0f
     });
-
-    SeedResourcePools(ctx, newGp.Id);
-  }
-
-  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId)
-  {
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Mana, Current = 100, Max = 100 });
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Stamina, Current = 100, Max = 100 });
-    ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = ResourceKind.Ammo, Current = 30, Max = 30 });
   }
 
   [SpacetimeDB.Reducer]
@@ -283,10 +347,102 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
+  public static void SetTeam(ReducerContext ctx, ulong gameId, byte teamSlot)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    if (teamSlot > 2)
+      throw new Exception("Invalid team slot (0=Neutral, 1=Entente, 2=Central)");
+
+    ctx.Db.game_player.Id.Update(gp with { TeamSlot = teamSlot });
+    Log.Info($"Player {player.Name} joined team {teamSlot} in game {gameId}");
+  }
+
+  static DbVector3 GetTeamSpawn(byte teamSlot)
+  {
+    return teamSlot switch
+    {
+      1 => new DbVector3(0, 3, -85),
+      2 => new DbVector3(0, 3, 85),
+      _ => new DbVector3(0, 3, 0),
+    };
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void Respawn(ReducerContext ctx, ulong gameId)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    if (!gp.Dead)
+      throw new Exception("Player is not dead");
+
+    var session = ctx.Db.game_session.Id.Find(gameId)
+      ?? throw new Exception("Game session not found");
+
+    if (gp.DiedAt is Timestamp diedAt)
+    {
+      var requiredWait = TimeSpan.FromSeconds(session.RespawnTimerSeconds);
+      if (ctx.Timestamp < diedAt + requiredWait)
+        throw new Exception("Respawn timer has not expired yet");
+    }
+
+    var spawnPos = GetTeamSpawn(gp.TeamSlot);
+
+    ctx.Db.game_player.Id.Update(gp with
+    {
+      Health = gp.MaxHealth,
+      Dead = false,
+      DiedAt = null,
+      Position = spawnPos,
+      TargetGamePlayerId = null,
+    });
+
+    ctx.Db.PositionOverride.Insert(new PositionOverride
+    {
+      Id = 0,
+      PlayerId = player.Id,
+      GameSessionId = gameId,
+      Position = spawnPos,
+    });
+
+    foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
+    {
+      if (c.GamePlayerId == gp.Id)
+        ctx.Db.corpse.Id.Update(c with { GamePlayerId = null });
+    }
+
+    var loadout = FindLoadout(ctx, gameId, player.Id);
+    if (loadout is Loadout lo)
+    {
+      var archetype = ctx.Db.archetype_def.Id.Find(lo.ArchetypeDefId);
+      var weapon = ctx.Db.weapon_def.Id.Find(lo.WeaponDefId);
+      var skill = ctx.Db.skill_def.Id.Find(lo.SkillDefId);
+      if (archetype is ArchetypeDef a && weapon is WeaponDef w && skill is SkillDef s)
+      {
+        ClearResourcePools(ctx, gp.Id);
+        SeedResourcePools(ctx, gp.Id, a, w, s);
+      }
+    }
+
+    Log.Info($"Player {player.Name} respawned at team {gp.TeamSlot} spawn in game {gameId}");
+  }
+
+  [SpacetimeDB.Reducer]
   public static void SetTarget(ReducerContext ctx, ulong gameId, ulong? targetGamePlayerId)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    if (gp.Dead)
+      throw new Exception("Cannot set target while dead");
 
     if (gp.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
@@ -345,7 +501,36 @@ public static partial class Module
           ctx.Db.battle_log.Id.Delete(log.Id);
         foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameSession.Id))
         {
+          foreach (var check in ctx.Db.terrain_expiry_check.Iter())
+          {
+            if (check.TerrainFeatureId == feature.Id)
+              ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+          }
+          foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+          {
+            if (regen.TerrainFeatureId == feature.Id)
+              ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
+          }
           ctx.Db.terrain_feature.Id.Delete(feature.Id);
+        }
+        foreach (var regen in ctx.Db.passive_regen_tick.Iter())
+        {
+          if (regen.GameSessionId == gameSession.Id)
+            ctx.Db.passive_regen_tick.Id.Delete(regen.Id);
+        }
+        foreach (var los in ctx.Db.los_check_schedule.Iter())
+        {
+          if (los.GameSessionId == gameSession.Id)
+            ctx.Db.los_check_schedule.Id.Delete(los.Id);
+        }
+        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameSession.Id))
+          ctx.Db.corpse.Id.Delete(c.Id);
+        foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(gameSession.Id))
+          ctx.Db.capture_point.Id.Delete(cp.Id);
+        foreach (var ct in ctx.Db.capture_tick.Iter())
+        {
+          if (ct.GameSessionId == gameSession.Id)
+            ctx.Db.capture_tick.Id.Delete(ct.Id);
         }
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }

@@ -26,6 +26,21 @@ public static partial class Module
     public float TerrainSizeX;
     public float TerrainSizeY;
     public float TerrainSizeZ;
+    public int TerrainMaxHealth;
+  }
+
+  [SpacetimeDB.Table(Accessor = "archetype_def", Public = true)]
+  public partial struct ArchetypeDef
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+    public string Name;
+    public string Description;
+    public ArchetypeKind Kind;
+    public int BonusHealth;
+    public int BonusArmor;
+    public List<ulong> InnateAbilityIds;
   }
 
   [SpacetimeDB.Table(Accessor = "weapon_def", Public = true)]
@@ -37,10 +52,7 @@ public static partial class Module
     public string Name;
     public string Description;
     public ulong PrimaryAbilityId;
-    public ulong SecondaryAbilityId;
-    public List<ulong> BonusAbilityIds;
-    public List<AbilityMod> PrimaryMods;
-    public List<AbilityMod> SecondaryMods;
+    public bool GrantsSupplies;
   }
 
   [SpacetimeDB.Table(Accessor = "skill_def", Public = true)]
@@ -52,6 +64,9 @@ public static partial class Module
     public string Name;
     public string Description;
     public List<ulong> AbilityIds;
+    [SpacetimeDB.Index.BTree]
+    public ulong ArchetypeDefId;
+    public bool GrantsMana;
   }
 
   [SpacetimeDB.Table(Accessor = "loadout", Public = true)]
@@ -65,6 +80,7 @@ public static partial class Module
     public ulong GameSessionId;
     [SpacetimeDB.Index.BTree]
     public ulong PlayerId;
+    public ulong ArchetypeDefId;
     public ulong WeaponDefId;
     public ulong SkillDefId;
   }

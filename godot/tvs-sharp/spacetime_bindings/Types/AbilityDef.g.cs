@@ -47,6 +47,8 @@ namespace SpacetimeDB.Types
         public float TerrainSizeY;
         [DataMember(Name = "terrain_size_z")]
         public float TerrainSizeZ;
+        [DataMember(Name = "terrain_max_health")]
+        public int TerrainMaxHealth;
 
         public AbilityDef(
             ulong Id,
@@ -65,7 +67,8 @@ namespace SpacetimeDB.Types
             TerrainType? SpawnedTerrainType,
             float TerrainSizeX,
             float TerrainSizeY,
-            float TerrainSizeZ
+            float TerrainSizeZ,
+            int TerrainMaxHealth
         )
         {
             this.Id = Id;
@@ -85,6 +88,7 @@ namespace SpacetimeDB.Types
             this.TerrainSizeX = TerrainSizeX;
             this.TerrainSizeY = TerrainSizeY;
             this.TerrainSizeZ = TerrainSizeZ;
+            this.TerrainMaxHealth = TerrainMaxHealth;
         }
 
         public AbilityDef()

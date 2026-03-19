@@ -5,8 +5,28 @@ public partial class FreelookCamera : Camera3D
   [Export(PropertyHint.Range, "0.0,1.0")]
   public float Sensitivity = 0.25f;
 
+  public bool CameraLocked { get; private set; }
+  public bool MenuOpen { get; set; }
+
   private Vector2 _mousePosition = Vector2.Zero;
   private float _totalPitch = 0.0f;
+  private bool _inGame;
+
+  public void SetCameraLocked(bool locked)
+  {
+    CameraLocked = locked;
+    if (locked && !MenuOpen)
+      Input.MouseMode = Input.MouseModeEnum.Captured;
+    else
+      Input.MouseMode = Input.MouseModeEnum.Visible;
+  }
+
+  public void SetInGame(bool inGame)
+  {
+    _inGame = inGame;
+    if (!inGame)
+      SetCameraLocked(false);
+  }
 
   public override void _Input(InputEvent @event)
   {
@@ -18,13 +38,20 @@ public partial class FreelookCamera : Camera3D
     }
     else if (@event is InputEventMouseButton mouseButton)
     {
+      if (!CameraLocked)
+      {
+        switch (mouseButton.ButtonIndex)
+        {
+          case MouseButton.Right:
+            Input.MouseMode = mouseButton.Pressed
+              ? Input.MouseModeEnum.Captured
+              : Input.MouseModeEnum.Visible;
+            break;
+        }
+      }
+
       switch (mouseButton.ButtonIndex)
       {
-        case MouseButton.Right:
-          Input.MouseMode = mouseButton.Pressed
-            ? Input.MouseModeEnum.Captured
-            : Input.MouseModeEnum.Visible;
-          break;
         case MouseButton.WheelUp:
           Sensitivity = Mathf.Clamp(Sensitivity * 1.1f, 0.05f, 1.0f);
           break;
@@ -33,11 +60,20 @@ public partial class FreelookCamera : Camera3D
           break;
       }
     }
+    else if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.IsEcho())
+    {
+      if (keyEvent.Keycode == Key.R && _inGame && !MenuOpen)
+        SetCameraLocked(!CameraLocked);
+    }
   }
 
   public override void _Process(double delta)
   {
     if (!Current) return;
+
+    if (CameraLocked && !MenuOpen && Input.MouseMode != Input.MouseModeEnum.Captured)
+      Input.MouseMode = Input.MouseModeEnum.Captured;
+
     UpdateMouselook();
   }
 

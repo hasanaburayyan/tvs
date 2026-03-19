@@ -33,7 +33,7 @@ public static partial class Module
     {
         var rng = new SeededRng(seed);
         // --- Team A command center (rear, z: -95 to -75) ---
-        ctx.Db.terrain_feature.Insert(new TerrainFeature
+        var ccA = ctx.Db.terrain_feature.Insert(new TerrainFeature
         {
             Id = 0,
             GameSessionId = gameSessionId,
@@ -46,10 +46,13 @@ public static partial class Module
             SizeZ = 8f,
             RotationY = 0f,
             TeamIndex = 1,
+            Health = 500,
+            MaxHealth = 500,
         });
+        ScheduleOutpostRegen(ctx, ccA.Id);
 
         // --- Team B command center (mirrored, z: 75 to 95) ---
-        ctx.Db.terrain_feature.Insert(new TerrainFeature
+        var ccB = ctx.Db.terrain_feature.Insert(new TerrainFeature
         {
             Id = 0,
             GameSessionId = gameSessionId,
@@ -62,7 +65,10 @@ public static partial class Module
             SizeZ = 8f,
             RotationY = 180f,
             TeamIndex = 2,
+            Health = 500,
+            MaxHealth = 500,
         });
+        ScheduleOutpostRegen(ctx, ccB.Id);
 
         // --- Team A trenches (z: -70 to -30) ---
         int trenchCountA = rng.RangeInt(2, 5);
@@ -174,5 +180,47 @@ public static partial class Module
             RotationY = rng.Range(-10f, 10f),
             TeamIndex = 2,
         });
+
+        // --- Capture points in no-man's land ---
+        ctx.Db.capture_point.Insert(new CapturePoint
+        {
+            Id = 0,
+            GameSessionId = gameSessionId,
+            PosX = 0f,
+            PosZ = 0f,
+            Radius = CaptureRadius,
+            OwningTeam = 0,
+            InfluenceTeam1 = 0,
+            InfluenceTeam2 = 0,
+            MaxInfluence = CaptureMaxInfluence,
+        });
+
+        ctx.Db.capture_point.Insert(new CapturePoint
+        {
+            Id = 0,
+            GameSessionId = gameSessionId,
+            PosX = rng.Range(-60f, -30f),
+            PosZ = rng.Range(-15f, 15f),
+            Radius = CaptureRadius,
+            OwningTeam = 0,
+            InfluenceTeam1 = 0,
+            InfluenceTeam2 = 0,
+            MaxInfluence = CaptureMaxInfluence,
+        });
+
+        ctx.Db.capture_point.Insert(new CapturePoint
+        {
+            Id = 0,
+            GameSessionId = gameSessionId,
+            PosX = rng.Range(30f, 60f),
+            PosZ = rng.Range(-15f, 15f),
+            Radius = CaptureRadius,
+            OwningTeam = 0,
+            InfluenceTeam1 = 0,
+            InfluenceTeam2 = 0,
+            MaxInfluence = CaptureMaxInfluence,
+        });
+
+        ScheduleCaptureTick(ctx, gameSessionId);
     }
 }

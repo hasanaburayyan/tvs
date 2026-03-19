@@ -21,6 +21,8 @@ public partial class Player : CharacterBody3D
   public bool IsLocal;
   public String username;
 
+  public bool IsDead { get; private set; }
+
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
   private float _lastSyncedRotationY = 0.0f;
@@ -31,120 +33,155 @@ public partial class Player : CharacterBody3D
   private float _rotLerpStart;
   private float _rotLerpTarget;
   private Label3D _nametag;
-  private AnimationPlayer _animPlayer;
+  public AnimationPlayer _animPlayer;
 
   public override void _Ready()
   {
-    Camera = GetNode<Camera3D>("%Camera3D");
-    _lerpStart = Position;
-    _lerpTarget = Position;
-    _rotLerpStart = Rotation.Y;
-    _rotLerpTarget = Rotation.Y;
-    _nametag = GetNode<Label3D>("%NameTag");
-    _animPlayer = GetNode<Node3D>("%WW1_femalesoldier").GetNode<AnimationPlayer>("AnimationPlayer");
+	Camera = GetNode<Camera3D>("%Camera3D");
+	_lerpStart = Position;
+	_lerpTarget = Position;
+	_rotLerpStart = Rotation.Y;
+	_rotLerpTarget = Rotation.Y;
+	_nametag = GetNode<Label3D>("%NameTag");
+	_animPlayer = GetNode<Node3D>("%Nurse").GetNode<AnimationPlayer>("%AnimationPlayer");
 
-    IsLocal = PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId;
-    if (IsLocal)
-    {
-      Camera.MakeCurrent();
-    }
-    _nametag.Text = username;
+	IsLocal = PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId;
+	if (IsLocal)
+	{
+	  Camera.MakeCurrent();
+	}
+	_nametag.Text = username;
 
-    var targetable = GetNode<Targetable>("%Targetable");
-    targetable.GamePlayerId = GamePlayerId;
+	var targetable = GetNode<Targetable>("%Targetable");
+	targetable.GamePlayerId = GamePlayerId;
   }
 
   public void OnStateUpdated(Vector3 newPosition, float newRotationY)
   {
-    _lerpTime = 0.0f;
-    _lerpStart = Position;
-    _lerpTarget = newPosition;
-    _rotLerpStart = Rotation.Y;
-    _rotLerpTarget = newRotationY;
+	if (IsDead) return;
+	_lerpTime = 0.0f;
+	_lerpStart = Position;
+	_lerpTarget = newPosition;
+	_rotLerpStart = Rotation.Y;
+	_rotLerpTarget = newRotationY;
   }
 
   public void ApplyPositionOverride(Vector3 position)
   {
-    Position = position;
-    _lerpStart = position;
-    _lerpTarget = position;
-    _lerpTime = LERP_DURATION;
-    Velocity = Vector3.Zero;
+	Position = position;
+	_lerpStart = position;
+	_lerpTarget = position;
+	_lerpTime = LERP_DURATION;
+	Velocity = Vector3.Zero;
+  }
+
+  public void PlayDeath()
+  {
+	IsDead = true;
+	_animPlayer.Play("Death");
+  }
+
+  public void Revive()
+  {
+	IsDead = false;
+	if (_animPlayer.HasAnimation("RESET"))
+	  _animPlayer.Play("RESET");
+	else
+	{
+	  _animPlayer.Play("Rifle_Walk_Aiming");
+	  _animPlayer.Seek(0, true);
+	  _animPlayer.Stop();
+	}
+  }
+
+  public void SetTeamColor(byte teamSlot)
+  {
+	_nametag.Modulate = teamSlot switch
+	{
+	  1 => new Color(0.3f, 0.5f, 1.0f),
+	  2 => new Color(1.0f, 0.3f, 0.3f),
+	  _ => new Color(1f, 1f, 1f),
+	};
   }
 
   public override void _PhysicsProcess(double delta)
   {
-    if (!IsLocal)
-    {
-      _lerpTime = Mathf.Min(_lerpTime + (float)delta, LERP_DURATION);
-      float t = _lerpTime / LERP_DURATION;
-      Position = _lerpStart.Lerp(_lerpTarget, t);
-      Rotation = new Vector3(Rotation.X, Mathf.LerpAngle(_rotLerpStart, _rotLerpTarget, t), Rotation.Z);
+	if (IsDead) return;
 
-      bool isMovingRemote = _lerpStart.DistanceSquaredTo(_lerpTarget) > 0.001f
-                && _lerpTime < LERP_DURATION;
-      UpdateAnimation(isMovingRemote);
-      return;
-    }
+	if (!IsLocal)
+	{
+	  _lerpTime = Mathf.Min(_lerpTime + (float)delta, LERP_DURATION);
+	  float t = _lerpTime / LERP_DURATION;
+	  Position = _lerpStart.Lerp(_lerpTarget, t);
+	  Rotation = new Vector3(Rotation.X, Mathf.LerpAngle(_rotLerpStart, _rotLerpTarget, t), Rotation.Z);
 
-    Vector3 velocity = Velocity;
+	  bool isMovingRemote = _lerpStart.DistanceSquaredTo(_lerpTarget) > 0.001f
+				&& _lerpTime < LERP_DURATION;
+	  UpdateAnimation(isMovingRemote);
+	  return;
+	}
 
-    if (!IsOnFloor())
-    {
-      velocity += GetGravity() * (float)delta;
-    }
+	Vector3 velocity = Velocity;
 
-    if (Input.IsActionJustPressed("ui_accept") && IsOnFloor())
-    {
-      velocity.Y = JumpVelocity;
-    }
+	if (!IsOnFloor())
+	{
+	  velocity += GetGravity() * (float)delta;
+	}
 
-    Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
-    Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
-    if (direction != Vector3.Zero)
-    {
-      velocity.X = direction.X * Speed;
-      velocity.Z = direction.Z * Speed;
-    }
-    else
-    {
-      velocity.X = Mathf.MoveToward(Velocity.X, 0, Speed);
-      velocity.Z = Mathf.MoveToward(Velocity.Z, 0, Speed);
-    }
+	if (Input.IsActionJustPressed("ui_accept") && IsOnFloor())
+	{
+	  velocity.Y = JumpVelocity;
+	}
 
-    Velocity = velocity;
-    MoveAndSlide();
+	Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
+	Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
+	if (direction != Vector3.Zero)
+	{
+	  velocity.X = direction.X * Speed;
+	  velocity.Z = direction.Z * Speed;
+	}
+	else
+	{
+	  velocity.X = Mathf.MoveToward(Velocity.X, 0, Speed);
+	  velocity.Z = Mathf.MoveToward(Velocity.Z, 0, Speed);
+	}
 
-    bool isMovingLocal = new Vector2(Velocity.X, Velocity.Z).LengthSquared() > 0.01f;
-    UpdateAnimation(isMovingLocal);
+	Velocity = velocity;
+	MoveAndSlide();
 
-    _syncTimer += (float)delta;
-    bool positionChanged = Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f;
-    bool rotationChanged = Mathf.Abs(Rotation.Y - _lastSyncedRotationY) > ROTATION_SYNC_THRESHOLD;
-    if (_syncTimer >= SYNC_INTERVAL && (positionChanged || rotationChanged))
-    {
-      _lastSyncedPosition = Position;
-      _lastSyncedRotationY = Rotation.Y;
-      _syncTimer = 0.0f;
-      SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(
-      GameId,
-      new DbVector3(Position.X, Position.Y, Position.Z),
-      Rotation.Y
-      );
-    }
+	bool isMovingLocal = new Vector2(Velocity.X, Velocity.Z).LengthSquared() > 0.01f;
+	UpdateAnimation(isMovingLocal);
+
+	_syncTimer += (float)delta;
+	bool positionChanged = Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f;
+	bool rotationChanged = Mathf.Abs(Rotation.Y - _lastSyncedRotationY) > ROTATION_SYNC_THRESHOLD;
+	if (_syncTimer >= SYNC_INTERVAL && (positionChanged || rotationChanged))
+	{
+	  _lastSyncedPosition = Position;
+	  _lastSyncedRotationY = Rotation.Y;
+	  _syncTimer = 0.0f;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(
+	  GameId,
+	  new DbVector3(Position.X, Position.Y, Position.Z),
+	  Rotation.Y
+	  );
+	}
   }
 
   private void UpdateAnimation(bool isMoving)
   {
-    if (isMoving)
-    {
-      if (_animPlayer.CurrentAnimation != "Walk")
-        _animPlayer.Play("Walk");
-    }
-    else
-    {
-      if (_animPlayer.IsPlaying())
-        _animPlayer.Stop();
-    }
+	if (IsDead) return;
+
+	if (isMoving)
+	{
+	  if (_animPlayer.CurrentAnimation != "Rifle_Walk_Aiming")
+		_animPlayer.Play("Rifle_Walk_Aiming");
+	}
+	else
+	{
+	  	if (_animPlayer.IsPlaying())
+		_animPlayer.Stop();
+	}
+	
   }
 }

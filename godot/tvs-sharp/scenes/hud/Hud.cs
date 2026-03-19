@@ -80,6 +80,22 @@ public partial class Hud : CanvasLayer
 	SwitchToMenu(Menus.PROFILE_SELECT);
   }
 
+  private FreelookCamera FindFreelookCamera()
+  {
+	var cam = GetViewport().GetCamera3D();
+	return cam as FreelookCamera;
+  }
+
+  private void SetFreelookInGame(bool entering)
+  {
+	var fc = FindFreelookCamera();
+	if (fc == null) return;
+
+	fc.SetInGame(entering);
+	if (entering)
+	  fc.SetCameraLocked(true);
+  }
+
   public void CloseMenus()
   {
 	foreach (var menu in _menus.Values)
@@ -94,7 +110,18 @@ public partial class Hud : CanvasLayer
 	{
 	  if (inGame)
 	  {
-		_ingameMenu.Visible = !_ingameMenu.Visible;
+		bool opening = !_ingameMenu.Visible;
+		_ingameMenu.Visible = opening;
+
+		var fc = FindFreelookCamera();
+		if (fc != null)
+		{
+		  fc.MenuOpen = opening;
+		  if (opening)
+			Input.MouseMode = Input.MouseModeEnum.Visible;
+		  else if (fc.CameraLocked)
+			Input.MouseMode = Input.MouseModeEnum.Captured;
+		}
 	  }
 	  GetViewport().SetInputAsHandled();
 	}
@@ -132,5 +159,40 @@ public partial class Hud : CanvasLayer
 	{
 	  SwitchToMenu(Menus.LOADOUT_SELECT);
 	}
+  }
+
+  public void ActivateFreelook()
+  {
+	SetFreelookInGame(true);
+  }
+
+  public void DeactivateFreelook()
+  {
+	SetFreelookInGame(false);
+  }
+
+  public void ShowDeathOverlay(ulong gameSessionId, long diedAtMicros, uint respawnTimerSeconds)
+  {
+	_playerHud.ShowDeathOverlay(gameSessionId, diedAtMicros, respawnTimerSeconds);
+  }
+
+  public void HideDeathOverlay()
+  {
+	_playerHud.HideDeathOverlay();
+  }
+
+  public void AddKillFeedEntry(string killerName, string victimName, byte killerTeam, byte victimTeam)
+  {
+	_playerHud.AddKillFeedEntry(killerName, victimName, killerTeam, victimTeam);
+  }
+
+  public void UpdateCapturePoint(ulong pointId, float posX, float posZ, float radius, int inf1, int inf2, int max, byte owner)
+  {
+	_playerHud.UpdateCapturePoint(pointId, posX, posZ, radius, inf1, inf2, max, owner);
+  }
+
+  public void RemoveCapturePoint(ulong pointId)
+  {
+	_playerHud.RemoveCapturePoint(pointId);
   }
 }

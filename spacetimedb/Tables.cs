@@ -35,6 +35,10 @@ public static partial class Module
     Wall,
     Building,
     CommandCenter,
+    Outpost,
+    Trap,
+    Fortification,
+    MountedWeapon,
   }
 
   [SpacetimeDB.Table(Accessor = "game_session", Public = true)]
@@ -50,6 +54,9 @@ public static partial class Module
     public uint MaxPlayers;
     public Timestamp CreatedAt;
     public uint MapSeed;
+
+    [SpacetimeDB.Default(15u)]
+    public uint RespawnTimerSeconds;
   }
 
 
@@ -75,6 +82,10 @@ public static partial class Module
     public float RotationY;
 
     public ulong? TargetGamePlayerId;
+
+    [SpacetimeDB.Default(false)]
+    public bool Dead;
+    public Timestamp? DiedAt;
   }
 
   [Table(Name = "chat_session", Public = true)]
@@ -106,6 +117,23 @@ public static partial class Module
     public ulong SenderPlayerId;
     public bool Deleted;
     public Timestamp TimeSent;
+  }
+
+  [SpacetimeDB.Table(Accessor = "corpse", Public = true)]
+  public partial struct Corpse
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+
+    [SpacetimeDB.Index.BTree]
+    public ulong GameSessionId;
+
+    public ulong? GamePlayerId;
+
+    public ulong PlayerId;
+    public DbVector3 Position;
+    public float RotationY;
   }
 
   [Table(Name = "chat_session_player", Public = true)]

@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://b5epamfvv5l7i"]
+
+[ext_resource type="PackedScene" uid="uid://bh26trjrs3y2f" path="res://assets/imports/models/bolt_action.glb" id="1_21ql8"]
+
+[node name="bolt_action" unique_id=1163924825 instance=ExtResource("1_21ql8")]

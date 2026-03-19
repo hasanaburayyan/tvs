@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void SetLoadoutHandler(ReducerEventContext ctx, ulong gameId, ulong weaponDefId, ulong skillDefId);
+        public delegate void SetLoadoutHandler(ReducerEventContext ctx, ulong gameId, ulong archetypeDefId, ulong weaponDefId, ulong skillDefId);
         public event SetLoadoutHandler? OnSetLoadout;
 
-        public void SetLoadout(ulong gameId, ulong weaponDefId, ulong skillDefId)
+        public void SetLoadout(ulong gameId, ulong archetypeDefId, ulong weaponDefId, ulong skillDefId)
         {
-            conn.InternalCallReducer(new Reducer.SetLoadout(gameId, weaponDefId, skillDefId));
+            conn.InternalCallReducer(new Reducer.SetLoadout(gameId, archetypeDefId, weaponDefId, skillDefId));
         }
 
         public bool InvokeSetLoadout(ReducerEventContext ctx, Reducer.SetLoadout args)
@@ -37,6 +37,7 @@ namespace SpacetimeDB.Types
             OnSetLoadout(
                 ctx,
                 args.GameId,
+                args.ArchetypeDefId,
                 args.WeaponDefId,
                 args.SkillDefId
             );
@@ -52,6 +53,8 @@ namespace SpacetimeDB.Types
         {
             [DataMember(Name = "game_id")]
             public ulong GameId;
+            [DataMember(Name = "archetype_def_id")]
+            public ulong ArchetypeDefId;
             [DataMember(Name = "weapon_def_id")]
             public ulong WeaponDefId;
             [DataMember(Name = "skill_def_id")]
@@ -59,11 +62,13 @@ namespace SpacetimeDB.Types
 
             public SetLoadout(
                 ulong GameId,
+                ulong ArchetypeDefId,
                 ulong WeaponDefId,
                 ulong SkillDefId
             )
             {
                 this.GameId = GameId;
+                this.ArchetypeDefId = ArchetypeDefId;
                 this.WeaponDefId = WeaponDefId;
                 this.SkillDefId = SkillDefId;
             }

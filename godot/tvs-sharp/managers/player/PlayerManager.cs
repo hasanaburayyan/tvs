@@ -14,17 +14,34 @@ public partial class PlayerManager : Node
   [Export]
   public Node PlayerSpawnPath;
 
+  [Export]
+  public Node CorpseContainer;
+
+  [Signal]
+  public delegate void LocalPlayerDiedEventHandler(ulong gameSessionId, long diedAtMicros, uint respawnTimerSeconds);
+
+  [Signal]
+  public delegate void LocalPlayerRevivedEventHandler();
+
+  [Signal]
+  public delegate void PlayerKilledEventHandler(string killerName, string victimName, byte killerTeam, byte victimTeam);
+
   public void LoadLobby() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	foreach (var gamePlayer in conn.Db.GamePlayer.GameSessionId.Filter(GameId)) {
 	  if (gamePlayer.Active) SpawnPlayer(gamePlayer);
 	}
 
+	foreach (var corpse in conn.Db.Corpse.GameSessionId.Filter(GameId))
+	  SpawnCorpse(corpse);
+
 	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
 	conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
 	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
 	conn.Db.PositionOverride.OnInsert += OnPositionOverrideInsert;
 	conn.Db.BattleLog.OnInsert += OnBattleLogInsert;
+	conn.Db.Corpse.OnInsert += OnCorpseInsert;
+	conn.Db.Corpse.OnDelete += OnCorpseDelete;
   }
 
   public void SpawnPlayer(GamePlayer gamePlayer) {
@@ -44,6 +61,11 @@ public partial class PlayerManager : Node
 	player.Rotation = new Vector3(0, gamePlayer.RotationY, 0);
 	player.username = owner.Name;
 	PlayerSpawnPath.AddChild(player);
+
+	player.SetTeamColor(gamePlayer.TeamSlot);
+
+	if (gamePlayer.Dead)
+	  player.PlayDeath();
   }
 
   public void OnGamePlayerInsert(EventContext ctx, GamePlayer gamePlayer) {
@@ -88,10 +110,59 @@ public partial class PlayerManager : Node
 	if (newGamePlayer.Active) {
 	  var player = PlayerSpawnPath.GetNodeOrNull<Player>(newGamePlayer.PlayerId.ToString());
 	  if (player != null) {
-		player.OnStateUpdated(
-		  new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z),
-		  newGamePlayer.RotationY
-		);
+		if (!oldGamePlayer.Dead && newGamePlayer.Dead)
+		{
+		  player.PlayDeath();
+
+		  var conn = SpacetimeNetworkManager.Instance.Conn;
+		  string victimName = conn.Db.Player.Id.Find(newGamePlayer.PlayerId)?.Name ?? "Unknown";
+		  string killerName = "Unknown";
+		  byte killerTeam = 0;
+
+		  foreach (var log in conn.Db.BattleLog.GameSessionId.Filter(GameId))
+		  {
+			if (!log.TargetGamePlayerIds.Contains(newGamePlayer.Id)) continue;
+			var ability = conn.Db.AbilityDef.Id.Find(log.AbilityId);
+			if (ability?.Type != AbilityType.Damage) continue;
+
+			var actorGp = conn.Db.GamePlayer.Id.Find(log.ActorGamePlayerId);
+			if (actorGp != null)
+			{
+			  killerName = conn.Db.Player.Id.Find(actorGp.PlayerId)?.Name ?? "Unknown";
+			  killerTeam = actorGp.TeamSlot;
+			}
+		  }
+
+		  EmitSignal(SignalName.PlayerKilled, killerName, victimName, killerTeam, newGamePlayer.TeamSlot);
+
+		  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
+		  {
+			var session = conn.Db.GameSession.Id.Find(GameId);
+			uint timer = session?.RespawnTimerSeconds ?? 15;
+			long diedMicros = newGamePlayer.DiedAt?.MicrosecondsSinceUnixEpoch ?? 0;
+			EmitSignal(SignalName.LocalPlayerDied, GameId, diedMicros, timer);
+		  }
+		}
+		else if (oldGamePlayer.Dead && !newGamePlayer.Dead)
+		{
+		  player.Revive();
+		  player.ApplyPositionOverride(
+			new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z)
+		  );
+
+		  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
+			EmitSignal(SignalName.LocalPlayerRevived);
+		}
+		else
+		{
+		  player.OnStateUpdated(
+			new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z),
+			newGamePlayer.RotationY
+		  );
+		}
+
+		if (oldGamePlayer.TeamSlot != newGamePlayer.TeamSlot)
+		  player.SetTeamColor(newGamePlayer.TeamSlot);
 	  }
 
 	  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId
@@ -101,6 +172,37 @@ public partial class PlayerManager : Node
 		Targeting.Instance?.ClearTarget();
 	  }
 	}
+  }
+
+  private void SpawnCorpse(SpacetimeDB.Types.Corpse corpse)
+  {
+	var container = CorpseContainer ?? this;
+	var node = new Corpse();
+	node.Name = $"Corpse_{corpse.Id}";
+	node.CorpseId = corpse.Id;
+	node.GamePlayerId = corpse.GamePlayerId;
+	node.PlayerId = corpse.PlayerId;
+
+	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Id.Find(corpse.PlayerId);
+	node.PlayerName = owner?.Name ?? "";
+
+	node.Position = new Vector3(corpse.Position.X, corpse.Position.Y, corpse.Position.Z);
+	node.Rotation = new Vector3(0, corpse.RotationY, 0);
+	container.AddChild(node);
+  }
+
+  private void OnCorpseInsert(EventContext ctx, SpacetimeDB.Types.Corpse corpse)
+  {
+	if (corpse.GameSessionId != GameId) return;
+	SpawnCorpse(corpse);
+  }
+
+  private void OnCorpseDelete(EventContext ctx, SpacetimeDB.Types.Corpse corpse)
+  {
+	if (corpse.GameSessionId != GameId) return;
+	var container = CorpseContainer ?? this;
+	var node = container.GetNodeOrNull<Corpse>($"Corpse_{corpse.Id}");
+	node?.QueueFree();
   }
 
   public void OnPositionOverrideInsert(EventContext ctx, PositionOverride posOverride) {
@@ -146,9 +248,16 @@ public partial class PlayerManager : Node
   }
 
   public void DestroyLobby() {
-	foreach (var player in PlayerSpawnPath.GetChildren()) {
-	  if (player is Player) {
-		PlayerSpawnPath.RemoveChild(player);
+	foreach (var child in PlayerSpawnPath.GetChildren()) {
+	  if (child is Player) {
+		child.QueueFree();
+	  }
+	}
+
+	var container = CorpseContainer ?? this;
+	foreach (var child in container.GetChildren()) {
+	  if (child is Corpse) {
+		child.QueueFree();
 	  }
 	}
   }
