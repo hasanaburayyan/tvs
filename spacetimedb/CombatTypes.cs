@@ -67,4 +67,18 @@ public static partial class Module
     Support,
     Scout,
   }
+
+  [SpacetimeDB.Type]
+  public enum BattleLogEventType : byte
+  {
+    Attack,
+    Heal,
+    Buff,
+    Debuff,
+    Kill,
+    Revive,
+    TerrainSpawn,
+    TerrainDestroy,
+    Utility,
+  }
 }

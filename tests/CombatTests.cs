@@ -281,7 +281,7 @@ public class UseAbilityTests : IDisposable
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
     Assert.Equal(weapon.PrimaryAbilityId, logs[0].AbilityId);
-    Assert.True(logs[0].FromWeapon);
+    Assert.Equal(BattleLogEventType.Attack, logs[0].EventType);
     Assert.Equal(gpId, logs[0].ActorGamePlayerId);
   }
 
@@ -295,7 +295,7 @@ public class UseAbilityTests : IDisposable
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
     Assert.Equal(abilityId, logs[0].AbilityId);
-    Assert.False(logs[0].FromWeapon);
+    Assert.Equal(BattleLogEventType.Attack, logs[0].EventType);
   }
 
   [Fact]
@@ -308,7 +308,7 @@ public class UseAbilityTests : IDisposable
     var logs = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
     Assert.Single(logs);
     Assert.Equal(innateId, logs[0].AbilityId);
-    Assert.False(logs[0].FromWeapon);
+    Assert.Equal(BattleLogEventType.Buff, logs[0].EventType);
   }
 
   [Fact]
@@ -667,6 +667,112 @@ public class BattleLogTests : IDisposable
 
     var log = _client.Db.BattleLog.GameSessionId.Filter(gameId).First();
     Assert.Empty(log.TargetGamePlayerIds);
+  }
+
+  [Fact]
+  public void BattleLog_KillEvent_EmittedOnLethalDamage()
+  {
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("KillTarget");
+
+    _client.CreatePlayerAndGetId("Killer");
+    var gameId = _client.CreateGameAndJoin(4);
+    target.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+
+    var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "KillTarget");
+    var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
+      .First(gp => gp.PlayerId == targetPlayer.Id);
+    var killerGp = _client.GetGamePlayer(gameId);
+
+    // Fire Rifle (30) + Fireball (50) + Arcane Barrage (60) = 140 > 100 HP
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null));
+    var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null));
+    var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null));
+
+    var targetAfter = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
+    Assert.True(targetAfter.Dead);
+
+    var killLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Kill).ToList();
+    Assert.Single(killLogs);
+    Assert.Equal(killerGp.Id, killLogs[0].ActorGamePlayerId);
+    Assert.Contains(targetGp.Id, killLogs[0].TargetGamePlayerIds);
+    Assert.True(killLogs[0].ResolvedPower > 0);
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void BattleLog_ReviveEvent_EmittedOnRespawn()
+  {
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("ReviveTarget");
+
+    _client.CreatePlayerAndGetId("ReviveKiller");
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+    target.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+
+    var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "ReviveTarget");
+    var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
+      .First(gp => gp.PlayerId == targetPlayer.Id);
+
+    // Kill the target
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null));
+    var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null));
+    var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null));
+
+    var targetAfter = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
+    Assert.True(targetAfter.Dead);
+
+    // Respawn (timer=0 so immediate)
+    target.Call(r => r.Respawn(gameId));
+
+    var reviveLogs = target.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Revive).ToList();
+    Assert.Single(reviveLogs);
+    Assert.Contains(targetGp.Id, reviveLogs[0].TargetGamePlayerIds);
+    Assert.Null(reviveLogs[0].AbilityId);
+    Assert.Equal(0, reviveLogs[0].ResolvedPower);
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void BattleLog_EventType_MapsCorrectly()
+  {
+    _client.CreatePlayerAndGetId("EventTypePlayer");
+    var gameId = _client.CreateGameAndJoin(4);
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+
+    // Damage ability → Attack event
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, null, null, null));
+    var attackLog = _client.Db.BattleLog.GameSessionId.Filter(gameId).First();
+    Assert.Equal(BattleLogEventType.Attack, attackLog.EventType);
+
+    // Buff ability → Buff event
+    var enchantWeapon = _client.Db.AbilityDef.Iter().First(a => a.Name == "Enchant Weapon");
+    _client.Call(r => r.UseAbility(gameId, enchantWeapon.Id, null, null, null, null));
+    var buffLog = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .First(l => l.AbilityId == enchantWeapon.Id);
+    Assert.Equal(BattleLogEventType.Buff, buffLog.EventType);
   }
 }
 

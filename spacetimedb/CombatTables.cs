@@ -135,10 +135,10 @@ public static partial class Module
     [SpacetimeDB.Index.BTree]
     public ulong GameSessionId;
     public Timestamp OccurredAt;
+    public BattleLogEventType EventType;
     [SpacetimeDB.Index.BTree]
     public ulong ActorGamePlayerId;
-    public ulong AbilityId;
-    public bool FromWeapon;
+    public ulong? AbilityId;
     public List<ulong> TargetGamePlayerIds;
     public int ResolvedPower;
   }

@@ -19,12 +19,12 @@ namespace SpacetimeDB.Types
         public ulong GameSessionId;
         [DataMember(Name = "occurred_at")]
         public SpacetimeDB.Timestamp OccurredAt;
+        [DataMember(Name = "event_type")]
+        public BattleLogEventType EventType;
         [DataMember(Name = "actor_game_player_id")]
         public ulong ActorGamePlayerId;
         [DataMember(Name = "ability_id")]
-        public ulong AbilityId;
-        [DataMember(Name = "from_weapon")]
-        public bool FromWeapon;
+        public ulong? AbilityId;
         [DataMember(Name = "target_game_player_ids")]
         public System.Collections.Generic.List<ulong> TargetGamePlayerIds;
         [DataMember(Name = "resolved_power")]
@@ -34,9 +34,9 @@ namespace SpacetimeDB.Types
             ulong Id,
             ulong GameSessionId,
             SpacetimeDB.Timestamp OccurredAt,
+            BattleLogEventType EventType,
             ulong ActorGamePlayerId,
-            ulong AbilityId,
-            bool FromWeapon,
+            ulong? AbilityId,
             System.Collections.Generic.List<ulong> TargetGamePlayerIds,
             int ResolvedPower
         )
@@ -44,9 +44,9 @@ namespace SpacetimeDB.Types
             this.Id = Id;
             this.GameSessionId = GameSessionId;
             this.OccurredAt = OccurredAt;
+            this.EventType = EventType;
             this.ActorGamePlayerId = ActorGamePlayerId;
             this.AbilityId = AbilityId;
-            this.FromWeapon = FromWeapon;
             this.TargetGamePlayerIds = TargetGamePlayerIds;
             this.ResolvedPower = ResolvedPower;
         }

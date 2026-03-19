@@ -113,19 +113,20 @@ public partial class PlayerManager : Node
 		if (!oldGamePlayer.Dead && newGamePlayer.Dead)
 		{
 		  player.PlayDeath();
+	  
 
 		  var conn = SpacetimeNetworkManager.Instance.Conn;
 		  string victimName = conn.Db.Player.Id.Find(newGamePlayer.PlayerId)?.Name ?? "Unknown";
 		  string killerName = "Unknown";
 		  byte killerTeam = 0;
 
-		  foreach (var log in conn.Db.BattleLog.GameSessionId.Filter(GameId))
-		  {
-			if (!log.TargetGamePlayerIds.Contains(newGamePlayer.Id)) continue;
-			var ability = conn.Db.AbilityDef.Id.Find(log.AbilityId);
-			if (ability?.Type != AbilityType.Damage) continue;
+		  var killLog = conn.Db.BattleLog.GameSessionId.Filter(GameId)
+			.FirstOrDefault(log => log.EventType == BattleLogEventType.Kill
+			  && log.TargetGamePlayerIds.Contains(newGamePlayer.Id));
 
-			var actorGp = conn.Db.GamePlayer.Id.Find(log.ActorGamePlayerId);
+		  if (killLog != null)
+		  {
+			var actorGp = conn.Db.GamePlayer.Id.Find(killLog.ActorGamePlayerId);
 			if (actorGp != null)
 			{
 			  killerName = conn.Db.Player.Id.Find(actorGp.PlayerId)?.Name ?? "Unknown";
@@ -224,13 +225,13 @@ public partial class PlayerManager : Node
 
   public void OnBattleLogInsert(EventContext ctx, BattleLogEntry entry) {
 	if (entry.GameSessionId != GameId) return;
+	if (entry.EventType != BattleLogEventType.Attack && entry.EventType != BattleLogEventType.Heal) return;
 	if (entry.ResolvedPower == 0) return;
 
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
 	if (conn == null) return;
 
-	var ability = conn.Db.AbilityDef.Id.Find(entry.AbilityId);
-	bool isHeal = ability?.Type == AbilityType.Heal;
+	bool isHeal = entry.EventType == BattleLogEventType.Heal;
 
 	foreach (var targetId in entry.TargetGamePlayerIds)
 	{
