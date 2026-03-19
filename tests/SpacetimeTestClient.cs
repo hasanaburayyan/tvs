@@ -39,8 +39,8 @@ public class SpacetimeTestClient : IDisposable
         _dbName = dbName;
 
         conn.Reducers.OnCreatePlayer += (ctx, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnCreateGame += (ctx, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnCreateGameAndJoin += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateGame += (ctx, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateGameAndJoin += (ctx, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnDeletePlayer += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnDeleteGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnJoinGame += (ctx, _) => HandleReducerEvent(ctx);
@@ -62,6 +62,9 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnSetLoadout += (ctx, _, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnUseAbility += (ctx, _, _, _, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetTarget += (ctx, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnRespawn += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnStartGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnEndGame += (ctx, _) => HandleReducerEvent(ctx);
     }
 
     private void HandleReducerEvent(ReducerEventContext ctx)
@@ -148,18 +151,18 @@ public class SpacetimeTestClient : IDisposable
     }
 
     /// Creates a game and returns its ID by finding the session owned by this client.
-    public ulong CreateGame(uint maxPlayers)
+    public ulong CreateGame(uint maxPlayers, uint? respawnTimerSeconds = null)
     {
-        Call(r => r.CreateGame(maxPlayers));
+        Call(r => r.CreateGame(maxPlayers, respawnTimerSeconds));
         var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
         if (game == null) throw new Exception("CreateGame succeeded but game not found in client cache");
         return game.Id;
     }
 
     /// Creates a game, joins it, and returns the game session ID.
-    public ulong CreateGameAndJoin(uint maxPlayers)
+    public ulong CreateGameAndJoin(uint maxPlayers, uint? respawnTimerSeconds = null)
     {
-        Call(r => r.CreateGameAndJoin(maxPlayers));
+        Call(r => r.CreateGameAndJoin(maxPlayers, respawnTimerSeconds));
         var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
         if (game == null) throw new Exception("CreateGameAndJoin succeeded but game not found");
         return game.Id;

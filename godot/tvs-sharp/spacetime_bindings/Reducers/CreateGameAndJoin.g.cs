@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void CreateGameAndJoinHandler(ReducerEventContext ctx, uint maxPlayers);
+        public delegate void CreateGameAndJoinHandler(ReducerEventContext ctx, uint maxPlayers, uint? respawnTimerSeconds);
         public event CreateGameAndJoinHandler? OnCreateGameAndJoin;
 
-        public void CreateGameAndJoin(uint maxPlayers)
+        public void CreateGameAndJoin(uint maxPlayers, uint? respawnTimerSeconds)
         {
-            conn.InternalCallReducer(new Reducer.CreateGameAndJoin(maxPlayers));
+            conn.InternalCallReducer(new Reducer.CreateGameAndJoin(maxPlayers, respawnTimerSeconds));
         }
 
         public bool InvokeCreateGameAndJoin(ReducerEventContext ctx, Reducer.CreateGameAndJoin args)
@@ -36,7 +36,8 @@ namespace SpacetimeDB.Types
             }
             OnCreateGameAndJoin(
                 ctx,
-                args.MaxPlayers
+                args.MaxPlayers,
+                args.RespawnTimerSeconds
             );
             return true;
         }
@@ -50,10 +51,16 @@ namespace SpacetimeDB.Types
         {
             [DataMember(Name = "max_players")]
             public uint MaxPlayers;
+            [DataMember(Name = "respawn_timer_seconds")]
+            public uint? RespawnTimerSeconds;
 
-            public CreateGameAndJoin(uint MaxPlayers)
+            public CreateGameAndJoin(
+                uint MaxPlayers,
+                uint? RespawnTimerSeconds
+            )
             {
                 this.MaxPlayers = MaxPlayers;
+                this.RespawnTimerSeconds = RespawnTimerSeconds;
             }
 
             public CreateGameAndJoin()

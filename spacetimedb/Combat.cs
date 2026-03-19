@@ -50,17 +50,12 @@ public static partial class Module
     return (power, range, radius, cooldownMs);
   }
 
-  static bool IsAbilityInLoadout(ReducerContext ctx, ulong abilityId, Loadout loadout, out bool fromWeapon)
+  static bool IsAbilityInLoadout(ReducerContext ctx, ulong abilityId, Loadout loadout)
   {
-    fromWeapon = false;
-
     if (ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId) is WeaponDef w)
     {
       if (w.PrimaryAbilityId == abilityId)
-      {
-        fromWeapon = true;
         return true;
-      }
     }
 
     if (ctx.Db.skill_def.Id.Find(loadout.SkillDefId) is SkillDef s)
@@ -174,7 +169,7 @@ public static partial class Module
     var loadout = FindLoadout(ctx, gameId, player.Id)
       ?? throw new Exception("No loadout set for this session");
 
-    if (!IsAbilityInLoadout(ctx, abilityId, loadout, out bool fromWeapon))
+    if (!IsAbilityInLoadout(ctx, abilityId, loadout))
       throw new Exception("Ability is not in your loadout");
 
     var ability = ctx.Db.ability_def.Id.Find(abilityId)
@@ -372,6 +367,7 @@ public static partial class Module
     }
 
     int effectivePower = resolved.Power;
+    bool killed = false;
 
     if (resolved.Power > 0 && targetGamePlayerId is ulong dmgTargetId)
     {
@@ -386,6 +382,7 @@ public static partial class Module
         if (newHealth <= 0 && !dmgTarget.Dead)
         {
           updated = updated with { Dead = true, DiedAt = ctx.Timestamp };
+          killed = true;
           ClearTargetsForGamePlayer(ctx, dmgTarget.Id, dmgTarget.GameSessionId);
 
           ctx.Db.corpse.Insert(new Corpse
@@ -426,21 +423,47 @@ public static partial class Module
       ctx.Db.terrain_feature.Id.Update(updated);
     }
 
+    var eventType = ability.Type switch
+    {
+      AbilityType.Damage => BattleLogEventType.Attack,
+      AbilityType.Heal => BattleLogEventType.Heal,
+      AbilityType.Buff => BattleLogEventType.Buff,
+      AbilityType.Debuff => BattleLogEventType.Debuff,
+      AbilityType.Terrain => BattleLogEventType.TerrainSpawn,
+      AbilityType.Utility => BattleLogEventType.Utility,
+      _ => BattleLogEventType.Utility,
+    };
+
     ctx.Db.battle_log.Insert(new BattleLogEntry
     {
       Id = 0,
       GameSessionId = gameId,
       OccurredAt = ctx.Timestamp,
+      EventType = eventType,
       ActorGamePlayerId = gp.Id,
       AbilityId = abilityId,
-      FromWeapon = fromWeapon,
       TargetGamePlayerIds = targetGamePlayerId is ulong tid
         ? new List<ulong> { tid }
         : new List<ulong>(),
       ResolvedPower = effectivePower,
     });
 
-    Log.Info($"Player {player.Name} used {ability.Name} (power: {effectivePower}, fromWeapon: {fromWeapon}, target: {targetGamePlayerId?.ToString() ?? "none"}, terrain: {targetTerrainFeatureId?.ToString() ?? "none"})");
+    if (killed)
+    {
+      ctx.Db.battle_log.Insert(new BattleLogEntry
+      {
+        Id = 0,
+        GameSessionId = gameId,
+        OccurredAt = ctx.Timestamp,
+        EventType = BattleLogEventType.Kill,
+        ActorGamePlayerId = gp.Id,
+        AbilityId = abilityId,
+        TargetGamePlayerIds = new List<ulong> { (ulong)targetGamePlayerId! },
+        ResolvedPower = effectivePower,
+      });
+    }
+
+    Log.Info($"Player {player.Name} used {ability.Name} (power: {effectivePower}, event: {eventType}, target: {targetGamePlayerId?.ToString() ?? "none"}, terrain: {targetTerrainFeatureId?.ToString() ?? "none"})");
   }
 
   [SpacetimeDB.Reducer]

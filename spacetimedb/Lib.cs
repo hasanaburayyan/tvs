@@ -111,7 +111,7 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void CreateGame(ReducerContext ctx, uint maxPlayers)
+  public static void CreateGame(ReducerContext ctx, uint maxPlayers, uint? respawnTimerSeconds)
   {
     var seed = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
     var session = ctx.Db.game_session.Insert(new GameSession
@@ -121,7 +121,7 @@ public static partial class Module
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
       MapSeed = seed,
-      RespawnTimerSeconds = 15,
+      RespawnTimerSeconds = respawnTimerSeconds ?? 15,
     });
     GenerateMap(ctx, session.Id, seed);
     SchedulePassiveRegen(ctx, session.Id);
@@ -129,7 +129,7 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers)
+  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers, uint? respawnTimerSeconds)
   {
     var seed = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
     var session = ctx.Db.game_session.Insert(new GameSession
@@ -139,7 +139,7 @@ public static partial class Module
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
       MapSeed = seed,
-      RespawnTimerSeconds = 15,
+      RespawnTimerSeconds = respawnTimerSeconds ?? 15,
     });
     GenerateMap(ctx, session.Id, seed);
     SchedulePassiveRegen(ctx, session.Id);
@@ -403,6 +403,18 @@ public static partial class Module
       DiedAt = null,
       Position = spawnPos,
       TargetGamePlayerId = null,
+    });
+
+    ctx.Db.battle_log.Insert(new BattleLogEntry
+    {
+      Id = 0,
+      GameSessionId = gameId,
+      OccurredAt = ctx.Timestamp,
+      EventType = BattleLogEventType.Revive,
+      ActorGamePlayerId = gp.Id,
+      AbilityId = null,
+      TargetGamePlayerIds = new List<ulong> { gp.Id },
+      ResolvedPower = 0,
     });
 
     ctx.Db.PositionOverride.Insert(new PositionOverride

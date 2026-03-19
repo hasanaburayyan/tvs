@@ -71,10 +71,10 @@ public partial class ServerSelect : PopulableMenu
   {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	conn.Reducers.OnCreateGameAndJoin += OnCreateGameAndJoinResult;
-	conn.Reducers.CreateGameAndJoin((uint)_serverSizeRange.Value);
+	conn.Reducers.CreateGameAndJoin((uint)_serverSizeRange.Value, null);
   }
 
-  void OnCreateGameAndJoinResult(ReducerEventContext ctx, uint maxPlayers)
+  void OnCreateGameAndJoinResult(ReducerEventContext ctx, uint maxPlayers, uint? respawnTimerSeconds)
   {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 
