@@ -196,14 +196,15 @@ public partial class HotbarSlot : VBoxContainer
 	}
 
 	ulong? targetId = RequiresTarget() ? Targeting.Instance?.CurrentTargetGamePlayerId : null;
+	ulong? targetSoldierId = RequiresTarget() ? Targeting.Instance?.CurrentTargetSoldierId : null;
 
-	if (RequiresTarget() && targetId == null)
+	if (RequiresTarget() && targetId == null && targetSoldierId == null)
 	{
 	  GD.Print($"[Hotbar] {_abilityName} requires a target");
 	  return;
 	}
 
-	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId, null, null, null);
+	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetId, targetSoldierId, null, null, null);
 	GD.Print($"[Hotbar] Casting {_abilityName}");
   }
 }

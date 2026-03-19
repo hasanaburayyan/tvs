@@ -69,6 +69,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      AllowSubSquadTargeting = true,
     });
 
     var fireTrenchGun = ctx.Db.ability_def.Insert(new AbilityDef
@@ -89,6 +90,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Distribution = DamageDistribution.ProximityFalloff,
     });
 
     // ================================================================
@@ -571,6 +573,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Distribution = DamageDistribution.EvenSplit,
     });
 
     var enchantWeapon = ctx.Db.ability_def.Insert(new AbilityDef
@@ -611,6 +614,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Distribution = DamageDistribution.EvenSplit,
     });
 
     // -- Infantry / Commando --

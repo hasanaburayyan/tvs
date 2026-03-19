@@ -152,6 +152,11 @@ public partial class Player : CharacterBody3D
 	bool isMovingLocal = new Vector2(Velocity.X, Velocity.Z).LengthSquared() > 0.01f;
 	UpdateAnimation(isMovingLocal);
 
+	if (Input.IsActionJustPressed("squad_split"))
+	{
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.SplitOwnedSquads(GameId);
+	}
+
 	_syncTimer += (float)delta;
 	bool positionChanged = Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f;
 	bool rotationChanged = Mathf.Abs(Rotation.Y - _lastSyncedRotationY) > ROTATION_SYNC_THRESHOLD;

@@ -26,6 +26,15 @@ public static partial class Module
       throw new Exception("Cannot move while dead");
 
     ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition, RotationY = rotationY });
+
+    MoveSoldiersWithPlayer(ctx, gamePlayer.Id, newPosition, rotationY);
+
+    var playerLeaf = FindLeafSquadForGamePlayer(ctx, gamePlayer.Id);
+    if (playerLeaf is Squad leaf)
+    {
+      CheckAndMergeCohesion(ctx, leaf.Id, gameId);
+      CheckAndSplitCohesion(ctx, leaf.Id);
+    }
   }
 
   [SpacetimeDB.Reducer]

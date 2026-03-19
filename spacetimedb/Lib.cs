@@ -160,6 +160,7 @@ public static partial class Module
       throw new Exception("Game is not in lobby state");
 
     ctx.Db.game_session.Id.Update(session with { State = SessionState.InProgress });
+    SpawnAiSquads(ctx, gameId, 3);
     Log.Info($"Game {gameId} started");
   }
 
@@ -238,6 +239,14 @@ public static partial class Module
         ctx.Db.capture_tick.Id.Delete(ct.Id);
     }
 
+    CleanupSquadsForGame(ctx, gameId);
+
+    foreach (var tick in ctx.Db.ai_squad_tick.Iter())
+    {
+      if (tick.GameSessionId == gameId)
+        ctx.Db.ai_squad_tick.Id.Delete(tick.Id);
+    }
+
     ctx.Db.game_session.Id.Delete(gameId);
   }
 
@@ -306,7 +315,7 @@ public static partial class Module
 
     var desired_spawn_location = new DbVector3(spawnX, spawnY, spawnZ);
 
-    ctx.Db.game_player.Insert(new GamePlayer
+    var gp = ctx.Db.game_player.Insert(new GamePlayer
     {
       GameSessionId = gameSession.Id,
       PlayerId = player.Id,
@@ -317,6 +326,8 @@ public static partial class Module
       Position = desired_spawn_location,
       RotationY = 0f
     });
+
+    CreatePlayerSquad(ctx, gameSession.Id, player.Id, gp.Id, desired_spawn_location);
   }
 
   [SpacetimeDB.Reducer]
@@ -330,6 +341,7 @@ public static partial class Module
       ClearTargetsForGamePlayer(ctx, gamePlayer.Id, gamePlayer.GameSessionId);
       ctx.Db.game_player.Id.Update(gamePlayer with { Active = false, TargetGamePlayerId = null });
     }
+    CleanupPlayerSquad(ctx, player.Id, gameId);
   }
 
   [SpacetimeDB.Reducer]
@@ -343,6 +355,7 @@ public static partial class Module
       ClearTargetsForGamePlayer(ctx, gp.Id, gp.GameSessionId);
       ctx.Db.game_player.Id.Update(gp with { Active = false, TargetGamePlayerId = null });
     }
+    CleanupPlayerSquad(ctx, player.Id, gameId);
     CleanupPositionOverrides(ctx, player.Id);
   }
 
@@ -444,6 +457,8 @@ public static partial class Module
       }
     }
 
+    RespawnSoldiers(ctx, gp.Id, spawnPos);
+
     Log.Info($"Player {player.Name} respawned at team {gp.TeamSlot} spawn in game {gameId}");
   }
 
@@ -495,8 +510,11 @@ public static partial class Module
         ctx.Db.game_player.Id.Delete(gp.Id);
       }
 
+      CleanupAllSquadsForPlayer(ctx, player.Id);
+
       foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender))
       {
+        CleanupSquadsForGame(ctx, gameSession.Id);
         foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
         {
           foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
@@ -534,6 +552,11 @@ public static partial class Module
         {
           if (los.GameSessionId == gameSession.Id)
             ctx.Db.los_check_schedule.Id.Delete(los.Id);
+        }
+        foreach (var tick in ctx.Db.ai_squad_tick.Iter())
+        {
+          if (tick.GameSessionId == gameSession.Id)
+            ctx.Db.ai_squad_tick.Id.Delete(tick.Id);
         }
         foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameSession.Id))
           ctx.Db.corpse.Id.Delete(c.Id);

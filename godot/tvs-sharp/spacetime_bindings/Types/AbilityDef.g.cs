@@ -49,6 +49,10 @@ namespace SpacetimeDB.Types
         public float TerrainSizeZ;
         [DataMember(Name = "terrain_max_health")]
         public int TerrainMaxHealth;
+        [DataMember(Name = "distribution")]
+        public DamageDistribution Distribution;
+        [DataMember(Name = "allow_sub_squad_targeting")]
+        public bool AllowSubSquadTargeting;
 
         public AbilityDef(
             ulong Id,
@@ -68,7 +72,9 @@ namespace SpacetimeDB.Types
             float TerrainSizeX,
             float TerrainSizeY,
             float TerrainSizeZ,
-            int TerrainMaxHealth
+            int TerrainMaxHealth,
+            DamageDistribution Distribution,
+            bool AllowSubSquadTargeting
         )
         {
             this.Id = Id;
@@ -89,6 +95,8 @@ namespace SpacetimeDB.Types
             this.TerrainSizeY = TerrainSizeY;
             this.TerrainSizeZ = TerrainSizeZ;
             this.TerrainMaxHealth = TerrainMaxHealth;
+            this.Distribution = Distribution;
+            this.AllowSubSquadTargeting = AllowSubSquadTargeting;
         }
 
         public AbilityDef()
