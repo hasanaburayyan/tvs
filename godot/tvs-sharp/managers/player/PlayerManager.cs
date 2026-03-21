@@ -182,10 +182,14 @@ public partial class PlayerManager : Node
 	node.Name = $"Corpse_{corpse.Id}";
 	node.CorpseId = corpse.Id;
 	node.GamePlayerId = corpse.GamePlayerId;
+	node.SoldierId = corpse.SoldierId;
 	node.PlayerId = corpse.PlayerId;
 
-	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Id.Find(corpse.PlayerId);
-	node.PlayerName = owner?.Name ?? "";
+	if (corpse.SoldierId == null)
+	{
+	  var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Id.Find(corpse.PlayerId);
+	  node.PlayerName = owner?.Name ?? "";
+	}
 
 	node.Position = new Vector3(corpse.Position.X, corpse.Position.Y, corpse.Position.Z);
 	node.Rotation = new Vector3(0, corpse.RotationY, 0);

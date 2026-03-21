@@ -57,6 +57,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeY { get; }
         public global::SpacetimeDB.Col<AbilityDef, float> TerrainSizeZ { get; }
         public global::SpacetimeDB.Col<AbilityDef, int> TerrainMaxHealth { get; }
+        public global::SpacetimeDB.Col<AbilityDef, DamageDistribution> Distribution { get; }
+        public global::SpacetimeDB.Col<AbilityDef, bool> AllowSubSquadTargeting { get; }
 
         public AbilityDefCols(string tableName)
         {
@@ -78,6 +80,8 @@ namespace SpacetimeDB.Types
             TerrainSizeY = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_y");
             TerrainSizeZ = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "terrain_size_z");
             TerrainMaxHealth = new global::SpacetimeDB.Col<AbilityDef, int>(tableName, "terrain_max_health");
+            Distribution = new global::SpacetimeDB.Col<AbilityDef, DamageDistribution>(tableName, "distribution");
+            AllowSubSquadTargeting = new global::SpacetimeDB.Col<AbilityDef, bool>(tableName, "allow_sub_squad_targeting");
         }
     }
 

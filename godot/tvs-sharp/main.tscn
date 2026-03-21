@@ -10,14 +10,16 @@
 [ext_resource type="PackedScene" path="res://scenes/menus/profile_select/ProfileSelect.tscn" id="7_prof"]
 [ext_resource type="PackedScene" uid="uid://c48m00w1umraf" path="res://scenes/hud/player_hud.tscn" id="8_kek77"]
 [ext_resource type="Script" uid="uid://xl5mwtfqyuul" path="res://managers/map/MapManager.cs" id="9_kek77"]
+[ext_resource type="Script" path="res://managers/squad/SquadManager.cs" id="11_squad"]
 [ext_resource type="PackedScene" path="res://scenes/menus/loadout_select/LoadoutSelect.tscn" id="10_ldout"]
 
 [sub_resource type="StandardMaterial3D" id="FloorMaterial_1"]
 albedo_color = Color(0.45, 0.38, 0.28, 1)
 
-[node name="Main" type="Node3D" unique_id=115939296 node_paths=PackedStringArray("PlayerManager", "Hud", "MapManager")]
+[node name="Main" type="Node3D" unique_id=115939296 node_paths=PackedStringArray("PlayerManager", "SquadManager", "Hud", "MapManager")]
 script = ExtResource("1_ig7tw")
 PlayerManager = NodePath("PlayerManager")
+SquadManager = NodePath("SquadManager")
 Hud = NodePath("HUD")
 MapManager = NodePath("MapManager")
 
@@ -69,6 +71,10 @@ shadow_enabled = true
 [node name="PlayerManager" type="Node" parent="." unique_id=1091122836 node_paths=PackedStringArray("PlayerSpawnPath")]
 script = ExtResource("5_lquwl")
 PlayerSpawnPath = NodePath("..")
+
+[node name="SquadManager" type="Node" parent="." unique_id=1123036609 node_paths=PackedStringArray("SoldierSpawnPath")]
+script = ExtResource("11_squad")
+SoldierSpawnPath = NodePath("..")
 
 [node name="MapManager" type="Node" parent="." unique_id=1123036608]
 script = ExtResource("9_kek77")

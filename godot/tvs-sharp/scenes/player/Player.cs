@@ -53,7 +53,8 @@ public partial class Player : CharacterBody3D
 	_nametag.Text = username;
 
 	var targetable = GetNode<Targetable>("%Targetable");
-	targetable.GamePlayerId = GamePlayerId;
+	targetable.Kind = TargetKind.Player;
+	targetable.EntityId = GamePlayerId;
   }
 
   public void OnStateUpdated(Vector3 newPosition, float newRotationY)
@@ -151,6 +152,11 @@ public partial class Player : CharacterBody3D
 
 	bool isMovingLocal = new Vector2(Velocity.X, Velocity.Z).LengthSquared() > 0.01f;
 	UpdateAnimation(isMovingLocal);
+
+	if (Input.IsActionJustPressed("squad_split"))
+	{
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.SplitOwnedSquads(GameId);
+	}
 
 	_syncTimer += (float)delta;
 	bool positionChanged = Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f;

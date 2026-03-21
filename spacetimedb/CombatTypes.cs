@@ -81,4 +81,12 @@ public static partial class Module
     TerrainDestroy,
     Utility,
   }
+
+  [SpacetimeDB.Type]
+  public enum DamageDistribution : byte
+  {
+    Single,
+    EvenSplit,
+    ProximityFalloff,
+  }
 }

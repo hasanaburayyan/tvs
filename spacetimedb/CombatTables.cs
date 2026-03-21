@@ -27,6 +27,11 @@ public static partial class Module
     public float TerrainSizeY;
     public float TerrainSizeZ;
     public int TerrainMaxHealth;
+
+    [SpacetimeDB.Default(0)]
+    public DamageDistribution Distribution;
+    [SpacetimeDB.Default(false)]
+    public bool AllowSubSquadTargeting;
   }
 
   [SpacetimeDB.Table(Accessor = "archetype_def", Public = true)]

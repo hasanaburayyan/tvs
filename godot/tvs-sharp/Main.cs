@@ -10,6 +10,9 @@ public partial class Main : Node3D
   public PlayerManager PlayerManager;
 
   [Export]
+  public SquadManager SquadManager;
+
+  [Export]
   public Hud Hud;
 
   [Export]
@@ -20,6 +23,8 @@ public partial class Main : Node3D
 	Hud.StartLobby += (id) => {
 	  PlayerManager.GameId = (ulong)id;
 	  PlayerManager.LoadLobby();
+	  SquadManager.GameId = (ulong)id;
+	  SquadManager.LoadSquads();
 	  MapManager.GameId = (ulong)id;
 	  MapManager.LoadMap();
 	  Hud.ActivateFreelook();
@@ -32,6 +37,8 @@ public partial class Main : Node3D
 	  {
 		PlayerManager.GameId = 0;
 	  }
+	  SquadManager.GameId = 0;
+	  SquadManager.DestroyAll();
 	  MapManager.GameId = 0;
 	  MapManager.DestroyMap();
 	  PlayerManager.DestroyLobby();

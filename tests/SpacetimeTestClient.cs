@@ -60,11 +60,13 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnMovePlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnTeleportPlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetLoadout += (ctx, _, _, _, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnUseAbility += (ctx, _, _, _, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnUseAbility += (ctx, _, _, _, _, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetTarget += (ctx, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnRespawn += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnStartGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnEndGame += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSplitOwnedSquads += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnSetTeam += (ctx, _, _) => HandleReducerEvent(ctx);
     }
 
     private void HandleReducerEvent(ReducerEventContext ctx)
@@ -203,6 +205,17 @@ public class SpacetimeTestClient : IDisposable
         var list = new JsonElement[rows.GetArrayLength()];
         for (int i = 0; i < list.Length; i++) list[i] = rows[i];
         return list;
+    }
+
+    /// Pumps the connection briefly to receive pending broadcasts from other clients.
+    public void Sync(int ms = 200)
+    {
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < ms)
+        {
+            _conn.FrameTick();
+            Thread.Sleep(1);
+        }
     }
 
     // ── Internals ───────────────────────────────────────────────────────────

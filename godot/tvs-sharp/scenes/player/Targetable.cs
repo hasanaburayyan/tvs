@@ -1,8 +1,16 @@
 using Godot;
 
+public enum TargetKind : byte
+{
+  Player,
+  Soldier,
+  TerrainFeature,
+}
+
 public partial class Targetable : Node
 {
-  public ulong GamePlayerId { get; set; }
+  public TargetKind Kind { get; set; }
+  public ulong EntityId { get; set; }
 
   public static Targetable FindIn(Node node)
   {

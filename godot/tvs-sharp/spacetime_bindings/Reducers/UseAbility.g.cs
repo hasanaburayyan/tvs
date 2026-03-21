@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void UseAbilityHandler(ReducerEventContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetTerrainFeatureId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY);
+        public delegate void UseAbilityHandler(ReducerEventContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetSoldierId, ulong? targetTerrainFeatureId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY);
         public event UseAbilityHandler? OnUseAbility;
 
-        public void UseAbility(ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetTerrainFeatureId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY)
+        public void UseAbility(ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetSoldierId, ulong? targetTerrainFeatureId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY)
         {
-            conn.InternalCallReducer(new Reducer.UseAbility(gameId, abilityId, targetGamePlayerId, targetTerrainFeatureId, targetPosition, targetRotationY));
+            conn.InternalCallReducer(new Reducer.UseAbility(gameId, abilityId, targetGamePlayerId, targetSoldierId, targetTerrainFeatureId, targetPosition, targetRotationY));
         }
 
         public bool InvokeUseAbility(ReducerEventContext ctx, Reducer.UseAbility args)
@@ -39,6 +39,7 @@ namespace SpacetimeDB.Types
                 args.GameId,
                 args.AbilityId,
                 args.TargetGamePlayerId,
+                args.TargetSoldierId,
                 args.TargetTerrainFeatureId,
                 args.TargetPosition,
                 args.TargetRotationY
@@ -59,6 +60,8 @@ namespace SpacetimeDB.Types
             public ulong AbilityId;
             [DataMember(Name = "target_game_player_id")]
             public ulong? TargetGamePlayerId;
+            [DataMember(Name = "target_soldier_id")]
+            public ulong? TargetSoldierId;
             [DataMember(Name = "target_terrain_feature_id")]
             public ulong? TargetTerrainFeatureId;
             [DataMember(Name = "target_position")]
@@ -70,6 +73,7 @@ namespace SpacetimeDB.Types
                 ulong GameId,
                 ulong AbilityId,
                 ulong? TargetGamePlayerId,
+                ulong? TargetSoldierId,
                 ulong? TargetTerrainFeatureId,
                 DbVector3? TargetPosition,
                 float? TargetRotationY
@@ -78,6 +82,7 @@ namespace SpacetimeDB.Types
                 this.GameId = GameId;
                 this.AbilityId = AbilityId;
                 this.TargetGamePlayerId = TargetGamePlayerId;
+                this.TargetSoldierId = TargetSoldierId;
                 this.TargetTerrainFeatureId = TargetTerrainFeatureId;
                 this.TargetPosition = TargetPosition;
                 this.TargetRotationY = TargetRotationY;
