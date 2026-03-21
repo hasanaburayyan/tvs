@@ -1,11 +1,12 @@
 [gd_scene format=3 uid="uid://bpvamikdrthr8"]
 
 [ext_resource type="PackedScene" uid="uid://3aoref5jnrh2" path="res://assets/models/nurse.tscn" id="1_ncc33"]
-[ext_resource type="Script" path="res://scenes/soldier/Soldier.cs" id="2_soldier"]
+[ext_resource type="Script" uid="uid://b8cotq6e5wg4d" path="res://scenes/soldier/Soldier.cs" id="2_soldier"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_bxsd3"]
 
 [node name="Soldier" type="CharacterBody3D" unique_id=1015170753]
+transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 script = ExtResource("2_soldier")
 
 [node name="Nurse" parent="." unique_id=58088262 instance=ExtResource("1_ncc33")]

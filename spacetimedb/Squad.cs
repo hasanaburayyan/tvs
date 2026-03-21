@@ -330,7 +330,12 @@ public static partial class Module
   {
     var leafSquad = FindLeafSquadForGamePlayer(ctx, gamePlayerId);
     if (leafSquad is not Squad playerLeaf) return;
-    if (playerLeaf.ParentSquadId == 0) return;
+
+    if (playerLeaf.ParentSquadId == 0)
+    {
+      ctx.Db.squad.Id.Update(playerLeaf with { CenterPosition = playerPosition });
+      return;
+    }
 
     var siblings = GetDirectChildren(ctx, playerLeaf.ParentSquadId);
     foreach (var sibling in siblings)
@@ -338,12 +343,18 @@ public static partial class Module
       if (sibling.SoldierId != 0)
       {
         var soldier = ctx.Db.soldier.Id.Find(sibling.SoldierId);
-        if (soldier is not Soldier s || s.Dead) continue;
+        if (soldier is not Soldier s) continue;
 
         var offset = DeterministicFormationOffset(s.FormationIndex, rotationY);
         var newPos = playerPosition + offset;
-        ctx.Db.soldier.Id.Update(s with { Position = newPos, RotationY = rotationY });
 
+        if (s.Dead)
+        {
+          ctx.Db.squad.Id.Update(sibling with { CenterPosition = newPos });
+          continue;
+        }
+
+        ctx.Db.soldier.Id.Update(s with { Position = newPos, RotationY = rotationY });
         ctx.Db.squad.Id.Update(sibling with { CenterPosition = newPos });
       }
     }
@@ -446,8 +457,41 @@ public static partial class Module
   public static void RespawnSoldiers(ReducerContext ctx, ulong gamePlayerId, DbVector3 spawnPosition)
   {
     var leafSquad = FindLeafSquadForGamePlayer(ctx, gamePlayerId);
-    if (leafSquad is not Squad playerLeaf) return;
-    if (playerLeaf.ParentSquadId == 0) return;
+    if (leafSquad is not Squad playerLeaf)
+    {
+      var gp = ctx.Db.game_player.Id.Find(gamePlayerId);
+      if (gp is GamePlayer g)
+        CreatePlayerSquad(ctx, g.GameSessionId, g.PlayerId, g.Id, spawnPosition);
+      return;
+    }
+
+    if (playerLeaf.ParentSquadId == 0)
+    {
+      var gp = ctx.Db.game_player.Id.Find(gamePlayerId);
+      if (gp is not GamePlayer g) return;
+
+      var orphanedSquads = new List<ulong>();
+      var orphanedSoldiers = new List<ulong>();
+      foreach (var sq in ctx.Db.squad.GameSessionId.Filter(g.GameSessionId))
+      {
+        if (sq.OwnerPlayerId != g.PlayerId) continue;
+        if (sq.SoldierId != 0) orphanedSoldiers.Add(sq.SoldierId);
+        orphanedSquads.Add(sq.Id);
+      }
+      foreach (var sid in orphanedSoldiers)
+      {
+        ctx.Db.soldier.Id.Delete(sid);
+        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(g.GameSessionId))
+        {
+          if (c.SoldierId == sid) ctx.Db.corpse.Id.Delete(c.Id);
+        }
+      }
+      foreach (var sqId in orphanedSquads)
+        ctx.Db.squad.Id.Delete(sqId);
+
+      CreatePlayerSquad(ctx, g.GameSessionId, g.PlayerId, g.Id, spawnPosition);
+      return;
+    }
 
     var siblings = GetDirectChildren(ctx, playerLeaf.ParentSquadId);
     foreach (var sibling in siblings)
@@ -468,6 +512,12 @@ public static partial class Module
           RotationY = 0f,
         });
         ctx.Db.squad.Id.Update(sibling with { CenterPosition = newPos });
+
+        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(s.GameSessionId))
+        {
+          if (c.SoldierId == s.Id)
+            ctx.Db.corpse.Id.Delete(c.Id);
+        }
       }
     }
 
@@ -480,6 +530,21 @@ public static partial class Module
     float dx = a.x - b.x;
     float dz = a.z - b.z;
     return (float)Math.Sqrt(dx * dx + dz * dz);
+  }
+
+  public static byte? GetSquadTeamSlot(ReducerContext ctx, Squad squad, ulong gameSessionId)
+  {
+    var leaves = GetLeafSquads(ctx, squad.Id);
+    foreach (var leaf in leaves)
+    {
+      if (leaf.GamePlayerId != 0)
+      {
+        var gp = ctx.Db.game_player.Id.Find(leaf.GamePlayerId);
+        if (gp is GamePlayer g)
+          return g.TeamSlot;
+      }
+    }
+    return null;
   }
 
   public static void CheckAndMergeCohesion(ReducerContext ctx, ulong movedSquadId, ulong gameSessionId)
@@ -502,6 +567,10 @@ public static partial class Module
       var currentOther = ctx.Db.squad.Id.Find(otherRoot.Id);
       if (currentOther is not Squad co) continue;
       if (co.ParentSquadId != 0) continue;
+
+      byte? movedTeam = GetSquadTeamSlot(ctx, cm, gameSessionId);
+      byte? otherTeam = GetSquadTeamSlot(ctx, co, gameSessionId);
+      if (movedTeam != otherTeam) continue;
 
       float dist = DistanceXZ(cm.CenterPosition, co.CenterPosition);
       float mergeThreshold = cm.CohesionRadius + co.CohesionRadius;
@@ -529,6 +598,21 @@ public static partial class Module
     }
   }
 
+  static bool IsLeafDead(ReducerContext ctx, Squad leaf)
+  {
+    if (leaf.GamePlayerId != 0)
+    {
+      var gp = ctx.Db.game_player.Id.Find(leaf.GamePlayerId);
+      if (gp is GamePlayer g && g.Dead) return true;
+    }
+    if (leaf.SoldierId != 0)
+    {
+      var s = ctx.Db.soldier.Id.Find(leaf.SoldierId);
+      if (s is Soldier sol && sol.Dead) return true;
+    }
+    return false;
+  }
+
   public static void CheckAndSplitCohesion(ReducerContext ctx, ulong squadId)
   {
     var root = GetRootSquad(ctx, squadId);
@@ -544,13 +628,21 @@ public static partial class Module
     var children = GetDirectChildren(ctx, compositeId);
     if (children.Count <= 1) return;
 
-    var toDetach = new List<ulong>();
-    for (int i = 0; i < children.Count; i++)
+    var aliveChildren = new List<Squad>();
+    foreach (var child in children)
     {
-      for (int j = i + 1; j < children.Count; j++)
+      if (IsLeafSquad(child) && IsLeafDead(ctx, child)) continue;
+      aliveChildren.Add(child);
+    }
+    if (aliveChildren.Count <= 1) return;
+
+    var toDetach = new List<ulong>();
+    for (int i = 0; i < aliveChildren.Count; i++)
+    {
+      for (int j = i + 1; j < aliveChildren.Count; j++)
       {
-        var ci = ctx.Db.squad.Id.Find(children[i].Id);
-        var cj = ctx.Db.squad.Id.Find(children[j].Id);
+        var ci = ctx.Db.squad.Id.Find(aliveChildren[i].Id);
+        var cj = ctx.Db.squad.Id.Find(aliveChildren[j].Id);
         if (ci is not Squad a || cj is not Squad b) continue;
 
         float dist = DistanceXZ(a.CenterPosition, b.CenterPosition);

@@ -21,12 +21,6 @@ public partial class Targeting : Control
 
   public static Targeting Instance { get; private set; }
 
-  public ulong? CurrentTargetGamePlayerId =>
-	_currentTargetable != null && !_currentTargetable.IsSoldier ? (ulong?)_currentTargetable.GamePlayerId : null;
-
-  public ulong? CurrentTargetSoldierId =>
-	_currentTargetable != null && _currentTargetable.IsSoldier ? (ulong?)_currentTargetable.SoldierId : null;
-
   private Camera3D _camera;
   private Node3D _currentTarget;
   private Targetable _currentTargetable;
@@ -137,12 +131,37 @@ public partial class Targeting : Control
 	var weapon = conn.Db.WeaponDef.Id.Find(loadout.WeaponDefId);
 	if (weapon == null) return;
 
+	var ability = conn.Db.AbilityDef.Id.Find(weapon.PrimaryAbilityId);
+	if (ability == null) return;
+
+	ulong? targetGpId = null;
+	ulong? targetSoldierId = null;
+	ulong? targetTerrainId = null;
+
+	if (_currentTargetable != null)
+	{
+	  switch (_currentTargetable.Kind)
+	  {
+		case TargetKind.Player:
+		  targetGpId = _currentTargetable.EntityId;
+		  break;
+		case TargetKind.Soldier:
+		  if (ability.AllowSubSquadTargeting)
+			targetSoldierId = _currentTargetable.EntityId;
+		  else
+			targetGpId = ResolveSquadTarget(_currentTargetable);
+		  break;
+		case TargetKind.TerrainFeature:
+		  targetTerrainId = _currentTargetable.EntityId;
+		  break;
+	  }
+	}
+
 	conn.Reducers.UseAbility(
 	  localGp.GameSessionId,
 	  weapon.PrimaryAbilityId,
-	  CurrentTargetGamePlayerId,
-	  CurrentTargetSoldierId,
-	  null, null, null
+	  targetGpId, targetSoldierId, targetTerrainId,
+	  null, null
 	);
   }
 
@@ -159,17 +178,14 @@ public partial class Targeting : Control
 
 	if (_currentTargetable != null && !ActiveWeaponAllowsSubSquadTargeting())
 	{
-	  ulong gpId = _currentTargetable.IsSoldier
-		? FindOwnerGamePlayerId(_currentTargetable.SoldierId)
-		: _currentTargetable.GamePlayerId;
-
-	  if (gpId != 0)
+	  var gpId = ResolveSquadTarget(_currentTargetable);
+	  if (gpId is ulong id && id != 0)
 	  {
-		var bounds = ComputeSquadBounds(gpId);
+		var bounds = ComputeSquadBounds(id);
 		if (bounds.HasValue)
 		{
 		  float ringScale = Mathf.Max(bounds.Value.radius, IndividualRingRadius);
-		  _ringIndicator.GlobalPosition = bounds.Value.center with { Y = 0.05f };
+		  _ringIndicator.GlobalPosition = bounds.Value.center with { Y = bounds.Value.center.Y + 0.05f };
 		  _ringIndicator.Scale = new Vector3(ringScale, 1f, ringScale);
 		  _ringIndicator.Visible = true;
 		  return;
@@ -205,17 +221,7 @@ public partial class Targeting : Control
 	_ringIndicator.Scale = new Vector3(IndividualRingRadius, 1f, IndividualRingRadius);
 	_ringIndicator.Visible = true;
 
-	ulong? gpTarget;
-	if (targetable.IsSoldier)
-	{
-	  ulong ownerId = FindOwnerGamePlayerId(targetable.SoldierId);
-	  gpTarget = ownerId != 0 ? ownerId : null;
-	}
-	else
-	{
-	  gpTarget = targetable.GamePlayerId;
-	}
-	SyncTargetToServer(gpTarget);
+	SyncTargetToServer(ResolveSquadTarget(targetable));
   }
 
   private static void SyncTargetToServer(ulong? gamePlayerId)
@@ -254,17 +260,54 @@ public partial class Targeting : Control
 
   private static bool IsOwnEntity(Node3D node, Targetable targetable)
   {
-	if (node is Player player)
-	  return player.IsLocal;
-
-	if (targetable.IsSoldier)
+	switch (targetable.Kind)
 	{
-	  var mgr = SpacetimeNetworkManager.Instance;
-	  if (mgr?.ActivePlayerId != null && node is Soldier soldier)
-		return soldier.OwnerPlayerId == mgr.ActivePlayerId;
+	  case TargetKind.Player:
+		return node is Player player && player.IsLocal;
+	  case TargetKind.Soldier:
+		var mgr = SpacetimeNetworkManager.Instance;
+		return mgr?.ActivePlayerId != null && node is Soldier soldier
+		  && soldier.OwnerPlayerId == mgr.ActivePlayerId;
+	  default:
+		return false;
 	}
+  }
 
-	return false;
+  public (ulong? gpId, ulong? soldierId, ulong? terrainId) ResolveCurrentTarget(ulong abilityId)
+  {
+	if (_currentTargetable == null) return (null, null, null);
+
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return (null, null, null);
+
+	var ability = conn.Db.AbilityDef.Id.Find(abilityId);
+
+	switch (_currentTargetable.Kind)
+	{
+	  case TargetKind.Player:
+		return (_currentTargetable.EntityId, null, null);
+	  case TargetKind.Soldier:
+		if (ability != null && ability.AllowSubSquadTargeting)
+		  return (null, _currentTargetable.EntityId, null);
+		return (ResolveSquadTarget(_currentTargetable), null, null);
+	  case TargetKind.TerrainFeature:
+		return (null, null, _currentTargetable.EntityId);
+	  default:
+		return (null, null, null);
+	}
+  }
+
+  public bool HasTarget => _currentTargetable != null;
+
+  private ulong? ResolveSquadTarget(Targetable targetable)
+  {
+	if (targetable == null) return null;
+	return targetable.Kind switch
+	{
+	  TargetKind.Player => targetable.EntityId,
+	  TargetKind.Soldier => FindOwnerGamePlayerId(targetable.EntityId) is var id and > 0 ? id : null,
+	  _ => null,
+	};
   }
 
   private static ulong FindOwnerGamePlayerId(ulong soldierId)
@@ -365,19 +408,10 @@ public partial class Targeting : Control
 	  break;
 	}
 	if (leafSquad == null) return null;
-
-	var root = leafSquad;
-	int depth = 0;
-	while (root.ParentSquadId != 0 && depth < 100)
-	{
-	  var parent = conn.Db.Squad.Id.Find(root.ParentSquadId);
-	  if (parent == null) break;
-	  root = parent;
-	  depth++;
-	}
+	if (leafSquad.ParentSquadId == 0) return null;
 
 	var positions = new List<Vector3>();
-	CollectEntityPositions(conn, root.Id, positions);
+	CollectEntityPositions(conn, leafSquad.ParentSquadId, positions);
 
 	if (positions.Count == 0) return null;
 

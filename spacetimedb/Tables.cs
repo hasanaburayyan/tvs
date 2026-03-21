@@ -130,6 +130,7 @@ public static partial class Module
     public ulong GameSessionId;
 
     public ulong? GamePlayerId;
+    public ulong? SoldierId;
 
     public ulong PlayerId;
     public DbVector3 Position;

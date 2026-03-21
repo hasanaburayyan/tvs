@@ -246,6 +246,14 @@ public static partial class Module
         }
 
         ctx.Db.game_player.Id.Update(updated);
+
+        if (killed)
+        {
+          var leafSquad = FindLeafSquadForGamePlayer(ctx, entity.GamePlayerId);
+          if (leafSquad is Squad ls)
+            UpdateSquadCenters(ctx, ls.Id);
+        }
+
         affectedTargetIds.Add(entity.GamePlayerId);
       }
     }
@@ -265,6 +273,24 @@ public static partial class Module
         }
 
         ctx.Db.soldier.Id.Update(updated);
+
+        if (killed)
+        {
+          var leafSquad = FindLeafSquadForSoldier(ctx, entity.SoldierId);
+          if (leafSquad is Squad ls)
+            UpdateSquadCenters(ctx, ls.Id);
+
+          ctx.Db.corpse.Insert(new Corpse
+          {
+            Id = 0,
+            GameSessionId = gameId,
+            SoldierId = entity.SoldierId,
+            GamePlayerId = null,
+            PlayerId = s.OwnerPlayerId ?? 0,
+            Position = s.Position,
+            RotationY = s.RotationY,
+          });
+        }
       }
     }
 
@@ -577,6 +603,14 @@ public static partial class Module
           }
 
           ctx.Db.game_player.Id.Update(updated);
+
+          if (killed)
+          {
+            var playerLeafSquad = FindLeafSquadForGamePlayer(ctx, dmgTargetId);
+            if (playerLeafSquad is Squad pls)
+              UpdateSquadCenters(ctx, pls.Id);
+          }
+
           affectedTargetIds.Add(dmgTargetId);
         }
       }
@@ -601,6 +635,24 @@ public static partial class Module
       }
 
       ctx.Db.soldier.Id.Update(updated);
+
+      if (killed)
+      {
+        var leafSquad = FindLeafSquadForSoldier(ctx, solTarget.Id);
+        if (leafSquad is Squad ls)
+          UpdateSquadCenters(ctx, ls.Id);
+
+        ctx.Db.corpse.Insert(new Corpse
+        {
+          Id = 0,
+          GameSessionId = gameId,
+          SoldierId = solTarget.Id,
+          GamePlayerId = null,
+          PlayerId = solTarget.OwnerPlayerId ?? 0,
+          Position = solTarget.Position,
+          RotationY = solTarget.RotationY,
+        });
+      }
     }
     else if (resolved.Power > 0 && ability.Type == AbilityType.Heal && targetGamePlayerId is null)
     {

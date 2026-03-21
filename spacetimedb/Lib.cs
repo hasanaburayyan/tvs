@@ -284,6 +284,7 @@ public static partial class Module
 
       DeactivateGamePlayer(ctx, player.Id);
       ctx.Db.game_player.Id.Update(ex with { Active = true });
+      CreatePlayerSquad(ctx, gameSession.Id, player.Id, ex.Id, ex.Position);
       return;
     }
 

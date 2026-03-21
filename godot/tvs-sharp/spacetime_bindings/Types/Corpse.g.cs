@@ -19,6 +19,8 @@ namespace SpacetimeDB.Types
         public ulong GameSessionId;
         [DataMember(Name = "game_player_id")]
         public ulong? GamePlayerId;
+        [DataMember(Name = "soldier_id")]
+        public ulong? SoldierId;
         [DataMember(Name = "player_id")]
         public ulong PlayerId;
         [DataMember(Name = "position")]
@@ -30,6 +32,7 @@ namespace SpacetimeDB.Types
             ulong Id,
             ulong GameSessionId,
             ulong? GamePlayerId,
+            ulong? SoldierId,
             ulong PlayerId,
             DbVector3 Position,
             float RotationY
@@ -38,6 +41,7 @@ namespace SpacetimeDB.Types
             this.Id = Id;
             this.GameSessionId = GameSessionId;
             this.GamePlayerId = GamePlayerId;
+            this.SoldierId = SoldierId;
             this.PlayerId = PlayerId;
             this.Position = Position;
             this.RotationY = RotationY;

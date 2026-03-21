@@ -6,6 +6,7 @@ public partial class Corpse : Node3D
 
   public ulong CorpseId;
   public ulong? GamePlayerId;
+  public ulong? SoldierId;
   public ulong PlayerId;
   public string PlayerName = "";
 

@@ -53,7 +53,8 @@ public partial class Player : CharacterBody3D
 	_nametag.Text = username;
 
 	var targetable = GetNode<Targetable>("%Targetable");
-	targetable.GamePlayerId = GamePlayerId;
+	targetable.Kind = TargetKind.Player;
+	targetable.EntityId = GamePlayerId;
   }
 
   public void OnStateUpdated(Vector3 newPosition, float newRotationY)

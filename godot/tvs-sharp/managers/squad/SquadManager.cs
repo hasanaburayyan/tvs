@@ -15,10 +15,13 @@ public partial class SquadManager : Node
 
   private readonly Dictionary<ulong, Soldier> _soldiers = new();
   private MeshInstance3D _cohesionCircle;
+  private bool _handlersRegistered;
 
   public void LoadSquads()
   {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
+
+	UnsubscribeHandlers(conn);
 
 	foreach (var soldier in conn.Db.Soldier.GameSessionId.Filter(GameId))
 	{
@@ -29,6 +32,16 @@ public partial class SquadManager : Node
 	conn.Db.Soldier.OnInsert += OnSoldierInsert;
 	conn.Db.Soldier.OnUpdate += OnSoldierUpdate;
 	conn.Db.Soldier.OnDelete += OnSoldierDelete;
+	_handlersRegistered = true;
+  }
+
+  private void UnsubscribeHandlers(DbConnection conn)
+  {
+	if (!_handlersRegistered) return;
+	conn.Db.Soldier.OnInsert -= OnSoldierInsert;
+	conn.Db.Soldier.OnUpdate -= OnSoldierUpdate;
+	conn.Db.Soldier.OnDelete -= OnSoldierDelete;
+	_handlersRegistered = false;
   }
 
   private void SpawnSoldier(SpacetimeDB.Types.Soldier soldierData)
@@ -148,7 +161,18 @@ public partial class SquadManager : Node
 	}
 
 	var center = current.CenterPosition;
-	_cohesionCircle.GlobalPosition = new Vector3(center.X, 0.1f, center.Z);
+	bool allDead = center.X == 0 && center.Y == 0 && center.Z == 0;
+
+	if (depth == 0 && !gp.Dead)
+	{
+	  center = gp.Position;
+	  allDead = false;
+	}
+
+	_cohesionCircle.Visible = !allDead;
+	if (allDead) return;
+
+	_cohesionCircle.GlobalPosition = new Vector3(center.X, center.Y + 0.1f, center.Z);
 
 	float radius = current.CohesionRadius;
 	_cohesionCircle.Scale = new Vector3(radius, 1f, radius);
@@ -196,6 +220,10 @@ public partial class SquadManager : Node
 
   public void DestroyAll()
   {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn != null)
+	  UnsubscribeHandlers(conn);
+
 	foreach (var kvp in _soldiers)
 	  kvp.Value.QueueFree();
 	_soldiers.Clear();

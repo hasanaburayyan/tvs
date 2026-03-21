@@ -26,8 +26,10 @@ public partial class Soldier : CharacterBody3D
 
 	var targetable = new Targetable();
 	targetable.Name = "Targetable";
-	targetable.SoldierId = SoldierId;
+	targetable.Kind = TargetKind.Soldier;
+	targetable.EntityId = SoldierId;
 	AddChild(targetable);
+	targetable.Owner = this;
   }
 
   private AnimationPlayer FindAnimationPlayer()

@@ -52,6 +52,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Corpse, ulong> Id { get; }
         public global::SpacetimeDB.Col<Corpse, ulong> GameSessionId { get; }
         public global::SpacetimeDB.Col<Corpse, ulong> GamePlayerId { get; }
+        public global::SpacetimeDB.Col<Corpse, ulong> SoldierId { get; }
         public global::SpacetimeDB.Col<Corpse, ulong> PlayerId { get; }
         public global::SpacetimeDB.Col<Corpse, DbVector3> Position { get; }
         public global::SpacetimeDB.Col<Corpse, float> RotationY { get; }
@@ -61,6 +62,7 @@ namespace SpacetimeDB.Types
             Id = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "id");
             GameSessionId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "game_session_id");
             GamePlayerId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "game_player_id");
+            SoldierId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "soldier_id");
             PlayerId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "player_id");
             Position = new global::SpacetimeDB.Col<Corpse, DbVector3>(tableName, "position");
             RotationY = new global::SpacetimeDB.Col<Corpse, float>(tableName, "rotation_y");
