@@ -17,14 +17,14 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "active_effect";
 
-            public sealed class GamePlayerIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdIndex : BTreeIndexBase<ulong>
             {
-                protected override ulong GetKey(ActiveEffect row) => row.GamePlayerId;
+                protected override ulong GetKey(ActiveEffect row) => row.EntityId;
 
-                public GamePlayerIdIndex(ActiveEffectHandle table) : base(table) { }
+                public EntityIdIndex(ActiveEffectHandle table) : base(table) { }
             }
 
-            public readonly GamePlayerIdIndex GamePlayerId;
+            public readonly EntityIdIndex EntityId;
 
             public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
             {
@@ -37,7 +37,7 @@ namespace SpacetimeDB.Types
 
             internal ActiveEffectHandle(DbConnection conn) : base(conn)
             {
-                GamePlayerId = new(this);
+                EntityId = new(this);
                 Id = new(this);
             }
 
@@ -50,8 +50,8 @@ namespace SpacetimeDB.Types
     public sealed class ActiveEffectCols
     {
         public global::SpacetimeDB.Col<ActiveEffect, ulong> Id { get; }
-        public global::SpacetimeDB.Col<ActiveEffect, ulong> GamePlayerId { get; }
-        public global::SpacetimeDB.Col<ActiveEffect, ulong> CasterGamePlayerId { get; }
+        public global::SpacetimeDB.Col<ActiveEffect, ulong> EntityId { get; }
+        public global::SpacetimeDB.Col<ActiveEffect, ulong> CasterEntityId { get; }
         public global::SpacetimeDB.Col<ActiveEffect, ulong> SourceAbilityId { get; }
         public global::SpacetimeDB.Col<ActiveEffect, System.Collections.Generic.List<AbilityMod>> Mods { get; }
         public global::SpacetimeDB.Col<ActiveEffect, System.Collections.Generic.List<ulong>> AffectedAbilityIds { get; }
@@ -60,8 +60,8 @@ namespace SpacetimeDB.Types
         public ActiveEffectCols(string tableName)
         {
             Id = new global::SpacetimeDB.Col<ActiveEffect, ulong>(tableName, "id");
-            GamePlayerId = new global::SpacetimeDB.Col<ActiveEffect, ulong>(tableName, "game_player_id");
-            CasterGamePlayerId = new global::SpacetimeDB.Col<ActiveEffect, ulong>(tableName, "caster_game_player_id");
+            EntityId = new global::SpacetimeDB.Col<ActiveEffect, ulong>(tableName, "entity_id");
+            CasterEntityId = new global::SpacetimeDB.Col<ActiveEffect, ulong>(tableName, "caster_entity_id");
             SourceAbilityId = new global::SpacetimeDB.Col<ActiveEffect, ulong>(tableName, "source_ability_id");
             Mods = new global::SpacetimeDB.Col<ActiveEffect, System.Collections.Generic.List<AbilityMod>>(tableName, "mods");
             AffectedAbilityIds = new global::SpacetimeDB.Col<ActiveEffect, System.Collections.Generic.List<ulong>>(tableName, "affected_ability_ids");
@@ -72,12 +72,12 @@ namespace SpacetimeDB.Types
     public sealed class ActiveEffectIxCols
     {
         public global::SpacetimeDB.IxCol<ActiveEffect, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<ActiveEffect, ulong> GamePlayerId { get; }
+        public global::SpacetimeDB.IxCol<ActiveEffect, ulong> EntityId { get; }
 
         public ActiveEffectIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<ActiveEffect, ulong>(tableName, "id");
-            GamePlayerId = new global::SpacetimeDB.IxCol<ActiveEffect, ulong>(tableName, "game_player_id");
+            EntityId = new global::SpacetimeDB.IxCol<ActiveEffect, ulong>(tableName, "entity_id");
         }
     }
 }

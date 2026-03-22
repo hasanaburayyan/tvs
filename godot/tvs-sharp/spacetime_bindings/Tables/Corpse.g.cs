@@ -17,31 +17,21 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "corpse";
 
-            public sealed class GameSessionIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdUniqueIndex : UniqueIndexBase<ulong>
             {
-                protected override ulong GetKey(Corpse row) => row.GameSessionId;
+                protected override ulong GetKey(Corpse row) => row.EntityId;
 
-                public GameSessionIdIndex(CorpseHandle table) : base(table) { }
+                public EntityIdUniqueIndex(CorpseHandle table) : base(table) { }
             }
 
-            public readonly GameSessionIdIndex GameSessionId;
-
-            public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
-            {
-                protected override ulong GetKey(Corpse row) => row.Id;
-
-                public IdUniqueIndex(CorpseHandle table) : base(table) { }
-            }
-
-            public readonly IdUniqueIndex Id;
+            public readonly EntityIdUniqueIndex EntityId;
 
             internal CorpseHandle(DbConnection conn) : base(conn)
             {
-                GameSessionId = new(this);
-                Id = new(this);
+                EntityId = new(this);
             }
 
-            protected override object GetPrimaryKey(Corpse row) => row.Id;
+            protected override object GetPrimaryKey(Corpse row) => row.EntityId;
         }
 
         public readonly CorpseHandle Corpse;
@@ -49,35 +39,25 @@ namespace SpacetimeDB.Types
 
     public sealed class CorpseCols
     {
-        public global::SpacetimeDB.Col<Corpse, ulong> Id { get; }
-        public global::SpacetimeDB.Col<Corpse, ulong> GameSessionId { get; }
-        public global::SpacetimeDB.Col<Corpse, ulong> GamePlayerId { get; }
-        public global::SpacetimeDB.Col<Corpse, ulong> SoldierId { get; }
+        public global::SpacetimeDB.Col<Corpse, ulong> EntityId { get; }
+        public global::SpacetimeDB.Col<Corpse, ulong> SourceEntityId { get; }
         public global::SpacetimeDB.Col<Corpse, ulong> PlayerId { get; }
-        public global::SpacetimeDB.Col<Corpse, DbVector3> Position { get; }
-        public global::SpacetimeDB.Col<Corpse, float> RotationY { get; }
 
         public CorpseCols(string tableName)
         {
-            Id = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "game_session_id");
-            GamePlayerId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "game_player_id");
-            SoldierId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "soldier_id");
+            EntityId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "entity_id");
+            SourceEntityId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "source_entity_id");
             PlayerId = new global::SpacetimeDB.Col<Corpse, ulong>(tableName, "player_id");
-            Position = new global::SpacetimeDB.Col<Corpse, DbVector3>(tableName, "position");
-            RotationY = new global::SpacetimeDB.Col<Corpse, float>(tableName, "rotation_y");
         }
     }
 
     public sealed class CorpseIxCols
     {
-        public global::SpacetimeDB.IxCol<Corpse, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<Corpse, ulong> GameSessionId { get; }
+        public global::SpacetimeDB.IxCol<Corpse, ulong> EntityId { get; }
 
         public CorpseIxCols(string tableName)
         {
-            Id = new global::SpacetimeDB.IxCol<Corpse, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.IxCol<Corpse, ulong>(tableName, "game_session_id");
+            EntityId = new global::SpacetimeDB.IxCol<Corpse, ulong>(tableName, "entity_id");
         }
     }
 }

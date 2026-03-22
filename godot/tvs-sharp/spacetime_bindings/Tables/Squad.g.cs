@@ -17,14 +17,14 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "squad";
 
-            public sealed class GamePlayerIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdIndex : BTreeIndexBase<ulong>
             {
-                protected override ulong GetKey(Squad row) => row.GamePlayerId;
+                protected override ulong GetKey(Squad row) => row.EntityId;
 
-                public GamePlayerIdIndex(SquadHandle table) : base(table) { }
+                public EntityIdIndex(SquadHandle table) : base(table) { }
             }
 
-            public readonly GamePlayerIdIndex GamePlayerId;
+            public readonly EntityIdIndex EntityId;
 
             public sealed class GameSessionIdIndex : BTreeIndexBase<ulong>
             {
@@ -53,22 +53,12 @@ namespace SpacetimeDB.Types
 
             public readonly ParentSquadIdIndex ParentSquadId;
 
-            public sealed class SoldierIdIndex : BTreeIndexBase<ulong>
-            {
-                protected override ulong GetKey(Squad row) => row.SoldierId;
-
-                public SoldierIdIndex(SquadHandle table) : base(table) { }
-            }
-
-            public readonly SoldierIdIndex SoldierId;
-
             internal SquadHandle(DbConnection conn) : base(conn)
             {
-                GamePlayerId = new(this);
+                EntityId = new(this);
                 GameSessionId = new(this);
                 Id = new(this);
                 ParentSquadId = new(this);
-                SoldierId = new(this);
             }
 
             protected override object GetPrimaryKey(Squad row) => row.Id;
@@ -85,8 +75,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Squad, ulong> OwnerPlayerId { get; }
         public global::SpacetimeDB.Col<Squad, float> CohesionRadius { get; }
         public global::SpacetimeDB.Col<Squad, DbVector3> CenterPosition { get; }
-        public global::SpacetimeDB.Col<Squad, ulong> GamePlayerId { get; }
-        public global::SpacetimeDB.Col<Squad, ulong> SoldierId { get; }
+        public global::SpacetimeDB.Col<Squad, ulong> EntityId { get; }
 
         public SquadCols(string tableName)
         {
@@ -96,8 +85,7 @@ namespace SpacetimeDB.Types
             OwnerPlayerId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "owner_player_id");
             CohesionRadius = new global::SpacetimeDB.Col<Squad, float>(tableName, "cohesion_radius");
             CenterPosition = new global::SpacetimeDB.Col<Squad, DbVector3>(tableName, "center_position");
-            GamePlayerId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "game_player_id");
-            SoldierId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "soldier_id");
+            EntityId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "entity_id");
         }
     }
 
@@ -106,16 +94,14 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.IxCol<Squad, ulong> Id { get; }
         public global::SpacetimeDB.IxCol<Squad, ulong> GameSessionId { get; }
         public global::SpacetimeDB.IxCol<Squad, ulong> ParentSquadId { get; }
-        public global::SpacetimeDB.IxCol<Squad, ulong> GamePlayerId { get; }
-        public global::SpacetimeDB.IxCol<Squad, ulong> SoldierId { get; }
+        public global::SpacetimeDB.IxCol<Squad, ulong> EntityId { get; }
 
         public SquadIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<Squad, ulong>(tableName, "id");
             GameSessionId = new global::SpacetimeDB.IxCol<Squad, ulong>(tableName, "game_session_id");
             ParentSquadId = new global::SpacetimeDB.IxCol<Squad, ulong>(tableName, "parent_squad_id");
-            GamePlayerId = new global::SpacetimeDB.IxCol<Squad, ulong>(tableName, "game_player_id");
-            SoldierId = new global::SpacetimeDB.IxCol<Squad, ulong>(tableName, "soldier_id");
+            EntityId = new global::SpacetimeDB.IxCol<Squad, ulong>(tableName, "entity_id");
         }
     }
 }

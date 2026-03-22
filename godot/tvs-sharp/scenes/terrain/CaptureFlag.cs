@@ -2,7 +2,7 @@ using Godot;
 
 public partial class CaptureFlag : Node3D
 {
-	public ulong PointId;
+	public ulong EntityId;
 
 	private MeshInstance3D _flag;
 	private MeshInstance3D _circle;

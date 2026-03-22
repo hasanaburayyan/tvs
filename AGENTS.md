@@ -1,8 +1,9 @@
 # Repo Rules
 
-## Making changes to spacetimedb backedn server
+## Making changes to spacetimedb backend server
 
 - Anytime code here is changed, especially for any schema or api changes, ensure that tests are updated in the tests directory
+- Ensure that after code changes that the godot code still compiles
 
 # SpacetimeDB Rules (All Languages)
 

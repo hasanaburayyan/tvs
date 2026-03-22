@@ -22,14 +22,16 @@ public static partial class Module
     var player = GetPlayerForSender(ctx);
     var gamePlayer = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("Game player not found!");
 
-    if (gamePlayer.Dead)
+    var ent = ctx.Db.entity.EntityId.Find(gamePlayer.EntityId)!.Value;
+    var target = ctx.Db.targetable.EntityId.Find(gamePlayer.EntityId);
+    if (target is Targetable t && t.Dead)
       throw new Exception("Cannot move while dead");
 
-    ctx.Db.game_player.Id.Update(gamePlayer with { Position = newPosition, RotationY = rotationY });
+    ctx.Db.entity.EntityId.Update(ent with { Position = newPosition, RotationY = rotationY });
 
-    MoveSoldiersWithPlayer(ctx, gamePlayer.Id, newPosition, rotationY);
+    MoveSoldiersWithPlayer(ctx, gamePlayer.EntityId, newPosition, rotationY);
 
-    var playerLeaf = FindLeafSquadForGamePlayer(ctx, gamePlayer.Id);
+    var playerLeaf = FindLeafSquadForEntity(ctx, gamePlayer.EntityId);
     if (playerLeaf is Squad leaf)
     {
       CheckAndMergeCohesion(ctx, leaf.Id, gameId);
@@ -47,7 +49,8 @@ public static partial class Module
 
     var gp = FindGamePlayer(ctx, player.Id, gameSessionId) ?? throw new Exception($"Player '{playerName}' is not in game session {gameSessionId}!");
 
-    ctx.Db.game_player.Id.Update(gp with { Position = position });
+    var ent = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+    ctx.Db.entity.EntityId.Update(ent with { Position = position });
 
     ctx.Db.PositionOverride.Insert(new PositionOverride
     {

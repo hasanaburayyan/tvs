@@ -21,12 +21,12 @@ namespace SpacetimeDB.Types
         public SpacetimeDB.Timestamp OccurredAt;
         [DataMember(Name = "event_type")]
         public BattleLogEventType EventType;
-        [DataMember(Name = "actor_game_player_id")]
-        public ulong ActorGamePlayerId;
+        [DataMember(Name = "actor_entity_id")]
+        public ulong ActorEntityId;
         [DataMember(Name = "ability_id")]
         public ulong? AbilityId;
-        [DataMember(Name = "target_game_player_ids")]
-        public System.Collections.Generic.List<ulong> TargetGamePlayerIds;
+        [DataMember(Name = "target_entity_ids")]
+        public System.Collections.Generic.List<ulong> TargetEntityIds;
         [DataMember(Name = "resolved_power")]
         public int ResolvedPower;
 
@@ -35,9 +35,9 @@ namespace SpacetimeDB.Types
             ulong GameSessionId,
             SpacetimeDB.Timestamp OccurredAt,
             BattleLogEventType EventType,
-            ulong ActorGamePlayerId,
+            ulong ActorEntityId,
             ulong? AbilityId,
-            System.Collections.Generic.List<ulong> TargetGamePlayerIds,
+            System.Collections.Generic.List<ulong> TargetEntityIds,
             int ResolvedPower
         )
         {
@@ -45,15 +45,15 @@ namespace SpacetimeDB.Types
             this.GameSessionId = GameSessionId;
             this.OccurredAt = OccurredAt;
             this.EventType = EventType;
-            this.ActorGamePlayerId = ActorGamePlayerId;
+            this.ActorEntityId = ActorEntityId;
             this.AbilityId = AbilityId;
-            this.TargetGamePlayerIds = TargetGamePlayerIds;
+            this.TargetEntityIds = TargetEntityIds;
             this.ResolvedPower = ResolvedPower;
         }
 
         public BattleLogEntry()
         {
-            this.TargetGamePlayerIds = new();
+            this.TargetEntityIds = new();
         }
     }
 }

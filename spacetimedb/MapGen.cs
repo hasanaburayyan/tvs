@@ -1,226 +1,63 @@
 using SpacetimeDB;
 
-public struct SeededRng
-{
-    private uint state;
-    public SeededRng(uint seed) { state = seed == 0 ? 1 : seed; }
-
-    public uint Next()
-    {
-        state ^= state << 13;
-        state ^= state >> 17;
-        state ^= state << 5;
-        return state;
-    }
-
-    public float Range(float min, float max)
-    {
-        return min + (Next() % 10000) / 10000f * (max - min);
-    }
-
-    public int RangeInt(int min, int max)
-    {
-        return min + (int)(Next() % (uint)(max - min));
-    }
-}
-
 public static partial class Module
 {
-    const float MapSize = 200f;
-    const float MapHalf = MapSize / 2f;
-
-    public static void GenerateMap(ReducerContext ctx, ulong gameSessionId, uint seed)
+    static Entity InsertTerrainEntity(ReducerContext ctx, ulong gameSessionId, TerrainType type,
+        float posX, float posY, float posZ,
+        float sizeX, float sizeY, float sizeZ,
+        float rotationY, byte teamIndex,
+        int health = 0, int maxHealth = 0, int armor = 0)
     {
-        var rng = new SeededRng(seed);
-        // --- Team A command center (rear, z: -95 to -75) ---
-        var ccA = ctx.Db.terrain_feature.Insert(new TerrainFeature
-        {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            Type = TerrainType.CommandCenter,
-            PosX = rng.Range(-30f, 30f),
-            PosY = 0f,
-            PosZ = rng.Range(-95f, -75f),
-            SizeX = 12f,
-            SizeY = 6f,
-            SizeZ = 8f,
-            RotationY = 0f,
-            TeamIndex = 1,
-            Health = 500,
-            MaxHealth = 500,
-        });
-        ScheduleOutpostRegen(ctx, ccA.Id);
-
-        // --- Team B command center (mirrored, z: 75 to 95) ---
-        var ccB = ctx.Db.terrain_feature.Insert(new TerrainFeature
-        {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            Type = TerrainType.CommandCenter,
-            PosX = rng.Range(-30f, 30f),
-            PosY = 0f,
-            PosZ = rng.Range(75f, 95f),
-            SizeX = 12f,
-            SizeY = 6f,
-            SizeZ = 8f,
-            RotationY = 180f,
-            TeamIndex = 2,
-            Health = 500,
-            MaxHealth = 500,
-        });
-        ScheduleOutpostRegen(ctx, ccB.Id);
-
-        // --- Team A trenches (z: -70 to -30) ---
-        int trenchCountA = rng.RangeInt(2, 5);
-        for (int i = 0; i < trenchCountA; i++)
-        {
-            ctx.Db.terrain_feature.Insert(new TerrainFeature
-            {
-                Id = 0,
-                GameSessionId = gameSessionId,
-                Type = TerrainType.Trench,
-                PosX = rng.Range(-80f, 80f),
-                PosY = -1f,
-                PosZ = rng.Range(-65f, -35f),
-                SizeX = rng.Range(15f, 40f),
-                SizeY = 2f,
-                SizeZ = 3f,
-                RotationY = rng.Range(-15f, 15f),
-                TeamIndex = 1,
-            });
-        }
-
-        // --- Team B trenches (z: 30 to 70, mirrored) ---
-        int trenchCountB = rng.RangeInt(2, 5);
-        for (int i = 0; i < trenchCountB; i++)
-        {
-            ctx.Db.terrain_feature.Insert(new TerrainFeature
-            {
-                Id = 0,
-                GameSessionId = gameSessionId,
-                Type = TerrainType.Trench,
-                PosX = rng.Range(-80f, 80f),
-                PosY = -1f,
-                PosZ = rng.Range(35f, 65f),
-                SizeX = rng.Range(15f, 40f),
-                SizeY = 2f,
-                SizeZ = 3f,
-                RotationY = rng.Range(-15f, 15f),
-                TeamIndex = 2,
-            });
-        }
-
-        // --- No-man's land trees (z: -30 to 30) ---
-        int treeCount = rng.RangeInt(5, 16);
-        for (int i = 0; i < treeCount; i++)
-        {
-            ctx.Db.terrain_feature.Insert(new TerrainFeature
-            {
-                Id = 0,
-                GameSessionId = gameSessionId,
-                Type = TerrainType.Tree,
-                PosX = rng.Range(-90f, 90f),
-                PosY = 0f,
-                PosZ = rng.Range(-30f, 30f),
-                SizeX = 2f,
-                SizeY = rng.Range(4f, 8f),
-                SizeZ = 2f,
-                RotationY = rng.Range(0f, 360f),
-                TeamIndex = 0,
-            });
-        }
-
-        // --- No-man's land walls (z: -30 to 30) ---
-        int wallCount = rng.RangeInt(2, 6);
-        for (int i = 0; i < wallCount; i++)
-        {
-            ctx.Db.terrain_feature.Insert(new TerrainFeature
-            {
-                Id = 0,
-                GameSessionId = gameSessionId,
-                Type = TerrainType.Wall,
-                PosX = rng.Range(-80f, 80f),
-                PosY = 0f,
-                PosZ = rng.Range(-25f, 25f),
-                SizeX = rng.Range(4f, 10f),
-                SizeY = rng.Range(2f, 4f),
-                SizeZ = 1f,
-                RotationY = rng.Range(-30f, 30f),
-                TeamIndex = 0,
-            });
-        }
-
-        // --- Buildings (one per side, near trenches) ---
+        var ent = CreateEntity(ctx, gameSessionId, EntityType.Terrain, new DbVector3(posX, posY, posZ), rotationY, teamIndex);
+        if (maxHealth > 0)
+            CreateTargetable(ctx, ent.EntityId, health, maxHealth, armor);
         ctx.Db.terrain_feature.Insert(new TerrainFeature
         {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            Type = TerrainType.Building,
-            PosX = rng.Range(-70f, 70f),
-            PosY = 0f,
-            PosZ = rng.Range(-60f, -40f),
-            SizeX = 8f,
-            SizeY = 5f,
-            SizeZ = 6f,
-            RotationY = rng.Range(-10f, 10f),
-            TeamIndex = 1,
+            EntityId = ent.EntityId,
+            Type = type,
+            SizeX = sizeX,
+            SizeY = sizeY,
+            SizeZ = sizeZ,
         });
+        return ent;
+    }
 
-        ctx.Db.terrain_feature.Insert(new TerrainFeature
+    public static void GenerateMap(ReducerContext ctx, ulong gameSessionId, ulong mapDefId)
+    {
+        foreach (var def in ctx.Db.map_terrain_def.MapDefId.Filter(mapDefId))
         {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            Type = TerrainType.Building,
-            PosX = rng.Range(-70f, 70f),
-            PosY = 0f,
-            PosZ = rng.Range(40f, 60f),
-            SizeX = 8f,
-            SizeY = 5f,
-            SizeZ = 6f,
-            RotationY = rng.Range(-10f, 10f),
-            TeamIndex = 2,
-        });
+            var ent = InsertTerrainEntity(ctx, gameSessionId, def.TerrainType,
+                def.PositionX, def.PositionY, def.PositionZ,
+                def.SizeX, def.SizeY, def.SizeZ,
+                def.RotationY, def.TeamSlot,
+                def.MaxHealth, def.MaxHealth, def.Armor);
 
-        // --- Capture points in no-man's land ---
-        ctx.Db.capture_point.Insert(new CapturePoint
-        {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            PosX = 0f,
-            PosZ = 0f,
-            Radius = CaptureRadius,
-            OwningTeam = 0,
-            InfluenceTeam1 = 0,
-            InfluenceTeam2 = 0,
-            MaxInfluence = CaptureMaxInfluence,
-        });
+            if (def.HasOutpostRegen)
+                ScheduleOutpostRegen(ctx, ent.EntityId);
+        }
 
-        ctx.Db.capture_point.Insert(new CapturePoint
+        foreach (var def in ctx.Db.map_capture_point_def.MapDefId.Filter(mapDefId))
         {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            PosX = rng.Range(-60f, -30f),
-            PosZ = rng.Range(-15f, 15f),
-            Radius = CaptureRadius,
-            OwningTeam = 0,
-            InfluenceTeam1 = 0,
-            InfluenceTeam2 = 0,
-            MaxInfluence = CaptureMaxInfluence,
-        });
-
-        ctx.Db.capture_point.Insert(new CapturePoint
-        {
-            Id = 0,
-            GameSessionId = gameSessionId,
-            PosX = rng.Range(30f, 60f),
-            PosZ = rng.Range(-15f, 15f),
-            Radius = CaptureRadius,
-            OwningTeam = 0,
-            InfluenceTeam1 = 0,
-            InfluenceTeam2 = 0,
-            MaxInfluence = CaptureMaxInfluence,
-        });
+            InsertCapturePoint(ctx, gameSessionId,
+                def.PositionX, def.PositionY, def.PositionZ,
+                def.Radius, def.MaxInfluence);
+        }
 
         ScheduleCaptureTick(ctx, gameSessionId);
+    }
+
+    static void InsertCapturePoint(ReducerContext ctx, ulong gameSessionId,
+        float posX, float posY, float posZ, float radius, int maxInfluence)
+    {
+        var ent = CreateEntity(ctx, gameSessionId, EntityType.CapturePoint, new DbVector3(posX, posY, posZ), 0f, 0);
+        ctx.Db.capture_point.Insert(new CapturePoint
+        {
+            EntityId = ent.EntityId,
+            Radius = radius,
+            OwningTeam = 0,
+            InfluenceTeam1 = 0,
+            InfluenceTeam2 = 0,
+            MaxInfluence = maxInfluence,
+        });
     }
 }

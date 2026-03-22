@@ -34,14 +34,20 @@ public partial class MapManager : Node
 
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 
-	foreach (var feature in conn.Db.TerrainFeature.GameSessionId.Filter(GameId))
+	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(GameId))
 	{
-	  SpawnFeature(feature);
-	}
-
-	foreach (var cp in conn.Db.CapturePoint.GameSessionId.Filter(GameId))
-	{
-	  SpawnCaptureFlag(cp);
+	  if (entity.Type == EntityType.Terrain)
+	  {
+		var feature = conn.Db.TerrainFeature.EntityId.Find(entity.EntityId);
+		if (feature != null)
+		  SpawnFeature(entity, feature);
+	  }
+	  else if (entity.Type == EntityType.CapturePoint)
+	  {
+		var cp = conn.Db.CapturePoint.EntityId.Find(entity.EntityId);
+		if (cp != null)
+		  SpawnCaptureFlag(entity, cp);
+	  }
 	}
 
 	conn.Db.TerrainFeature.OnInsert += OnTerrainFeatureInsert;
@@ -53,7 +59,7 @@ public partial class MapManager : Node
 	conn.Db.CapturePoint.OnDelete += OnCapturePointDelete;
   }
 
-  private void SpawnFeature(TerrainFeature feature)
+  private void SpawnFeature(Entity entity, TerrainFeature feature)
   {
 	if (!TerrainScenes.TryGetValue(feature.Type, out var scene))
 	{
@@ -62,9 +68,9 @@ public partial class MapManager : Node
 	}
 
 	var node = scene.Instantiate<Node3D>();
-	node.Name = feature.Id.ToString();
-	node.Position = new Vector3(feature.PosX, 1f + (feature.SizeY / 2f) + feature.PosY, feature.PosZ);
-	node.RotationDegrees = new Vector3(0, feature.RotationY, 0);
+	node.Name = entity.EntityId.ToString();
+	node.Position = new Vector3(entity.Position.X, 1f + (feature.SizeY / 2f) + entity.Position.Y, entity.Position.Z);
+	node.RotationDegrees = new Vector3(0, entity.RotationY, 0);
 
 	if (feature.Type == TerrainType.Trench && node is CsgBox3D csgTrench)
 	{
@@ -78,9 +84,9 @@ public partial class MapManager : Node
 	}
   }
 
-  private Node3D FindFeatureNode(ulong featureId)
+  private Node3D FindFeatureNode(ulong entityId)
   {
-	var name = featureId.ToString();
+	var name = entityId.ToString();
 	var node = GetNodeOrNull<Node3D>(name);
 	if (node != null) return node;
 	if (_floor != null)
@@ -90,62 +96,70 @@ public partial class MapManager : Node
 
   private void OnTerrainFeatureInsert(EventContext ctx, TerrainFeature feature)
   {
-	if (feature.GameSessionId != GameId) return;
-	SpawnFeature(feature);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(feature.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	SpawnFeature(entity, feature);
   }
 
   private void OnTerrainFeatureUpdate(EventContext ctx, TerrainFeature oldFeature, TerrainFeature newFeature)
   {
-	if (newFeature.GameSessionId != GameId) return;
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(newFeature.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+
 	if (!oldFeature.Expired && newFeature.Expired)
 	{
-	  FindFeatureNode(oldFeature.Id)?.QueueFree();
+	  FindFeatureNode(newFeature.EntityId)?.QueueFree();
 	}
 	else if (oldFeature.Expired && !newFeature.Expired)
 	{
-	  SpawnFeature(newFeature);
+	  SpawnFeature(entity, newFeature);
 	}
   }
 
   private void OnTerrainFeatureDelete(EventContext ctx, TerrainFeature feature)
   {
-	if (feature.GameSessionId != GameId) return;
-	FindFeatureNode(feature.Id)?.QueueFree();
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(feature.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
+	FindFeatureNode(feature.EntityId)?.QueueFree();
   }
 
-  private void SpawnCaptureFlag(SpacetimeDB.Types.CapturePoint cp)
+  private void SpawnCaptureFlag(Entity entity, SpacetimeDB.Types.CapturePoint cp)
   {
 	var node = CaptureFlagScene.Instantiate<CaptureFlag>();
-	node.Name = $"CP_{cp.Id}";
-	node.PointId = cp.Id;
-	node.Position = new Vector3(cp.PosX, 1f, cp.PosZ);
+	node.Name = $"CP_{entity.EntityId}";
+	node.EntityId = entity.EntityId;
+	node.Position = new Vector3(entity.Position.X, 1f, entity.Position.Z);
 	AddChild(node);
 	node.SetOwningTeam(cp.OwningTeam);
 	node.SetInfluence(cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence);
-	EmitSignal(SignalName.CapturePointUpdated, (long)cp.Id, cp.PosX, cp.PosZ, cp.Radius, cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence, (int)cp.OwningTeam);
+	EmitSignal(SignalName.CapturePointUpdated, (long)entity.EntityId, entity.Position.X, entity.Position.Z, cp.Radius, cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence, (int)cp.OwningTeam);
   }
 
   private void OnCapturePointInsert(EventContext ctx, SpacetimeDB.Types.CapturePoint cp)
   {
-	if (cp.GameSessionId != GameId) return;
-	SpawnCaptureFlag(cp);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(cp.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	SpawnCaptureFlag(entity, cp);
   }
 
   private void OnCapturePointUpdate(EventContext ctx, SpacetimeDB.Types.CapturePoint oldCp, SpacetimeDB.Types.CapturePoint newCp)
   {
-	if (newCp.GameSessionId != GameId) return;
-	var node = GetNodeOrNull<CaptureFlag>($"CP_{newCp.Id}");
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(newCp.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+
+	var node = GetNodeOrNull<CaptureFlag>($"CP_{newCp.EntityId}");
 	if (node == null) return;
 	node.SetOwningTeam(newCp.OwningTeam);
 	node.SetInfluence(newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence);
-	EmitSignal(SignalName.CapturePointUpdated, (long)newCp.Id, newCp.PosX, newCp.PosZ, newCp.Radius, newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence, (int)newCp.OwningTeam);
+	EmitSignal(SignalName.CapturePointUpdated, (long)newCp.EntityId, entity.Position.X, entity.Position.Z, newCp.Radius, newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence, (int)newCp.OwningTeam);
   }
 
   private void OnCapturePointDelete(EventContext ctx, SpacetimeDB.Types.CapturePoint cp)
   {
-	if (cp.GameSessionId != GameId) return;
-	GetNodeOrNull<CaptureFlag>($"CP_{cp.Id}")?.QueueFree();
-	EmitSignal(SignalName.CapturePointRemoved, (long)cp.Id);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(cp.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
+	GetNodeOrNull<CaptureFlag>($"CP_{cp.EntityId}")?.QueueFree();
+	EmitSignal(SignalName.CapturePointRemoved, (long)cp.EntityId);
   }
 
   public void DestroyMap()

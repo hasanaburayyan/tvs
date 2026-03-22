@@ -89,4 +89,13 @@ public static partial class Module
     EvenSplit,
     ProximityFalloff,
   }
+
+  [SpacetimeDB.Type]
+  public enum TargetingMode : byte
+  {
+    Projectile,
+    GroundTarget,
+    AllyTarget,
+    SelfCast,
+  }
 }

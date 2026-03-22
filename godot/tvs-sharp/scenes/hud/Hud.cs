@@ -11,6 +11,7 @@ public enum Menus
   IN_GAME_MENU = 3,
   PROFILE_SELECT = 4,
   LOADOUT_SELECT = 5,
+  FACTION_SELECT = 6,
 }
 
 public partial class Hud : CanvasLayer
@@ -26,6 +27,7 @@ public partial class Hud : CanvasLayer
   private PopulableMenu _ingameMenu;
   private PopulableMenu _profileSelectMenu;
   private PopulableMenu _loadoutSelectMenu;
+  private PopulableMenu _factionSelectMenu;
   private PlayerHud _playerHud;
 
   private Dictionary<Menus, PopulableMenu> _menus = new Dictionary<Menus, PopulableMenu>();
@@ -40,6 +42,7 @@ public partial class Hud : CanvasLayer
 	_ingameMenu = GetNode<PopulableMenu>("%InGameMenu");
 	_profileSelectMenu = GetNode<PopulableMenu>("%ProfileSelect");
 	_loadoutSelectMenu = GetNode<PopulableMenu>("%LoadoutSelect");
+	_factionSelectMenu = GetNode<PopulableMenu>("%FactionSelect");
 	_playerHud = GetNode<PlayerHud>("PlayerHud");
 
 	_menus = new Dictionary<Menus, PopulableMenu>
@@ -49,6 +52,7 @@ public partial class Hud : CanvasLayer
 	  { Menus.IN_GAME_MENU, _ingameMenu },
 	  { Menus.PROFILE_SELECT, _profileSelectMenu },
 	  { Menus.LOADOUT_SELECT, _loadoutSelectMenu },
+	  { Menus.FACTION_SELECT, _factionSelectMenu },
 	};
 
 	SpacetimeNetworkManager.Instance.SubscriptionApplied += () =>
@@ -145,6 +149,25 @@ public partial class Hud : CanvasLayer
 		return true;
 	}
 	return false;
+  }
+
+  public void EnterGameOrFactionSelect(ulong gameSessionId)
+  {
+	sessionID = gameSessionId;
+	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId;
+	if (activePlayerId == null) return;
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(activePlayerId.Value))
+	{
+	  if (!gp.Active) continue;
+	  var entity = conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null && entity.GameSessionId == gameSessionId && entity.TeamSlot > 0)
+	  {
+		EnterGameOrLoadoutSelect(gameSessionId);
+		return;
+	  }
+	}
+	SwitchToMenu(Menus.FACTION_SELECT);
   }
 
   public void EnterGameOrLoadoutSelect(ulong gameSessionId)

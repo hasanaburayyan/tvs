@@ -53,39 +53,23 @@ public static partial class Module
     public SessionState State;
     public uint MaxPlayers;
     public Timestamp CreatedAt;
-    public uint MapSeed;
+    public ulong MapDefId;
 
     [SpacetimeDB.Default(15u)]
     public uint RespawnTimerSeconds;
   }
 
-
   [SpacetimeDB.Table(Accessor = "game_player", Public = true)]
   public partial struct GamePlayer
   {
     [SpacetimeDB.PrimaryKey]
-    [SpacetimeDB.AutoInc]
-    public ulong Id;
+    public ulong EntityId;
 
-    [SpacetimeDB.Index.BTree]
-    public ulong GameSessionId;
     [SpacetimeDB.Index.BTree]
     public ulong PlayerId;
-    public byte TeamSlot;
     public bool Active;
 
-    public int Health;
-    public int MaxHealth;
-    public int Armor;
-
-    public DbVector3 Position;
-    public float RotationY;
-
-    public ulong? TargetGamePlayerId;
-
-    [SpacetimeDB.Default(false)]
-    public bool Dead;
-    public Timestamp? DiedAt;
+    public ulong? TargetEntityId;
   }
 
   [Table(Name = "chat_session", Public = true)]
@@ -123,18 +107,10 @@ public static partial class Module
   public partial struct Corpse
   {
     [SpacetimeDB.PrimaryKey]
-    [SpacetimeDB.AutoInc]
-    public ulong Id;
+    public ulong EntityId;
 
-    [SpacetimeDB.Index.BTree]
-    public ulong GameSessionId;
-
-    public ulong? GamePlayerId;
-    public ulong? SoldierId;
-
+    public ulong? SourceEntityId;
     public ulong PlayerId;
-    public DbVector3 Position;
-    public float RotationY;
   }
 
   [Table(Name = "chat_session_player", Public = true)]

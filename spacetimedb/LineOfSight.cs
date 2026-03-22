@@ -24,12 +24,15 @@ public static partial class Module
     float invLen = 1f / rayLength;
     var rayDir = new DbVector3(dx * invLen, dy * invLen, dz * invLen);
 
-    foreach (var terrain in ctx.Db.terrain_feature.GameSessionId.Filter(gameSessionId))
+    foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameSessionId))
     {
-      var boxCenter = new DbVector3(terrain.PosX, terrain.PosY + terrain.SizeY * 0.5f, terrain.PosZ);
+      if (ent.Type != EntityType.Terrain) continue;
+      if (ctx.Db.terrain_feature.EntityId.Find(ent.EntityId) is not TerrainFeature terrain) continue;
+
+      var boxCenter = new DbVector3(ent.Position.x, ent.Position.y + terrain.SizeY * 0.5f, ent.Position.z);
       var boxHalfExtents = new DbVector3(terrain.SizeX * 0.5f, terrain.SizeY * 0.5f, terrain.SizeZ * 0.5f);
 
-      if (RayIntersectsOBB(posA, rayDir, rayLength, boxCenter, boxHalfExtents, terrain.RotationY))
+      if (RayIntersectsOBB(posA, rayDir, rayLength, boxCenter, boxHalfExtents, ent.RotationY))
         return false;
     }
 
@@ -59,7 +62,6 @@ public static partial class Module
     float tMin = 0f;
     float tMax = rayLength;
 
-    // X slab
     if (Math.Abs(localDx) < 1e-8f)
     {
       if (localOx < -boxHalfExtents.x || localOx > boxHalfExtents.x) return false;
@@ -75,7 +77,6 @@ public static partial class Module
       if (tMin > tMax) return false;
     }
 
-    // Y slab
     if (Math.Abs(localDy) < 1e-8f)
     {
       if (localOy < -boxHalfExtents.y || localOy > boxHalfExtents.y) return false;
@@ -91,7 +92,6 @@ public static partial class Module
       if (tMin > tMax) return false;
     }
 
-    // Z slab
     if (Math.Abs(localDz) < 1e-8f)
     {
       if (localOz < -boxHalfExtents.z || localOz > boxHalfExtents.z) return false;
@@ -120,14 +120,24 @@ public static partial class Module
     if (gs.State == SessionState.Ended)
       return;
 
-    foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(schedule.GameSessionId))
+    foreach (var ent in ctx.Db.entity.GameSessionId.Filter(schedule.GameSessionId))
     {
-      if (!gp.Active || gp.Dead || gp.TargetGamePlayerId is not ulong targetId) continue;
+      if (ent.Type != EntityType.GamePlayer) continue;
+      if (ctx.Db.game_player.EntityId.Find(ent.EntityId) is not GamePlayer gp) continue;
+      if (!gp.Active || gp.TargetEntityId is not ulong targetId) continue;
+      if (ctx.Db.targetable.EntityId.Find(ent.EntityId) is Targetable selfT && selfT.Dead) continue;
 
-      if (ctx.Db.game_player.Id.Find(targetId) is not GamePlayer target) continue;
+      var targetEnt = ctx.Db.entity.EntityId.Find(targetId);
+      if (targetEnt is not Entity te) continue;
 
-      if (target.Dead || !HasLineOfSight(ctx, gp.Position, target.Position, schedule.GameSessionId))
-        ctx.Db.game_player.Id.Update(gp with { TargetGamePlayerId = null });
+      bool clearTarget = false;
+      if (ctx.Db.targetable.EntityId.Find(targetId) is Targetable tt && tt.Dead)
+        clearTarget = true;
+      else if (!HasLineOfSight(ctx, ent.Position, te.Position, schedule.GameSessionId))
+        clearTarget = true;
+
+      if (clearTarget)
+        ctx.Db.game_player.EntityId.Update(gp with { TargetEntityId = null });
     }
 
     ctx.Db.los_check_schedule.Insert(new LosCheckSchedule

@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void SetTargetHandler(ReducerEventContext ctx, ulong gameId, ulong? targetGamePlayerId);
+        public delegate void SetTargetHandler(ReducerEventContext ctx, ulong gameId, ulong? targetEntityId);
         public event SetTargetHandler? OnSetTarget;
 
-        public void SetTarget(ulong gameId, ulong? targetGamePlayerId)
+        public void SetTarget(ulong gameId, ulong? targetEntityId)
         {
-            conn.InternalCallReducer(new Reducer.SetTarget(gameId, targetGamePlayerId));
+            conn.InternalCallReducer(new Reducer.SetTarget(gameId, targetEntityId));
         }
 
         public bool InvokeSetTarget(ReducerEventContext ctx, Reducer.SetTarget args)
@@ -37,7 +37,7 @@ namespace SpacetimeDB.Types
             OnSetTarget(
                 ctx,
                 args.GameId,
-                args.TargetGamePlayerId
+                args.TargetEntityId
             );
             return true;
         }
@@ -51,16 +51,16 @@ namespace SpacetimeDB.Types
         {
             [DataMember(Name = "game_id")]
             public ulong GameId;
-            [DataMember(Name = "target_game_player_id")]
-            public ulong? TargetGamePlayerId;
+            [DataMember(Name = "target_entity_id")]
+            public ulong? TargetEntityId;
 
             public SetTarget(
                 ulong GameId,
-                ulong? TargetGamePlayerId
+                ulong? TargetEntityId
             )
             {
                 this.GameId = GameId;
-                this.TargetGamePlayerId = TargetGamePlayerId;
+                this.TargetEntityId = TargetEntityId;
             }
 
             public SetTarget()

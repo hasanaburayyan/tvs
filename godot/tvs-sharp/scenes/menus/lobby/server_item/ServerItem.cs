@@ -47,7 +47,7 @@ public partial class ServerItem : HBoxContainer
 	  return;
 	}
 
-	hud.EnterGameOrLoadoutSelect(_sessionID);
+	hud.EnterGameOrFactionSelect(_sessionID);
   }
 
   public void Populate(string creator, int playerCount, ulong maxPlayers, ulong sessionID, string state) {

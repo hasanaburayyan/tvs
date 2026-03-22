@@ -59,6 +59,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<AbilityDef, int> TerrainMaxHealth { get; }
         public global::SpacetimeDB.Col<AbilityDef, DamageDistribution> Distribution { get; }
         public global::SpacetimeDB.Col<AbilityDef, bool> AllowSubSquadTargeting { get; }
+        public global::SpacetimeDB.Col<AbilityDef, TargetingMode> Targeting { get; }
+        public global::SpacetimeDB.Col<AbilityDef, float> ProjectileSpeed { get; }
 
         public AbilityDefCols(string tableName)
         {
@@ -82,6 +84,8 @@ namespace SpacetimeDB.Types
             TerrainMaxHealth = new global::SpacetimeDB.Col<AbilityDef, int>(tableName, "terrain_max_health");
             Distribution = new global::SpacetimeDB.Col<AbilityDef, DamageDistribution>(tableName, "distribution");
             AllowSubSquadTargeting = new global::SpacetimeDB.Col<AbilityDef, bool>(tableName, "allow_sub_squad_targeting");
+            Targeting = new global::SpacetimeDB.Col<AbilityDef, TargetingMode>(tableName, "targeting");
+            ProjectileSpeed = new global::SpacetimeDB.Col<AbilityDef, float>(tableName, "projectile_speed");
         }
     }
 

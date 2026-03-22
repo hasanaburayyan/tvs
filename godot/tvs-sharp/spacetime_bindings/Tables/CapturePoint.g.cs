@@ -17,31 +17,21 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "capture_point";
 
-            public sealed class GameSessionIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdUniqueIndex : UniqueIndexBase<ulong>
             {
-                protected override ulong GetKey(CapturePoint row) => row.GameSessionId;
+                protected override ulong GetKey(CapturePoint row) => row.EntityId;
 
-                public GameSessionIdIndex(CapturePointHandle table) : base(table) { }
+                public EntityIdUniqueIndex(CapturePointHandle table) : base(table) { }
             }
 
-            public readonly GameSessionIdIndex GameSessionId;
-
-            public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
-            {
-                protected override ulong GetKey(CapturePoint row) => row.Id;
-
-                public IdUniqueIndex(CapturePointHandle table) : base(table) { }
-            }
-
-            public readonly IdUniqueIndex Id;
+            public readonly EntityIdUniqueIndex EntityId;
 
             internal CapturePointHandle(DbConnection conn) : base(conn)
             {
-                GameSessionId = new(this);
-                Id = new(this);
+                EntityId = new(this);
             }
 
-            protected override object GetPrimaryKey(CapturePoint row) => row.Id;
+            protected override object GetPrimaryKey(CapturePoint row) => row.EntityId;
         }
 
         public readonly CapturePointHandle CapturePoint;
@@ -49,10 +39,7 @@ namespace SpacetimeDB.Types
 
     public sealed class CapturePointCols
     {
-        public global::SpacetimeDB.Col<CapturePoint, ulong> Id { get; }
-        public global::SpacetimeDB.Col<CapturePoint, ulong> GameSessionId { get; }
-        public global::SpacetimeDB.Col<CapturePoint, float> PosX { get; }
-        public global::SpacetimeDB.Col<CapturePoint, float> PosZ { get; }
+        public global::SpacetimeDB.Col<CapturePoint, ulong> EntityId { get; }
         public global::SpacetimeDB.Col<CapturePoint, float> Radius { get; }
         public global::SpacetimeDB.Col<CapturePoint, byte> OwningTeam { get; }
         public global::SpacetimeDB.Col<CapturePoint, int> InfluenceTeam1 { get; }
@@ -61,10 +48,7 @@ namespace SpacetimeDB.Types
 
         public CapturePointCols(string tableName)
         {
-            Id = new global::SpacetimeDB.Col<CapturePoint, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.Col<CapturePoint, ulong>(tableName, "game_session_id");
-            PosX = new global::SpacetimeDB.Col<CapturePoint, float>(tableName, "pos_x");
-            PosZ = new global::SpacetimeDB.Col<CapturePoint, float>(tableName, "pos_z");
+            EntityId = new global::SpacetimeDB.Col<CapturePoint, ulong>(tableName, "entity_id");
             Radius = new global::SpacetimeDB.Col<CapturePoint, float>(tableName, "radius");
             OwningTeam = new global::SpacetimeDB.Col<CapturePoint, byte>(tableName, "owning_team");
             InfluenceTeam1 = new global::SpacetimeDB.Col<CapturePoint, int>(tableName, "influence_team_1");
@@ -75,13 +59,11 @@ namespace SpacetimeDB.Types
 
     public sealed class CapturePointIxCols
     {
-        public global::SpacetimeDB.IxCol<CapturePoint, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<CapturePoint, ulong> GameSessionId { get; }
+        public global::SpacetimeDB.IxCol<CapturePoint, ulong> EntityId { get; }
 
         public CapturePointIxCols(string tableName)
         {
-            Id = new global::SpacetimeDB.IxCol<CapturePoint, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.IxCol<CapturePoint, ulong>(tableName, "game_session_id");
+            EntityId = new global::SpacetimeDB.IxCol<CapturePoint, ulong>(tableName, "entity_id");
         }
     }
 }

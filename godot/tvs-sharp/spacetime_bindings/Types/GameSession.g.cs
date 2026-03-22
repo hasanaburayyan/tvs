@@ -23,8 +23,8 @@ namespace SpacetimeDB.Types
         public uint MaxPlayers;
         [DataMember(Name = "created_at")]
         public SpacetimeDB.Timestamp CreatedAt;
-        [DataMember(Name = "map_seed")]
-        public uint MapSeed;
+        [DataMember(Name = "map_def_id")]
+        public ulong MapDefId;
         [DataMember(Name = "respawn_timer_seconds")]
         public uint RespawnTimerSeconds;
 
@@ -34,7 +34,7 @@ namespace SpacetimeDB.Types
             SessionState State,
             uint MaxPlayers,
             SpacetimeDB.Timestamp CreatedAt,
-            uint MapSeed,
+            ulong MapDefId,
             uint RespawnTimerSeconds
         )
         {
@@ -43,7 +43,7 @@ namespace SpacetimeDB.Types
             this.State = State;
             this.MaxPlayers = MaxPlayers;
             this.CreatedAt = CreatedAt;
-            this.MapSeed = MapSeed;
+            this.MapDefId = MapDefId;
             this.RespawnTimerSeconds = RespawnTimerSeconds;
         }
 

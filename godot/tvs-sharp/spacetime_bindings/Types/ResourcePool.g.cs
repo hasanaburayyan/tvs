@@ -15,8 +15,8 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "id")]
         public ulong Id;
-        [DataMember(Name = "game_player_id")]
-        public ulong GamePlayerId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "kind")]
         public ResourceKind Kind;
         [DataMember(Name = "current")]
@@ -26,14 +26,14 @@ namespace SpacetimeDB.Types
 
         public ResourcePool(
             ulong Id,
-            ulong GamePlayerId,
+            ulong EntityId,
             ResourceKind Kind,
             int Current,
             int Max
         )
         {
             this.Id = Id;
-            this.GamePlayerId = GamePlayerId;
+            this.EntityId = EntityId;
             this.Kind = Kind;
             this.Current = Current;
             this.Max = Max;

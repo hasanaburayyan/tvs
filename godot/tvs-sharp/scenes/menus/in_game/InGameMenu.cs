@@ -9,9 +9,6 @@ public partial class InGameMenu : PopulableMenu
 
   private Button _stuckButton;
   private Button _leaveGameButton;
-  private Button _joinEntenteButton;
-  private Button _joinCentralButton;
-  private Button _joinNeutralButton;
   private Control _player_list_container;
 
   private static readonly PackedScene PlayerRowScene = GD.Load<PackedScene>("uid://v441cmkknglk");
@@ -20,23 +17,12 @@ public partial class InGameMenu : PopulableMenu
   {
 	_stuckButton = GetNode<Button>("%StuckButton");
 	_leaveGameButton = GetNode<Button>("%LeaveGameButton");
-	_joinEntenteButton = GetNode<Button>("%JoinEntenteButton");
-	_joinCentralButton = GetNode<Button>("%JoinCentralButton");
-	_joinNeutralButton = GetNode<Button>("%JoinNeutralButton");
 	_player_list_container = GetNode<Control>("%PlayerListContainer");
 
 	_stuckButton.Pressed += OnStuckButtonPressed;
 	_leaveGameButton.Pressed += OnLeaveGamePressed;
-	_joinEntenteButton.Pressed += () => SetTeam(1);
-	_joinCentralButton.Pressed += () => SetTeam(2);
-	_joinNeutralButton.Pressed += () => SetTeam(0);
 
 	SpacetimeNetworkManager.Instance.SubscriptionApplied += RegisterCallbacks;
-  }
-
-  private void SetTeam(byte teamSlot)
-  {
-	SpacetimeNetworkManager.Instance.Conn.Reducers.SetTeam(hud.sessionID, teamSlot);
   }
 
   void RegisterCallbacks()
@@ -60,10 +46,11 @@ public partial class InGameMenu : PopulableMenu
 	}
 
 	var conn = SpacetimeNetworkManager.Instance.Conn;
-	var gamePlayers = conn.Db.GamePlayer.GameSessionId.Filter(hud.sessionID);
-	foreach (var gamePlayer in gamePlayers)
+	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(hud.sessionID))
 	{
-	  if (!gamePlayer.Active) continue;
+	  if (entity.Type != EntityType.GamePlayer) continue;
+	  var gamePlayer = conn.Db.GamePlayer.EntityId.Find(entity.EntityId);
+	  if (gamePlayer == null || !gamePlayer.Active) continue;
 	  var player = conn.Db.Player.Id.Find(gamePlayer.PlayerId);
 	  if (player is null) continue;
 	  var playerRow = PlayerRowScene.Instantiate<PlayerRow>();
@@ -92,25 +79,22 @@ public partial class InGameMenu : PopulableMenu
 
   public void OnGamePlayerInsert(EventContext ctx, GamePlayer gamePlayer)
   {
-	if (gamePlayer.GameSessionId != hud.sessionID)
-	{
-	  return;
-	}
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(gamePlayer.EntityId);
+	if (entity == null || entity.GameSessionId != hud.sessionID) return;
 	PopulatePlayerList();
   }
 
   public void OnGamePlayerDelete(EventContext ctx, GamePlayer gamePlayer)
   {
-	if (gamePlayer.GameSessionId != hud.sessionID)
-	{
-	  return;
-	}
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(gamePlayer.EntityId);
+	if (entity != null && entity.GameSessionId != hud.sessionID) return;
 	PopulatePlayerList();
   }
 
   public void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGamePlayer, GamePlayer newGamePlayer)
   {
-	if (newGamePlayer.GameSessionId != hud.sessionID) return;
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(newGamePlayer.EntityId);
+	if (entity == null || entity.GameSessionId != hud.sessionID) return;
 
 	if (oldGamePlayer.Active != newGamePlayer.Active)
 	{

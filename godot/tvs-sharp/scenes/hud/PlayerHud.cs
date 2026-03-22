@@ -18,7 +18,7 @@ public partial class PlayerHud : MarginContainer
   private readonly Dictionary<ResourceKind, ResourceBar> _poolBars = new();
 
   private ulong _gameSessionId;
-  private ulong _gamePlayerId;
+  private ulong _entityId;
   private bool _subscribedToUpdates;
 
   private ColorRect _reticle;
@@ -26,6 +26,7 @@ public partial class PlayerHud : MarginContainer
   private PanelContainer _deathOverlay;
   private Label _deathTimerLabel;
   private Button _respawnButton;
+  private Button _changeLoadoutButton;
   private double _respawnCountdown = -1;
   private ulong _deathGameSessionId;
 
@@ -68,6 +69,7 @@ public partial class PlayerHud : MarginContainer
 		_respawnCountdown = 0;
 		_deathTimerLabel.Text = "You may now respawn";
 		_respawnButton.Visible = true;
+		_changeLoadoutButton.Visible = true;
 	  }
 	  else
 	  {
@@ -138,13 +140,24 @@ public partial class PlayerHud : MarginContainer
 	spacer2.CustomMinimumSize = new Vector2(0, 16);
 	vbox.AddChild(spacer2);
 
+	var buttonRow = new HBoxContainer();
+	buttonRow.Alignment = BoxContainer.AlignmentMode.Center;
+	buttonRow.AddThemeConstantOverride("separation", 16);
+	vbox.AddChild(buttonRow);
+
 	_respawnButton = new Button();
 	_respawnButton.Text = "Respawn";
 	_respawnButton.Visible = false;
 	_respawnButton.CustomMinimumSize = new Vector2(160, 40);
-	_respawnButton.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
 	_respawnButton.Pressed += OnRespawnPressed;
-	vbox.AddChild(_respawnButton);
+	buttonRow.AddChild(_respawnButton);
+
+	_changeLoadoutButton = new Button();
+	_changeLoadoutButton.Text = "Change Loadout";
+	_changeLoadoutButton.Visible = false;
+	_changeLoadoutButton.CustomMinimumSize = new Vector2(160, 40);
+	_changeLoadoutButton.Pressed += OnChangeLoadoutPressed;
+	buttonRow.AddChild(_changeLoadoutButton);
 
 	AddChild(_deathOverlay);
   }
@@ -162,10 +175,12 @@ public partial class PlayerHud : MarginContainer
 	  _respawnCountdown = Math.Max(0, respawnTimerSeconds - elapsedSec);
 	}
 
-	_respawnButton.Visible = _respawnCountdown <= 0;
-	_deathTimerLabel.Text = _respawnCountdown > 0
-	  ? $"Respawning in {Math.Ceiling(_respawnCountdown):0}"
-	  : "You may now respawn";
+	bool ready = _respawnCountdown <= 0;
+	_respawnButton.Visible = ready;
+	_changeLoadoutButton.Visible = ready;
+	_deathTimerLabel.Text = ready
+	  ? "You may now respawn"
+	  : $"Respawning in {Math.Ceiling(_respawnCountdown):0}";
 	_deathOverlay.Visible = true;
   }
 
@@ -180,6 +195,13 @@ public partial class PlayerHud : MarginContainer
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
 	if (conn == null) return;
 	conn.Reducers.Respawn(_deathGameSessionId);
+  }
+
+  private void OnChangeLoadoutPressed()
+  {
+	_deathOverlay.Visible = false;
+	var hud = GetParent<Hud>();
+	hud?.SwitchToMenu(Menus.LOADOUT_SELECT);
   }
 
   private void BuildKillFeed()
@@ -285,20 +307,27 @@ public partial class PlayerHud : MarginContainer
   private void CheckCaptureProximity()
   {
 	var mgr = SpacetimeNetworkManager.Instance;
-	if (mgr?.Conn == null || _gamePlayerId == 0)
+	if (mgr?.Conn == null || _entityId == 0)
 	{
 	  ClearActiveCapturePoint();
 	  return;
 	}
 
-	var gp = mgr.Conn.Db.GamePlayer.Id.Find(_gamePlayerId);
-	if (gp == null || gp.Dead)
+	var targetable = mgr.Conn.Db.Targetable.EntityId.Find(_entityId);
+	if (targetable != null && targetable.Dead)
 	{
 	  ClearActiveCapturePoint();
 	  return;
 	}
 
-	CheckCaptureProximityAt(gp.Position.X, gp.Position.Z);
+	var entity = mgr.Conn.Db.Entity.EntityId.Find(_entityId);
+	if (entity == null)
+	{
+	  ClearActiveCapturePoint();
+	  return;
+	}
+
+	CheckCaptureProximityAt(entity.Position.X, entity.Position.Z);
   }
 
   private void CheckCaptureProximityAt(float px, float pz)
@@ -397,7 +426,7 @@ public partial class PlayerHud : MarginContainer
   public void Initialize(ulong gameSessionId)
   {
 	_gameSessionId = gameSessionId;
-	_gamePlayerId = FindLocalGamePlayerId();
+	_entityId = FindLocalEntityId();
 
 	SetupResourceBars();
 	LoadHotbarFromLoadout();
@@ -411,15 +440,15 @@ public partial class PlayerHud : MarginContainer
 	ClearResourceBars();
   }
 
-  private ulong FindLocalGamePlayerId()
+  private ulong FindLocalEntityId()
   {
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return 0;
 
-	foreach (var gp in mgr.Conn.Db.GamePlayer.GameSessionId.Filter(_gameSessionId))
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
 	{
-	  if (gp.PlayerId == mgr.ActivePlayerId && gp.Active)
-		return gp.Id;
+	  if (gp.Active)
+		return gp.EntityId;
 	}
 	return 0;
   }
@@ -466,7 +495,7 @@ public partial class PlayerHud : MarginContainer
 
 	  var slot = HotbarSlotScene.Instantiate<HotbarSlot>();
 	  _hotbar.AddChild(slot);
-	  slot._gamePlayerId = _gamePlayerId;
+	  slot._entityId = _entityId;
 	  slot.SetAbility(ability, KeybindLabels[slotIndex], _gameSessionId);
 	  slotIndex++;
 	}
@@ -486,14 +515,14 @@ public partial class PlayerHud : MarginContainer
 	_healthBar = CreateResourceBar("HP", new Color(0.8f, 0.2f, 0.2f));
 
 	var mgr = SpacetimeNetworkManager.Instance;
-	if (mgr?.Conn == null || _gamePlayerId == 0) return;
+	if (mgr?.Conn == null || _entityId == 0) return;
 
 	var conn = mgr.Conn;
-	var gp = conn.Db.GamePlayer.Id.Find(_gamePlayerId);
-	if (gp != null)
-	  _healthBar.SetValues(gp.Health, gp.MaxHealth);
+	var targetable = conn.Db.Targetable.EntityId.Find(_entityId);
+	if (targetable != null)
+	  _healthBar.SetValues(targetable.Health, targetable.MaxHealth);
 
-	foreach (var pool in conn.Db.ResourcePool.GamePlayerId.Filter(_gamePlayerId))
+	foreach (var pool in conn.Db.ResourcePool.EntityId.Filter(_entityId))
 	{
 	  var (label, color) = pool.Kind switch
 	  {
@@ -537,7 +566,8 @@ public partial class PlayerHud : MarginContainer
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
 	if (conn == null) return;
 
-	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
+	conn.Db.Targetable.OnUpdate += OnTargetableUpdate;
+	conn.Db.Entity.OnUpdate += OnEntityUpdate;
 	conn.Db.ResourcePool.OnUpdate += OnResourcePoolUpdate;
   }
 
@@ -549,24 +579,34 @@ public partial class PlayerHud : MarginContainer
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
 	if (conn == null) return;
 
-	conn.Db.GamePlayer.OnUpdate -= OnGamePlayerUpdate;
+	conn.Db.Targetable.OnUpdate -= OnTargetableUpdate;
+	conn.Db.Entity.OnUpdate -= OnEntityUpdate;
 	conn.Db.ResourcePool.OnUpdate -= OnResourcePoolUpdate;
   }
 
-  private void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGp, GamePlayer newGp)
+  private void OnTargetableUpdate(EventContext ctx, SpacetimeDB.Types.Targetable oldT, SpacetimeDB.Types.Targetable newT)
   {
-	if (newGp.Id != _gamePlayerId) return;
-	_healthBar?.SetValues(newGp.Health, newGp.MaxHealth);
+	if (newT.EntityId != _entityId) return;
+	_healthBar?.SetValues(newT.Health, newT.MaxHealth);
 
-	if (newGp.Dead)
+	if (newT.Dead)
 	  ClearActiveCapturePoint();
-	else if (oldGp.Position.X != newGp.Position.X || oldGp.Position.Z != newGp.Position.Z || oldGp.Dead != newGp.Dead)
-	  CheckCaptureProximityAt(newGp.Position.X, newGp.Position.Z);
+  }
+
+  private void OnEntityUpdate(EventContext ctx, Entity oldE, Entity newE)
+  {
+	if (newE.EntityId != _entityId) return;
+
+	var targetable = SpacetimeNetworkManager.Instance?.Conn?.Db.Targetable.EntityId.Find(_entityId);
+	if (targetable != null && targetable.Dead) return;
+
+	if (oldE.Position.X != newE.Position.X || oldE.Position.Z != newE.Position.Z)
+	  CheckCaptureProximityAt(newE.Position.X, newE.Position.Z);
   }
 
   private void OnResourcePoolUpdate(EventContext ctx, ResourcePool oldPool, ResourcePool newPool)
   {
-	if (newPool.GamePlayerId != _gamePlayerId) return;
+	if (newPool.EntityId != _entityId) return;
 
 	if (_poolBars.TryGetValue(newPool.Kind, out var bar))
 	  bar.SetValues(newPool.Current, newPool.Max);

@@ -160,7 +160,7 @@ public partial class PlacementMode : Node3D
 	if (mgr?.Conn == null) return;
 
 	var targetPos = new DbVector3 { X = pos.X, Y = pos.Y, Z = pos.Z };
-	mgr.Conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, null, null, targetPos, _rotationDeg);
+	mgr.Conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, _rotationDeg);
 	GD.Print($"[PlacementMode] Placed terrain at ({pos.X:F1}, {pos.Z:F1}) rot={_rotationDeg:F0}");
 
 	Deactivate();
@@ -171,10 +171,12 @@ public partial class PlacementMode : Node3D
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return null;
 
-	foreach (var gp in mgr.Conn.Db.GamePlayer.Iter())
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
 	{
-	  if (gp.PlayerId == mgr.ActivePlayerId && gp.Active)
-		return new Vector3(gp.Position.X, gp.Position.Y, gp.Position.Z);
+	  if (!gp.Active) continue;
+	  var entity = mgr.Conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null)
+		return new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
 	}
 	return null;
   }

@@ -17,23 +17,23 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "ability_cooldown";
 
-            public sealed class ByGpAbilityIndex : BTreeIndexBase<(ulong GamePlayerId, ulong AbilityId)>
+            public sealed class ByEntityAbilityIndex : BTreeIndexBase<(ulong EntityId, ulong AbilityId)>
             {
-                protected override (ulong GamePlayerId, ulong AbilityId) GetKey(AbilityCooldown row) => (row.GamePlayerId, row.AbilityId);
+                protected override (ulong EntityId, ulong AbilityId) GetKey(AbilityCooldown row) => (row.EntityId, row.AbilityId);
 
-                public ByGpAbilityIndex(AbilityCooldownHandle table) : base(table) { }
+                public ByEntityAbilityIndex(AbilityCooldownHandle table) : base(table) { }
             }
 
-            public readonly ByGpAbilityIndex ByGpAbility;
+            public readonly ByEntityAbilityIndex ByEntityAbility;
 
-            public sealed class GamePlayerIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdIndex : BTreeIndexBase<ulong>
             {
-                protected override ulong GetKey(AbilityCooldown row) => row.GamePlayerId;
+                protected override ulong GetKey(AbilityCooldown row) => row.EntityId;
 
-                public GamePlayerIdIndex(AbilityCooldownHandle table) : base(table) { }
+                public EntityIdIndex(AbilityCooldownHandle table) : base(table) { }
             }
 
-            public readonly GamePlayerIdIndex GamePlayerId;
+            public readonly EntityIdIndex EntityId;
 
             public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
             {
@@ -46,8 +46,8 @@ namespace SpacetimeDB.Types
 
             internal AbilityCooldownHandle(DbConnection conn) : base(conn)
             {
-                ByGpAbility = new(this);
-                GamePlayerId = new(this);
+                ByEntityAbility = new(this);
+                EntityId = new(this);
                 Id = new(this);
             }
 
@@ -60,14 +60,14 @@ namespace SpacetimeDB.Types
     public sealed class AbilityCooldownCols
     {
         public global::SpacetimeDB.Col<AbilityCooldown, ulong> Id { get; }
-        public global::SpacetimeDB.Col<AbilityCooldown, ulong> GamePlayerId { get; }
+        public global::SpacetimeDB.Col<AbilityCooldown, ulong> EntityId { get; }
         public global::SpacetimeDB.Col<AbilityCooldown, ulong> AbilityId { get; }
         public global::SpacetimeDB.Col<AbilityCooldown, SpacetimeDB.Timestamp> ReadyAt { get; }
 
         public AbilityCooldownCols(string tableName)
         {
             Id = new global::SpacetimeDB.Col<AbilityCooldown, ulong>(tableName, "id");
-            GamePlayerId = new global::SpacetimeDB.Col<AbilityCooldown, ulong>(tableName, "game_player_id");
+            EntityId = new global::SpacetimeDB.Col<AbilityCooldown, ulong>(tableName, "entity_id");
             AbilityId = new global::SpacetimeDB.Col<AbilityCooldown, ulong>(tableName, "ability_id");
             ReadyAt = new global::SpacetimeDB.Col<AbilityCooldown, SpacetimeDB.Timestamp>(tableName, "ready_at");
         }
@@ -76,13 +76,13 @@ namespace SpacetimeDB.Types
     public sealed class AbilityCooldownIxCols
     {
         public global::SpacetimeDB.IxCol<AbilityCooldown, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<AbilityCooldown, ulong> GamePlayerId { get; }
+        public global::SpacetimeDB.IxCol<AbilityCooldown, ulong> EntityId { get; }
         public global::SpacetimeDB.IxCol<AbilityCooldown, ulong> AbilityId { get; }
 
         public AbilityCooldownIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<AbilityCooldown, ulong>(tableName, "id");
-            GamePlayerId = new global::SpacetimeDB.IxCol<AbilityCooldown, ulong>(tableName, "game_player_id");
+            EntityId = new global::SpacetimeDB.IxCol<AbilityCooldown, ulong>(tableName, "entity_id");
             AbilityId = new global::SpacetimeDB.IxCol<AbilityCooldown, ulong>(tableName, "ability_id");
         }
     }

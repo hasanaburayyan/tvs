@@ -4,9 +4,8 @@ public partial class Corpse : Node3D
 {
   private static readonly PackedScene NurseScene = GD.Load<PackedScene>("res://assets/models/nurse.tscn");
 
-  public ulong CorpseId;
-  public ulong? GamePlayerId;
-  public ulong? SoldierId;
+  public ulong EntityId;
+  public ulong? SourceEntityId;
   public ulong PlayerId;
   public string PlayerName = "";
 

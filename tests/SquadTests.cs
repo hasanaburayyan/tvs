@@ -26,19 +26,19 @@ public class SquadCreationTests : IDisposable
     var gp = _client.GetGamePlayer(gameId);
 
     var squads = _client.Db.Squad.GameSessionId.Filter(gameId).ToList();
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId).ToList();
+    var soldiers = _client.SoldiersInSession(gameId).ToList();
 
     Assert.Equal(2, soldiers.Count);
     Assert.Equal(4, squads.Count);
 
-    var playerLeaf = squads.FirstOrDefault(s => s.GamePlayerId == gp.Id);
+    var playerLeaf = squads.FirstOrDefault(s => s.EntityId == gp.EntityId);
     Assert.NotNull(playerLeaf);
-    Assert.Equal(0UL, playerLeaf.SoldierId);
 
-    var soldierLeaves = squads.Where(s => s.SoldierId != 0).ToList();
+    var soldierEntityIds = soldiers.Select(s => s.EntityId).ToHashSet();
+    var soldierLeaves = squads.Where(s => soldierEntityIds.Contains(s.EntityId)).ToList();
     Assert.Equal(2, soldierLeaves.Count);
 
-    var composites = squads.Where(s => s.GamePlayerId == 0 && s.SoldierId == 0).ToList();
+    var composites = squads.Where(s => s.EntityId == 0).ToList();
     Assert.Single(composites);
 
     var composite = composites[0];
@@ -54,16 +54,17 @@ public class SquadCreationTests : IDisposable
     _client.CreatePlayerAndGetId("SoldierStats");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId).ToList();
+    var soldiers = _client.SoldiersInSession(gameId).ToList();
     Assert.Equal(2, soldiers.Count);
 
     foreach (var soldier in soldiers)
     {
-      Assert.Equal(15, soldier.Health);
-      Assert.Equal(15, soldier.MaxHealth);
-      Assert.Equal(0, soldier.Armor);
-      Assert.False(soldier.Dead);
-      Assert.Null(soldier.DiedAt);
+      var t = _client.GetTargetable(soldier.EntityId);
+      Assert.Equal(15, t.Health);
+      Assert.Equal(15, t.MaxHealth);
+      Assert.Equal(0, t.Armor);
+      Assert.False(t.Dead);
+      Assert.Null(t.DiedAt);
     }
   }
 
@@ -73,7 +74,7 @@ public class SquadCreationTests : IDisposable
     _client.CreatePlayerAndGetId("FormationPlayer");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId).ToList();
+    var soldiers = _client.SoldiersInSession(gameId).ToList();
     var indices = soldiers.Select(s => s.FormationIndex).Distinct().ToList();
     Assert.Equal(2, indices.Count);
   }
@@ -88,7 +89,7 @@ public class SquadCreationTests : IDisposable
     foreach (var squad in squads)
       Assert.Equal(playerId, squad.OwnerPlayerId);
 
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId).ToList();
+    var soldiers = _client.SoldiersInSession(gameId).ToList();
     foreach (var soldier in soldiers)
       Assert.Equal(playerId, soldier.OwnerPlayerId);
   }
@@ -106,7 +107,7 @@ public class SquadCreationTests : IDisposable
     _client.Sync();
 
     var squads = _client.Db.Squad.GameSessionId.Filter(gameId).ToList();
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId).ToList();
+    var soldiers = _client.SoldiersInSession(gameId).ToList();
 
     Assert.Equal(4, soldiers.Count);
     Assert.Equal(8, squads.Count);
@@ -139,15 +140,17 @@ public class SquadMovementTests : IDisposable
     _client.CreatePlayerAndGetId("Mover");
     var gameId = _client.CreateGameAndJoin(4);
     var gp = _client.GetGamePlayer(gameId);
+    var gpEntity = _client.GetEntity(gp.EntityId);
 
-    var newPos = new DbVector3(10f, gp.Position.Y, 10f);
+    var newPos = new DbVector3(10f, gpEntity.Position.Y, 10f);
     _client.Call(r => r.MovePlayer(gameId, newPos, 0.5f));
 
-    var soldiersAfter = _client.Db.Soldier.GameSessionId.Filter(gameId).ToList();
+    var soldiersAfter = _client.SoldiersInSession(gameId).ToList();
     foreach (var soldier in soldiersAfter)
     {
-      var dx = soldier.Position.X - 10f;
-      var dz = soldier.Position.Z - 10f;
+      var soldierEntity = _client.GetEntity(soldier.EntityId);
+      var dx = soldierEntity.Position.X - 10f;
+      var dz = soldierEntity.Position.Z - 10f;
       var dist = Math.Sqrt(dx * dx + dz * dz);
       Assert.True(dist < 5.0, $"Soldier should be near player after move, distance={dist}");
     }
@@ -159,12 +162,13 @@ public class SquadMovementTests : IDisposable
     _client.CreatePlayerAndGetId("CenterCheck");
     var gameId = _client.CreateGameAndJoin(4);
     var gp = _client.GetGamePlayer(gameId);
+    var gpEntity = _client.GetEntity(gp.EntityId);
 
-    var newPos = new DbVector3(20f, gp.Position.Y, 20f);
+    var newPos = new DbVector3(20f, gpEntity.Position.Y, 20f);
     _client.Call(r => r.MovePlayer(gameId, newPos, 0f));
 
     var composites = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .Where(s => s.GamePlayerId == 0 && s.SoldierId == 0)
+      .Where(s => s.EntityId == 0)
       .ToList();
 
     Assert.Single(composites);
@@ -200,19 +204,21 @@ public class SquadCohesionTests : IDisposable
     client2.Call(r => r.JoinGame(gameId));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(2, rootsBefore);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootSquads = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -234,11 +240,13 @@ public class SquadCohesionTests : IDisposable
     client2.Call(r => r.JoinGame(gameId));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootSquads = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -260,21 +268,23 @@ public class SquadCohesionTests : IDisposable
     client2.Call(r => r.JoinGame(gameId));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(1, rootsBefore);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsAfter = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -299,28 +309,31 @@ public class SquadCohesionTests : IDisposable
     client3.Call(r => r.JoinGame(gameId));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
     var gpC = client3.GetGamePlayer(gameId);
+    var gpCEntity = client3.GetEntity(gpC.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
-    client3.Call(r => r.MovePlayer(gameId, new DbVector3(80f, gpC.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    client3.Call(r => r.MovePlayer(gameId, new DbVector3(80f, gpCEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsInitial = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(3, rootsInitial);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(0f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(2f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(0f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(2f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsAfterAB = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(2, rootsAfterAB);
 
-    client3.Call(r => r.MovePlayer(gameId, new DbVector3(1f, gpC.Position.Y, 0f), 0f));
+    client3.Call(r => r.MovePlayer(gameId, new DbVector3(1f, gpCEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsAfterABC = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -342,14 +355,16 @@ public class SquadCohesionTests : IDisposable
     client2.Call(r => r.JoinGame(gameId));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -380,19 +395,21 @@ public class SquadCohesionTests : IDisposable
     client2.Call(r => r.SetTeam(gameId, 1));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(2, rootsBefore);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootsAfter = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -416,14 +433,16 @@ public class SquadCohesionTests : IDisposable
     client2.Call(r => r.SetTeam(gameId, 2));
 
     var gpA = _client.GetGamePlayer(gameId);
+    var gpAEntity = _client.GetEntity(gpA.EntityId);
     _client.Sync();
     var gpB = client2.GetGamePlayer(gameId);
+    var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpA.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpB.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
 
     _client.Sync();
     var rootSquads = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -456,14 +475,14 @@ public class AiSquadTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     _client.Call(r => r.StartGame(gameId));
 
-    var aiSoldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
+    var aiSoldiers = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == null).ToList();
 
     Assert.True(aiSoldiers.Count >= 6, $"Expected at least 6 AI soldiers (3 squads x 2+), got {aiSoldiers.Count}");
     Assert.True(aiSoldiers.Count <= 9, $"Expected at most 9 AI soldiers (3 squads x 3), got {aiSoldiers.Count}");
 
     var aiComposites = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == null && s.GamePlayerId == 0 && s.SoldierId == 0).ToList();
+      .Where(s => s.OwnerPlayerId == null && s.EntityId == 0).ToList();
 
     Assert.Equal(3, aiComposites.Count);
   }
@@ -475,15 +494,17 @@ public class AiSquadTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     _client.Call(r => r.StartGame(gameId));
 
-    var aiSoldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
+    var aiSoldiers = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == null).ToList();
 
     foreach (var soldier in aiSoldiers)
     {
-      Assert.True(Math.Abs(soldier.Position.X) <= 100f, $"AI soldier X out of bounds: {soldier.Position.X}");
-      Assert.True(Math.Abs(soldier.Position.Z) <= 100f, $"AI soldier Z out of bounds: {soldier.Position.Z}");
-      Assert.Equal(15, soldier.Health);
-      Assert.False(soldier.Dead);
+      var soldierEntity = _client.GetEntity(soldier.EntityId);
+      var soldierTargetable = _client.GetTargetable(soldier.EntityId);
+      Assert.True(Math.Abs(soldierEntity.Position.X) <= 100f, $"AI soldier X out of bounds: {soldierEntity.Position.X}");
+      Assert.True(Math.Abs(soldierEntity.Position.Z) <= 100f, $"AI soldier Z out of bounds: {soldierEntity.Position.Z}");
+      Assert.Equal(15, soldierTargetable.Health);
+      Assert.False(soldierTargetable.Dead);
     }
   }
 
@@ -494,14 +515,14 @@ public class AiSquadTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
     _client.Call(r => r.StartGame(gameId));
 
-    var aiSoldiersBefore = _client.Db.Soldier.GameSessionId.Filter(gameId)
+    var aiSoldiersBefore = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == null).Count();
     Assert.True(aiSoldiersBefore > 0);
 
     _client.Call(r => r.EndGame(gameId));
     _client.Call(r => r.DeleteGame(gameId));
 
-    var aiSoldiersAfter = _client.Db.Soldier.GameSessionId.Filter(gameId)
+    var aiSoldiersAfter = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == null).Count();
     Assert.Equal(0, aiSoldiersAfter);
 
@@ -542,26 +563,26 @@ public class SquadCombatDistributionTests : IDisposable
 
     _client.Sync();
     var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "SingleTarget");
-    var targetGp = _client.Db.GamePlayer.GameSessionId.Filter(gameId)
+    var targetGp = _client.GamePlayersInSession(gameId)
       .First(gp => gp.PlayerId == targetPlayer.Id);
 
-    int healthBefore = targetGp.Health;
+    int healthBefore = _client.GetTargetable(targetGp.EntityId).Health;
 
-    var soldiersBefore = _client.Db.Soldier.GameSessionId.Filter(gameId)
+    var soldiersBefore = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == targetPlayer.Id).ToList();
-    var soldierHealthBefore = soldiersBefore.Sum(s => s.Health);
+    var soldierHealthBefore = soldiersBefore.Sum(s => _client.GetTargetable(s.EntityId).Health);
 
     _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, 3f, 0f), 0f));
     target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 3f, 0f), 0f));
 
-    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.EntityId, null, null));
 
-    var targetAfter = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
-    Assert.True(targetAfter.Health < healthBefore);
+    var targetAfterHealth = _client.GetTargetable(targetGp.EntityId).Health;
+    Assert.True(targetAfterHealth < healthBefore);
 
-    var soldiersAfter = _client.Db.Soldier.GameSessionId.Filter(gameId)
+    var soldiersAfter = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == targetPlayer.Id).ToList();
-    var soldierHealthAfter = soldiersAfter.Sum(s => s.Health);
+    var soldierHealthAfter = soldiersAfter.Sum(s => _client.GetTargetable(s.EntityId).Health);
     Assert.Equal(soldierHealthBefore, soldierHealthAfter);
 
     target.ClearData();
@@ -624,14 +645,14 @@ public class SquadCleanupTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
 
     var squadsBefore = _client.Db.Squad.GameSessionId.Filter(gameId).Count();
-    var soldiersBefore = _client.Db.Soldier.GameSessionId.Filter(gameId).Count();
+    var soldiersBefore = _client.SoldiersInSession(gameId).Count();
     Assert.Equal(4, squadsBefore);
     Assert.Equal(2, soldiersBefore);
 
     _client.Call(r => r.LeaveGame(gameId));
 
     var squadsAfter = _client.Db.Squad.GameSessionId.Filter(gameId).Count();
-    var soldiersAfter = _client.Db.Soldier.GameSessionId.Filter(gameId).Count();
+    var soldiersAfter = _client.SoldiersInSession(gameId).Count();
     Assert.Equal(0, squadsAfter);
     Assert.Equal(0, soldiersAfter);
   }
@@ -648,13 +669,13 @@ public class SquadCleanupTests : IDisposable
 
     _client.Sync();
     Assert.Equal(8, _client.Db.Squad.GameSessionId.Filter(gameId).Count());
-    Assert.Equal(4, _client.Db.Soldier.GameSessionId.Filter(gameId).Count());
+    Assert.Equal(4, _client.SoldiersInSession(gameId).Count());
 
     client2.Call(r => r.LeaveGame(gameId));
     _client.Call(r => r.DeleteGame(gameId));
 
     Assert.Equal(0, _client.Db.Squad.GameSessionId.Filter(gameId).Count());
-    Assert.Equal(0, _client.Db.Soldier.GameSessionId.Filter(gameId).Count());
+    Assert.Equal(0, _client.SoldiersInSession(gameId).Count());
 
     client2.ClearData();
   }
@@ -666,12 +687,12 @@ public class SquadCleanupTests : IDisposable
     var gameId = _client.CreateGameAndJoin(4);
 
     Assert.True(_client.Db.Squad.GameSessionId.Filter(gameId).Count() > 0);
-    Assert.True(_client.Db.Soldier.GameSessionId.Filter(gameId).Count() > 0);
+    Assert.True(_client.SoldiersInSession(gameId).Count() > 0);
 
     _client.ClearData();
 
     Assert.Equal(0, _client.Db.Squad.GameSessionId.Filter(gameId).Count());
-    Assert.Equal(0, _client.Db.Soldier.GameSessionId.Filter(gameId).Count());
+    Assert.Equal(0, _client.SoldiersInSession(gameId).Count());
   }
 }
 
@@ -690,7 +711,7 @@ public class SquadSoldierDeathTests : IDisposable
     _client.Dispose();
   }
 
-  private (ulong gameId, SpacetimeDB.Types.GamePlayer attackerGp, ulong rifleAbilityId) SetupAttacker(string name)
+  private (ulong gameId, GamePlayer attackerGp, ulong rifleAbilityId) SetupAttacker(string name)
   {
     _client.CreatePlayerAndGetId(name);
     var gameId = _client.CreateGame(4, 0);
@@ -705,9 +726,6 @@ public class SquadSoldierDeathTests : IDisposable
     return (gameId, gp, weapon.PrimaryAbilityId);
   }
 
-  // [Fact] -- disabled: LOS check fails when attacker is far from soldier target
-  // public void SoldierDeath_UpdatesSquadCenter()
-  // {
   [Fact(Skip = "LOS check fails when attacker is far from soldier target")]
   public void SoldierDeath_UpdatesSquadCenter()
   {
@@ -718,27 +736,27 @@ public class SquadSoldierDeathTests : IDisposable
     target.Call(r => r.JoinGame(gameId));
 
     var targetGp = target.GetGamePlayer(gameId);
+    var targetGpEntity = target.GetEntity(targetGp.EntityId);
     _client.Sync();
 
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(20f, targetGp.Position.Y, 20f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(20f, targetGpEntity.Position.Y, 20f), 0f));
     _client.Sync();
 
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !s.Dead).ToList();
+    var soldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).ToList();
     Assert.True(soldiers.Count > 0, "Target should have living soldiers");
 
     var soldierToKill = soldiers[0];
 
     var compositeBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .Where(s => s.GamePlayerId == 0 && s.SoldierId == 0 && s.OwnerPlayerId == targetGp.PlayerId)
+      .Where(s => s.EntityId == 0 && s.OwnerPlayerId == targetGp.PlayerId)
       .First();
     var centerBefore = compositeBefore.CenterPosition;
 
-    _client.Call(r => r.UseAbility(gameId, rifleId, null, soldierToKill.Id, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifleId, soldierToKill.EntityId, null, null));
 
-    var killedSoldier = _client.Db.Soldier.Id.Find(soldierToKill.Id);
-    Assert.NotNull(killedSoldier);
-    Assert.True(killedSoldier.Dead);
+    var killedSoldierTargetable = _client.GetTargetable(soldierToKill.EntityId);
+    Assert.True(killedSoldierTargetable.Dead);
 
     var compositeAfter = _client.Db.Squad.Id.Find(compositeBefore.Id);
     Assert.NotNull(compositeAfter);
@@ -763,21 +781,20 @@ public class SquadSoldierDeathTests : IDisposable
     var targetGp = target.GetGamePlayer(gameId);
     _client.Sync();
 
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !s.Dead).ToList();
+    var soldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).ToList();
     var soldierToKill = soldiers[0];
 
-    var corpsesBefore = _client.Db.Corpse.GameSessionId.Filter(gameId)
-      .Where(c => c.SoldierId == soldierToKill.Id).Count();
+    var corpsesBefore = _client.CorpsesInSession(gameId)
+      .Where(c => c.SourceEntityId == soldierToKill.EntityId).Count();
     Assert.Equal(0, corpsesBefore);
 
-    _client.Call(r => r.UseAbility(gameId, rifleId, null, soldierToKill.Id, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifleId, soldierToKill.EntityId, null, null));
 
-    var corpsesAfter = _client.Db.Corpse.GameSessionId.Filter(gameId)
-      .Where(c => c.SoldierId == soldierToKill.Id).ToList();
+    var corpsesAfter = _client.CorpsesInSession(gameId)
+      .Where(c => c.SourceEntityId == soldierToKill.EntityId).ToList();
     Assert.Single(corpsesAfter);
-    Assert.Equal(soldierToKill.Id, corpsesAfter[0].SoldierId);
-    Assert.Null(corpsesAfter[0].GamePlayerId);
+    Assert.Equal(soldierToKill.EntityId, corpsesAfter[0].SourceEntityId);
 
     target.ClearData();
   }
@@ -794,35 +811,33 @@ public class SquadSoldierDeathTests : IDisposable
     var targetGp = target.GetGamePlayer(gameId);
     _client.Sync();
 
-    var soldiersBeforeCount = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !s.Dead).Count();
+    var soldiersBeforeCount = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).Count();
     Assert.True(soldiersBeforeCount > 0, "Target should have soldiers");
 
-    // Fireball EvenSplits across the squad — kills soldiers (15 HP < 50/3 ≈ 16 each)
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
 
-    var soldierCorpses = _client.Db.Corpse.GameSessionId.Filter(gameId)
-      .Where(c => c.SoldierId != null).Count();
+    var soldierCorpses = _client.CorpsesInSession(gameId)
+      .Where(c => c.SourceEntityId != null).Count();
     Assert.True(soldierCorpses > 0, "Should have soldier corpses after fireball");
 
-    // Finish killing the player with remaining abilities
     var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null, null));
-    _client.Call(r => r.UseAbility(gameId, rifleId, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifleId, targetGp.EntityId, null, null));
 
-    var targetAfterKill = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
+    var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
     Assert.True(targetAfterKill.Dead, "Target player should be dead before respawn");
 
     target.Call(r => r.Respawn(gameId));
 
     _client.Sync();
-    var soldierCorpsesAfter = _client.Db.Corpse.GameSessionId.Filter(gameId)
-      .Where(c => c.SoldierId != null).Count();
+    var soldierCorpsesAfter = _client.CorpsesInSession(gameId)
+      .Where(c => c.SourceEntityId != null).Count();
     Assert.Equal(0, soldierCorpsesAfter);
 
-    var revivedSoldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !s.Dead).Count();
+    var revivedSoldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).Count();
     Assert.True(revivedSoldiers > 0, "Soldiers should be revived after respawn");
 
     target.ClearData();
@@ -850,19 +865,19 @@ public class SquadLifecycleTests : IDisposable
     _client.CreatePlayerAndGetId("RejoinPlayer");
     var gameId = _client.CreateGameAndJoin(4);
 
-    var soldiersBefore = _client.Db.Soldier.GameSessionId.Filter(gameId).Count();
+    var soldiersBefore = _client.SoldiersInSession(gameId).Count();
     var squadsBefore = _client.Db.Squad.GameSessionId.Filter(gameId).Count();
     Assert.Equal(2, soldiersBefore);
     Assert.Equal(4, squadsBefore);
 
     _client.Call(r => r.LeaveGame(gameId));
 
-    Assert.Equal(0, _client.Db.Soldier.GameSessionId.Filter(gameId).Count());
+    Assert.Equal(0, _client.SoldiersInSession(gameId).Count());
     Assert.Equal(0, _client.Db.Squad.GameSessionId.Filter(gameId).Count());
 
     _client.Call(r => r.JoinGame(gameId));
 
-    var soldiersAfter = _client.Db.Soldier.GameSessionId.Filter(gameId).Count();
+    var soldiersAfter = _client.SoldiersInSession(gameId).Count();
     var squadsAfter = _client.Db.Squad.GameSessionId.Filter(gameId).Count();
     Assert.Equal(2, soldiersAfter);
     Assert.Equal(4, squadsAfter);
@@ -880,11 +895,11 @@ public class SquadLifecycleTests : IDisposable
     _client.Call(r => r.LeaveGame(gameId));
 
     Assert.Equal(0, _client.Db.Squad.GameSessionId.Filter(gameId).Count());
-    Assert.Equal(0, _client.Db.Soldier.GameSessionId.Filter(gameId).Count());
+    Assert.Equal(0, _client.SoldiersInSession(gameId).Count());
 
     _client.Call(r => r.JoinGame(gameId));
 
-    var soldiersAfterRejoin = _client.Db.Soldier.GameSessionId.Filter(gameId).Count();
+    var soldiersAfterRejoin = _client.SoldiersInSession(gameId).Count();
     var squadsAfterRejoin = _client.Db.Squad.GameSessionId.Filter(gameId).Count();
     Assert.Equal(2, soldiersAfterRejoin);
     Assert.Equal(4, squadsAfterRejoin);
@@ -899,23 +914,23 @@ public class SquadLifecycleTests : IDisposable
     attacker.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     attacker.Sync();
-    var targetGp = attacker.Db.GamePlayer.GameSessionId.Filter(gameId)
+    var targetGp = attacker.GamePlayersInSession(gameId)
       .First(g => g.PlayerId == gp.PlayerId);
 
     var fireball = attacker.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    attacker.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null, null));
+    attacker.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
     var arcaneBarrage = attacker.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    attacker.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null, null));
-    attacker.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null, null));
+    attacker.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
+    attacker.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null));
 
     _client.Sync();
-    var targetAfterKill = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
+    var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
     Assert.True(targetAfterKill.Dead, "Player should be dead");
 
     _client.Call(r => r.Respawn(gameId));
 
-    var soldiersAfterRespawn = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == gp.PlayerId && !s.Dead).Count();
+    var soldiersAfterRespawn = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == gp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).Count();
     Assert.True(soldiersAfterRespawn >= 2, "Should have living soldiers after respawn");
 
     attacker.ClearData();
@@ -941,21 +956,21 @@ public class SquadLifecycleTests : IDisposable
     _client.Sync();
 
     var compositeBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .Where(s => s.GamePlayerId == 0 && s.SoldierId == 0 && s.OwnerPlayerId == targetGp.PlayerId)
+      .Where(s => s.EntityId == 0 && s.OwnerPlayerId == targetGp.PlayerId)
       .First();
     var centerBefore = compositeBefore.CenterPosition;
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
     var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null, null));
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null));
 
-    var targetAfterKill = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
+    var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
     Assert.True(targetAfterKill.Dead, "Target should be dead");
 
-    var allSoldiersDead = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId).All(s => s.Dead);
+    var allSoldiersDead = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId).All(s => _client.GetTargetable(s.EntityId).Dead);
     Assert.True(allSoldiersDead, "All soldiers should be dead");
 
     var compositeAfter = _client.Db.Squad.Id.Find(compositeBefore.Id);
@@ -1001,26 +1016,27 @@ public class SquadSplitResilienceTests : IDisposable
     target.Call(r => r.JoinGame(gameId));
 
     var targetGp = target.GetGamePlayer(gameId);
+    var targetGpEntity = target.GetEntity(targetGp.EntityId);
     _client.Sync();
 
-    var soldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !s.Dead).ToList();
+    var soldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).ToList();
     Assert.Equal(2, soldiers.Count);
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
 
-    var deadSoldiers = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && s.Dead).Count();
+    var deadSoldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && _client.GetTargetable(s.EntityId).Dead).Count();
     Assert.Equal(2, deadSoldiers);
 
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, targetGp.Position.Y, 50f), 0f));
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(80f, targetGp.Position.Y, 80f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, targetGpEntity.Position.Y, 50f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(80f, targetGpEntity.Position.Y, 80f), 0f));
 
     _client.Sync();
 
     var playerLeaf = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .FirstOrDefault(s => s.GamePlayerId == targetGp.Id);
+      .FirstOrDefault(s => s.EntityId == targetGp.EntityId);
     Assert.NotNull(playerLeaf);
     Assert.True(playerLeaf.ParentSquadId != 0,
       "Player leaf squad should still have a parent composite after dead soldiers + movement");
@@ -1040,11 +1056,12 @@ public class SquadSplitResilienceTests : IDisposable
     _client.CreatePlayerAndGetId("OrphanMover");
     var gameId = _client.CreateGameAndJoin(4);
     var gp = _client.GetGamePlayer(gameId);
+    var gpEntity = _client.GetEntity(gp.EntityId);
 
     var composite = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .First(s => s.GamePlayerId == 0 && s.SoldierId == 0 && s.OwnerPlayerId == gp.PlayerId);
+      .First(s => s.EntityId == 0 && s.OwnerPlayerId == gp.PlayerId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(30f, gp.Position.Y, 30f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(30f, gpEntity.Position.Y, 30f), 0f));
 
     var compositeAfter = _client.Db.Squad.Id.Find(composite.Id)!;
     var centerAfter = compositeAfter.CenterPosition;
@@ -1073,24 +1090,24 @@ public class SquadSplitResilienceTests : IDisposable
     _client.Sync();
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
     var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.Id, null, null, null, null));
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.Id, null, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null));
 
     _client.Sync();
-    var targetAfterKill = _client.Db.GamePlayer.Id.Find(targetGp.Id)!;
+    var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
     Assert.True(targetAfterKill.Dead, "Target should be dead");
 
     target.Call(r => r.Respawn(gameId));
     _client.Sync();
 
-    var soldiersAfter = _client.Db.Soldier.GameSessionId.Filter(gameId)
-      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !s.Dead).Count();
+    var soldiersAfter = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId && !_client.GetTargetable(s.EntityId).Dead).Count();
     Assert.True(soldiersAfter >= 2, $"Should have 2 alive soldiers after respawn, got {soldiersAfter}");
 
     var playerLeaf = _client.Db.Squad.GameSessionId.Filter(gameId)
-      .FirstOrDefault(s => s.GamePlayerId == targetGp.Id);
+      .FirstOrDefault(s => s.EntityId == targetGp.EntityId);
     Assert.NotNull(playerLeaf);
     Assert.True(playerLeaf.ParentSquadId != 0,
       "Player leaf should have a parent after respawn rebuild");

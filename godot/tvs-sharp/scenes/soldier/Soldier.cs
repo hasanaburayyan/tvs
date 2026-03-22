@@ -4,7 +4,7 @@ public partial class Soldier : CharacterBody3D
 {
   public const float LERP_DURATION = 0.15f;
 
-  public ulong SoldierId;
+  public ulong EntityId;
   public ulong? OwnerPlayerId;
 
   public bool IsDead { get; private set; }
@@ -26,8 +26,8 @@ public partial class Soldier : CharacterBody3D
 
 	var targetable = new Targetable();
 	targetable.Name = "Targetable";
-	targetable.Kind = TargetKind.Soldier;
-	targetable.EntityId = SoldierId;
+	targetable.Type = SpacetimeDB.Types.EntityType.Soldier;
+	targetable.EntityId = EntityId;
 	AddChild(targetable);
 	targetable.Owner = this;
   }

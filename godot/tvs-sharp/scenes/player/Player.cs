@@ -1,7 +1,6 @@
 using Godot;
 using SpacetimeDB;
 using System;
-using SpacetimeDB.Types;
 
 public partial class Player : CharacterBody3D
 {
@@ -15,7 +14,7 @@ public partial class Player : CharacterBody3D
   public const float ROTATION_SYNC_THRESHOLD = 0.01f;
 
   public ulong PlayerId;
-  public ulong GamePlayerId;
+  public ulong EntityId;
 
   public ulong GameId;
   public bool IsLocal;
@@ -53,8 +52,8 @@ public partial class Player : CharacterBody3D
 	_nametag.Text = username;
 
 	var targetable = GetNode<Targetable>("%Targetable");
-	targetable.Kind = TargetKind.Player;
-	targetable.EntityId = GamePlayerId;
+	targetable.Type = SpacetimeDB.Types.EntityType.GamePlayer;
+	targetable.EntityId = EntityId;
   }
 
   public void OnStateUpdated(Vector3 newPosition, float newRotationY)
@@ -168,7 +167,7 @@ public partial class Player : CharacterBody3D
 	  _syncTimer = 0.0f;
 	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(
 	  GameId,
-	  new DbVector3(Position.X, Position.Y, Position.Z),
+	  new SpacetimeDB.Types.DbVector3(Position.X, Position.Y, Position.Z),
 	  Rotation.Y
 	  );
 	}

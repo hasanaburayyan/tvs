@@ -15,19 +15,19 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "id")]
         public ulong Id;
-        [DataMember(Name = "terrain_feature_id")]
-        public ulong TerrainFeatureId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "scheduled_at")]
         public SpacetimeDB.ScheduleAt ScheduledAt;
 
         public TerrainExpiryCheck(
             ulong Id,
-            ulong TerrainFeatureId,
+            ulong EntityId,
             SpacetimeDB.ScheduleAt ScheduledAt
         )
         {
             this.Id = Id;
-            this.TerrainFeatureId = TerrainFeatureId;
+            this.EntityId = EntityId;
             this.ScheduledAt = ScheduledAt;
         }
 

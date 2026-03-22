@@ -31,14 +31,14 @@ public static partial class Module
   }
 
   static (int Power, float Range, float Radius, ulong CooldownMs) ResolveAbility(
-    ReducerContext ctx, AbilityDef ability, ulong gamePlayerId)
+    ReducerContext ctx, AbilityDef ability, ulong entityId)
   {
     int power = ability.BasePower;
     float range = ability.BaseRange;
     float radius = ability.BaseRadius;
     ulong cooldownMs = ability.CooldownMs;
 
-    foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gamePlayerId))
+    foreach (var effect in ctx.Db.active_effect.EntityId.Filter(entityId))
     {
       if (effect.ExpiresAt.MicrosecondsSinceUnixEpoch < ctx.Timestamp.MicrosecondsSinceUnixEpoch)
         continue;
@@ -82,27 +82,27 @@ public static partial class Module
     return null;
   }
 
-  static ResourcePool? FindResourcePool(ReducerContext ctx, ulong gamePlayerId, ResourceKind kind)
+  static ResourcePool? FindResourcePool(ReducerContext ctx, ulong entityId, ResourceKind kind)
   {
-    foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gamePlayerId))
+    foreach (var pool in ctx.Db.resource_pool.EntityId.Filter(entityId))
     {
       if (pool.Kind == kind) return pool;
     }
     return null;
   }
 
-  static AbilityCooldown? FindCooldown(ReducerContext ctx, ulong gamePlayerId, ulong abilityId)
+  static AbilityCooldown? FindCooldown(ReducerContext ctx, ulong entityId, ulong abilityId)
   {
-    foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gamePlayerId))
+    foreach (var cd in ctx.Db.ability_cooldown.EntityId.Filter(entityId))
     {
       if (cd.AbilityId == abilityId) return cd;
     }
     return null;
   }
 
-  static void ClearResourcePools(ReducerContext ctx, ulong gamePlayerId)
+  static void ClearResourcePools(ReducerContext ctx, ulong entityId)
   {
-    foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gamePlayerId))
+    foreach (var pool in ctx.Db.resource_pool.EntityId.Filter(entityId))
       ctx.Db.resource_pool.Id.Delete(pool.Id);
   }
 
@@ -144,35 +144,35 @@ public static partial class Module
     }
   }
 
-  static void SeedResourcePools(ReducerContext ctx, ulong gamePlayerId, ArchetypeDef archetype, WeaponDef weapon, SkillDef skill)
+  static void SeedResourcePools(ReducerContext ctx, ulong entityId, ArchetypeDef archetype, WeaponDef weapon, SkillDef skill)
   {
     var needed = CollectRequiredResources(ctx, archetype, weapon, skill);
     foreach (var kind in needed)
     {
       int max = GetMaxForResource(kind, skill);
-      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, GamePlayerId = gamePlayerId, Kind = kind, Current = max, Max = max });
+      ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, EntityId = entityId, Kind = kind, Current = max, Max = max });
     }
   }
 
-  static List<int> ComputeDamageShares(ReducerContext ctx, DamageDistribution distribution, int totalPower, List<EntityRef> targets, DbVector3 targetPos)
+  static List<int> ComputeDamageShares(ReducerContext ctx, DamageDistribution distribution, int totalPower, List<ulong> targetEntityIds, DbVector3 targetPos)
   {
-    var shares = new List<int>(targets.Count);
+    var shares = new List<int>(targetEntityIds.Count);
 
     switch (distribution)
     {
       case DamageDistribution.EvenSplit:
-        int perTarget = totalPower / targets.Count;
-        int remainder = totalPower % targets.Count;
-        for (int i = 0; i < targets.Count; i++)
+        int perTarget = totalPower / targetEntityIds.Count;
+        int remainder = totalPower % targetEntityIds.Count;
+        for (int i = 0; i < targetEntityIds.Count; i++)
           shares.Add(perTarget + (i < remainder ? 1 : 0));
         break;
 
       case DamageDistribution.ProximityFalloff:
         float totalWeight = 0;
-        var weights = new float[targets.Count];
-        for (int i = 0; i < targets.Count; i++)
+        var weights = new float[targetEntityIds.Count];
+        for (int i = 0; i < targetEntityIds.Count; i++)
         {
-          var pos = GetEntityPositionFromRef(ctx, targets[i]);
+          var pos = GetEntityPosition(ctx, targetEntityIds[i]);
           float dx = pos.x - targetPos.x;
           float dz = pos.z - targetPos.z;
           float dist = (float)Math.Sqrt(dx * dx + dz * dz);
@@ -181,7 +181,7 @@ public static partial class Module
           totalWeight += w;
         }
         int assigned = 0;
-        for (int i = 0; i < targets.Count; i++)
+        for (int i = 0; i < targetEntityIds.Count; i++)
         {
           int share = (int)(totalPower * (weights[i] / totalWeight));
           shares.Add(share);
@@ -192,7 +192,7 @@ public static partial class Module
         break;
 
       default:
-        for (int i = 0; i < targets.Count; i++)
+        for (int i = 0; i < targetEntityIds.Count; i++)
           shares.Add(i == 0 ? totalPower : 0);
         break;
     }
@@ -200,113 +200,161 @@ public static partial class Module
     return shares;
   }
 
-  static DbVector3 GetEntityPositionFromRef(ReducerContext ctx, EntityRef entity)
-  {
-    if (entity.GamePlayerId != 0)
-    {
-      var g = ctx.Db.game_player.Id.Find(entity.GamePlayerId);
-      if (g is GamePlayer gp) return gp.Position;
-    }
-    if (entity.SoldierId != 0)
-    {
-      var s = ctx.Db.soldier.Id.Find(entity.SoldierId);
-      if (s is Soldier sol) return sol.Position;
-    }
-    return new DbVector3(0, 0, 0);
-  }
-
-  static bool ApplyDamageToEntity(ReducerContext ctx, EntityRef entity, int damage, ulong gameId, List<ulong> affectedTargetIds)
+  static bool ApplyDamageToEntity(ReducerContext ctx, ulong entityId, int damage, ulong gameId, List<ulong> affectedTargetIds)
   {
     bool killed = false;
 
-    if (entity.GamePlayerId != 0)
+    var target = ctx.Db.targetable.EntityId.Find(entityId);
+    if (target is not Targetable t || t.Dead) return false;
+
+    var ent = ctx.Db.entity.EntityId.Find(entityId);
+    if (ent is not Entity e) return false;
+
+    int effectiveDamage = Math.Max(0, damage - t.Armor);
+    int newHealth = Math.Max(0, t.Health - effectiveDamage);
+    var updatedTarget = t with { Health = newHealth };
+
+    if (newHealth <= 0)
     {
-      var target = ctx.Db.game_player.Id.Find(entity.GamePlayerId);
-      if (target is GamePlayer t && !t.Dead)
+      updatedTarget = updatedTarget with { Dead = true, DiedAt = ctx.Timestamp };
+      killed = true;
+
+      if (e.Type == EntityType.GamePlayer)
       {
-        int effectiveDamage = Math.Max(0, damage - t.Armor);
-        int newHealth = Math.Max(0, t.Health - effectiveDamage);
-        var updated = t with { Health = newHealth };
+        ClearTargetsForEntity(ctx, entityId, e.GameSessionId);
+        var gp = ctx.Db.game_player.EntityId.Find(entityId);
+        ulong playerId = (gp is GamePlayer g) ? g.PlayerId : 0;
 
-        if (newHealth <= 0)
+        var corpseEnt = CreateEntity(ctx, e.GameSessionId, EntityType.Corpse, e.Position, e.RotationY, e.TeamSlot);
+        ctx.Db.corpse.Insert(new Corpse
         {
-          updated = updated with { Dead = true, DiedAt = ctx.Timestamp };
-          killed = true;
-          ClearTargetsForGamePlayer(ctx, t.Id, t.GameSessionId);
-
-          ctx.Db.corpse.Insert(new Corpse
-          {
-            Id = 0,
-            GameSessionId = gameId,
-            GamePlayerId = t.Id,
-            PlayerId = t.PlayerId,
-            Position = t.Position,
-            RotationY = t.RotationY,
-          });
-        }
-
-        ctx.Db.game_player.Id.Update(updated);
-
-        if (killed)
-        {
-          var leafSquad = FindLeafSquadForGamePlayer(ctx, entity.GamePlayerId);
-          if (leafSquad is Squad ls)
-            UpdateSquadCenters(ctx, ls.Id);
-        }
-
-        affectedTargetIds.Add(entity.GamePlayerId);
+          EntityId = corpseEnt.EntityId,
+          SourceEntityId = entityId,
+          PlayerId = playerId,
+        });
       }
-    }
-    else if (entity.SoldierId != 0)
-    {
-      var target = ctx.Db.soldier.Id.Find(entity.SoldierId);
-      if (target is Soldier s && !s.Dead)
+      else if (e.Type == EntityType.Soldier)
       {
-        int effectiveDamage = Math.Max(0, damage - s.Armor);
-        int newHealth = Math.Max(0, s.Health - effectiveDamage);
-        var updated = s with { Health = newHealth };
+        var soldier = ctx.Db.soldier.EntityId.Find(entityId);
+        ulong playerId = (soldier is Soldier s && s.OwnerPlayerId.HasValue) ? s.OwnerPlayerId.Value : 0;
 
-        if (newHealth <= 0)
+        var corpseEnt = CreateEntity(ctx, e.GameSessionId, EntityType.Corpse, e.Position, e.RotationY, e.TeamSlot);
+        ctx.Db.corpse.Insert(new Corpse
         {
-          updated = updated with { Dead = true, DiedAt = ctx.Timestamp };
-          killed = true;
-        }
-
-        ctx.Db.soldier.Id.Update(updated);
-
-        if (killed)
-        {
-          var leafSquad = FindLeafSquadForSoldier(ctx, entity.SoldierId);
-          if (leafSquad is Squad ls)
-            UpdateSquadCenters(ctx, ls.Id);
-
-          ctx.Db.corpse.Insert(new Corpse
-          {
-            Id = 0,
-            GameSessionId = gameId,
-            SoldierId = entity.SoldierId,
-            GamePlayerId = null,
-            PlayerId = s.OwnerPlayerId ?? 0,
-            Position = s.Position,
-            RotationY = s.RotationY,
-          });
-        }
+          EntityId = corpseEnt.EntityId,
+          SourceEntityId = entityId,
+          PlayerId = playerId,
+        });
       }
     }
 
+    ctx.Db.targetable.EntityId.Update(updatedTarget);
+
+    if (killed)
+    {
+      var leafSquad = FindLeafSquadForEntity(ctx, entityId);
+      if (leafSquad is Squad ls)
+        UpdateSquadCenters(ctx, ls.Id);
+    }
+
+    affectedTargetIds.Add(entityId);
     return killed;
   }
 
+  static void PayResourceCosts(ReducerContext ctx, AbilityDef ability, ulong entityId, ref Targetable gpTarget)
+  {
+    foreach (var cost in ability.ResourceCosts)
+    {
+      if (cost.Kind == ResourceKind.Health)
+      {
+        if (gpTarget.Health < cost.Amount)
+          throw new Exception($"Insufficient Health (need {cost.Amount}, have {gpTarget.Health})");
+      }
+      else
+      {
+        var pool = FindResourcePool(ctx, entityId, cost.Kind)
+          ?? throw new Exception($"No {cost.Kind} pool found");
+        if (pool.Current < cost.Amount)
+          throw new Exception($"Insufficient {cost.Kind} (need {cost.Amount}, have {pool.Current})");
+      }
+    }
+
+    foreach (var cost in ability.ResourceCosts)
+    {
+      if (cost.Kind == ResourceKind.Health)
+      {
+        gpTarget = ctx.Db.targetable.EntityId.Find(entityId)!.Value;
+        ctx.Db.targetable.EntityId.Update(gpTarget with { Health = gpTarget.Health - cost.Amount });
+        gpTarget = ctx.Db.targetable.EntityId.Find(entityId)!.Value;
+      }
+      else
+      {
+        var pool = FindResourcePool(ctx, entityId, cost.Kind)!.Value;
+        ctx.Db.resource_pool.Id.Update(pool with { Current = pool.Current - cost.Amount });
+      }
+    }
+  }
+
+  static void SetAbilityCooldown(ReducerContext ctx, ulong entityId, ulong abilityId, ulong cooldownMs)
+  {
+    if (FindCooldown(ctx, entityId, abilityId) is AbilityCooldown cd)
+    {
+      ctx.Db.ability_cooldown.Id.Update(cd with
+      {
+        ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(cooldownMs),
+      });
+    }
+    else
+    {
+      ctx.Db.ability_cooldown.Insert(new AbilityCooldown
+      {
+        Id = 0,
+        EntityId = entityId,
+        AbilityId = abilityId,
+        ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(cooldownMs),
+      });
+    }
+  }
+
+  static void ValidateAllyTarget(ReducerContext ctx, Entity gpEnt, Entity tEnt, AbilityDef ability, ulong gameId, float resolvedRange)
+  {
+    if (tEnt.GameSessionId != gameId)
+      throw new Exception("Target is not in the same game");
+
+    if (tEnt.Type == EntityType.GamePlayer)
+    {
+      var targetGp = ctx.Db.game_player.EntityId.Find(tEnt.EntityId);
+      if (targetGp is GamePlayer tgp && !tgp.Active)
+        throw new Exception("Target is not active");
+      var tTarget = ctx.Db.targetable.EntityId.Find(tEnt.EntityId);
+      if (tTarget is Targetable tt && tt.Dead && ability.Type != AbilityType.Utility)
+        throw new Exception("Target is dead");
+      if (gpEnt.TeamSlot != 0 && tEnt.TeamSlot != 0 && gpEnt.TeamSlot != tEnt.TeamSlot)
+        throw new Exception("Cannot use allied abilities on enemies");
+      if (!HasLineOfSight(ctx, gpEnt.Position, tEnt.Position, gameId))
+        throw new Exception("Target is not in line of sight");
+    }
+
+    float dx = tEnt.Position.x - gpEnt.Position.x;
+    float dz = tEnt.Position.z - gpEnt.Position.z;
+    float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+    if (resolvedRange > 0 && dist > resolvedRange)
+      throw new Exception("Target is out of range");
+  }
+
   [SpacetimeDB.Reducer]
-  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetSoldierId, ulong? targetTerrainFeatureId, DbVector3? targetPosition, float? targetRotationY)
+  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetEntityId, DbVector3? targetPosition, float? targetRotationY)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
 
-    if (gp.Dead)
+    var gpEnt = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+    var gpTarget = ctx.Db.targetable.EntityId.Find(gp.EntityId)!.Value;
+
+    if (gpTarget.Dead)
       throw new Exception("Cannot use abilities while dead");
 
-    if (gp.GameSessionId != gameId)
+    if (gpEnt.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
 
     var loadout = FindLoadout(ctx, gameId, player.Id)
@@ -318,404 +366,301 @@ public static partial class Module
     var ability = ctx.Db.ability_def.Id.Find(abilityId)
       ?? throw new Exception("Ability not found");
 
-    if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown existing
+    if (FindCooldown(ctx, gp.EntityId, abilityId) is AbilityCooldown existing
         && existing.ReadyAt.MicrosecondsSinceUnixEpoch > ctx.Timestamp.MicrosecondsSinceUnixEpoch)
       throw new Exception("Ability is on cooldown");
 
-    if (targetGamePlayerId is ulong targetId)
+    var resolved = ResolveAbility(ctx, ability, gp.EntityId);
+
+    switch (ability.Targeting)
     {
-      var target = ctx.Db.game_player.Id.Find(targetId)
-        ?? throw new Exception("Target not found");
-      if (target.GameSessionId != gameId)
-        throw new Exception("Target is not in the same game");
-      if (!target.Active)
-        throw new Exception("Target is not active");
-      if (target.Dead)
-        throw new Exception("Target is dead");
-
-      if (ability.Type == AbilityType.Damage || ability.Type == AbilityType.Debuff)
+      case TargetingMode.Projectile:
       {
-        if (gp.TeamSlot != 0 && target.TeamSlot != 0 && gp.TeamSlot == target.TeamSlot)
-          throw new Exception("Cannot use hostile abilities on teammates");
-      }
-      else if (ability.Type == AbilityType.Heal || ability.Type == AbilityType.Buff)
-      {
-        if (gp.TeamSlot != 0 && target.TeamSlot != 0 && gp.TeamSlot != target.TeamSlot)
-          throw new Exception("Cannot use allied abilities on enemies");
-      }
+        if (targetPosition is not DbVector3 aimPoint)
+          throw new Exception("Projectile ability requires an aim point");
 
-      if (!HasLineOfSight(ctx, gp.Position, target.Position, gameId))
-        throw new Exception("Target is not in line of sight");
-    }
+        PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
+        SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
 
-    Soldier? soldierTarget = null;
-    if (targetSoldierId is ulong soldierId)
-    {
-      if (!ability.AllowSubSquadTargeting)
-        throw new Exception("This ability cannot target individual soldiers");
+        float dx = aimPoint.x - gpEnt.Position.x;
+        float dy = aimPoint.y - gpEnt.Position.y;
+        float dz = aimPoint.z - gpEnt.Position.z;
+        float len = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        if (len < 0.001f) { dx = 0f; dy = 0f; dz = 1f; len = 1f; }
+        float inv = 1f / len;
+        dx *= inv; dy *= inv; dz *= inv;
 
-      soldierTarget = ctx.Db.soldier.Id.Find(soldierId)
-        ?? throw new Exception("Soldier target not found");
-      if (soldierTarget.Value.GameSessionId != gameId)
-        throw new Exception("Soldier target is not in the same game");
-      if (soldierTarget.Value.Dead)
-        throw new Exception("Soldier target is dead");
+        SpawnProjectile(ctx, gameId, gp.EntityId, abilityId,
+          gpEnt.Position, dx, dy, dz,
+          ability.ProjectileSpeed > 0 ? ability.ProjectileSpeed : 60f,
+          ability.BaseRadius, resolved.Range,
+          gpEnt.TeamSlot, resolved.Power,
+          ability.AllowSubSquadTargeting, ability.Distribution);
 
-      if (!HasLineOfSight(ctx, gp.Position, soldierTarget.Value.Position, gameId))
-        throw new Exception("Soldier target is not in line of sight");
-    }
-
-    TerrainFeature? terrainTarget = null;
-    if (targetTerrainFeatureId is ulong terrainTargetId)
-    {
-      terrainTarget = ctx.Db.terrain_feature.Id.Find(terrainTargetId)
-        ?? throw new Exception("Terrain target not found");
-      if (terrainTarget.Value.GameSessionId != gameId)
-        throw new Exception("Terrain target is not in the same game");
-      if (terrainTarget.Value.Expired || terrainTarget.Value.Health <= 0)
-        throw new Exception("Terrain target is already destroyed");
-
-      var terrainPos = new DbVector3(terrainTarget.Value.PosX, terrainTarget.Value.PosY, terrainTarget.Value.PosZ);
-      float tdx = terrainPos.x - gp.Position.x;
-      float tdz = terrainPos.z - gp.Position.z;
-      float terrainDist = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
-      var resolved2 = ResolveAbility(ctx, ability, gp.Id);
-      if (terrainDist > resolved2.Range)
-        throw new Exception("Terrain target is out of range");
-    }
-
-    bool isDryFire = ability.Type == AbilityType.Damage
-      && targetGamePlayerId is null
-      && targetSoldierId is null
-      && targetTerrainFeatureId is null;
-
-    if (!isDryFire)
-    {
-      foreach (var cost in ability.ResourceCosts)
-      {
-        if (cost.Kind == ResourceKind.Health)
+        var eventType = ability.Type switch
         {
-          if (gp.Health < cost.Amount)
-            throw new Exception($"Insufficient Health (need {cost.Amount}, have {gp.Health})");
-        }
-        else
-        {
-          var pool = FindResourcePool(ctx, gp.Id, cost.Kind)
-            ?? throw new Exception($"No {cost.Kind} pool found");
-          if (pool.Current < cost.Amount)
-            throw new Exception($"Insufficient {cost.Kind} (need {cost.Amount}, have {pool.Current})");
-        }
-      }
-
-      foreach (var cost in ability.ResourceCosts)
-      {
-        if (cost.Kind == ResourceKind.Health)
-        {
-          gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
-          ctx.Db.game_player.Id.Update(gp with { Health = gp.Health - cost.Amount });
-          gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
-        }
-        else
-        {
-          var pool = FindResourcePool(ctx, gp.Id, cost.Kind)!.Value;
-          ctx.Db.resource_pool.Id.Update(pool with { Current = pool.Current - cost.Amount });
-        }
-      }
-    }
-
-    var resolved = ResolveAbility(ctx, ability, gp.Id);
-
-    if (ability.Type == AbilityType.Terrain && ability.SpawnedTerrainType is TerrainType terrainType)
-    {
-      if (targetPosition is not DbVector3 pos)
-        throw new Exception("Terrain ability requires a target position");
-
-      float dx = pos.x - gp.Position.x;
-      float dz = pos.z - gp.Position.z;
-      float dist = (float)Math.Sqrt(dx * dx + dz * dz);
-      if (dist > resolved.Range)
-        throw new Exception("Target position is out of range");
-
-      Timestamp? expiresAt = ability.EffectDurationMs > 0
-        ? ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs)
-        : null;
-
-      var inserted = ctx.Db.terrain_feature.Insert(new TerrainFeature
-      {
-        Id = 0,
-        GameSessionId = gameId,
-        Type = terrainType,
-        PosX = pos.x,
-        PosY = 0f,
-        PosZ = pos.z,
-        SizeX = ability.TerrainSizeX,
-        SizeY = ability.TerrainSizeY,
-        SizeZ = ability.TerrainSizeZ,
-        RotationY = targetRotationY ?? gp.RotationY,
-        TeamIndex = gp.TeamSlot,
-        CasterGamePlayerId = gp.Id,
-        ExpiresAt = expiresAt,
-        Health = ability.TerrainMaxHealth,
-        MaxHealth = ability.TerrainMaxHealth,
-      });
-
-      if (expiresAt is Timestamp expiry)
-      {
-        ctx.Db.terrain_expiry_check.Insert(new TerrainExpiryCheck
-        {
-          Id = 0,
-          TerrainFeatureId = inserted.Id,
-          ScheduledAt = new ScheduleAt.Time(expiry),
-        });
-      }
-
-      if (terrainType == TerrainType.Outpost || terrainType == TerrainType.CommandCenter)
-        ScheduleOutpostRegen(ctx, inserted.Id);
-    }
-
-    if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0)
-    {
-      var expiresAt = ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs);
-
-      if (ability.Type == AbilityType.Buff)
-      {
-        ulong buffTargetId = targetGamePlayerId ?? gp.Id;
-        ctx.Db.active_effect.Insert(new ActiveEffect
-        {
-          Id = 0,
-          GamePlayerId = buffTargetId,
-          CasterGamePlayerId = gp.Id,
-          SourceAbilityId = abilityId,
-          Mods = ability.GrantedMods,
-          AffectedAbilityIds = ability.AffectedAbilityIds,
-          ExpiresAt = expiresAt,
-        });
-      }
-      else if (ability.Type == AbilityType.Debuff && targetGamePlayerId is ulong debuffTarget)
-      {
-        ctx.Db.active_effect.Insert(new ActiveEffect
-        {
-          Id = 0,
-          GamePlayerId = debuffTarget,
-          CasterGamePlayerId = gp.Id,
-          SourceAbilityId = abilityId,
-          Mods = ability.GrantedMods,
-          AffectedAbilityIds = ability.AffectedAbilityIds,
-          ExpiresAt = expiresAt,
-        });
-      }
-    }
-
-    if (!isDryFire)
-    {
-      if (FindCooldown(ctx, gp.Id, abilityId) is AbilityCooldown cd)
-      {
-        ctx.Db.ability_cooldown.Id.Update(cd with
-        {
-          ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
-        });
-      }
-      else
-      {
-        ctx.Db.ability_cooldown.Insert(new AbilityCooldown
-        {
-          Id = 0,
-          GamePlayerId = gp.Id,
-          AbilityId = abilityId,
-          ReadyAt = ctx.Timestamp + TimeSpan.FromMilliseconds(resolved.CooldownMs),
-        });
-      }
-    }
-
-    int effectivePower = resolved.Power;
-    bool killed = false;
-    var affectedTargetIds = new List<ulong>();
-
-    if (resolved.Power > 0 && targetGamePlayerId is ulong dmgTargetId)
-    {
-      var dmgTarget = ctx.Db.game_player.Id.Find(dmgTargetId)!.Value;
-
-      if (ability.Type == AbilityType.Damage && !dmgTarget.Dead)
-      {
-        bool useSquadDistribution = ability.Distribution != DamageDistribution.Single
-                                    && !ability.AllowSubSquadTargeting;
-
-        if (useSquadDistribution)
-        {
-          var targetLeaf = FindLeafSquadForGamePlayer(ctx, dmgTargetId);
-          if (targetLeaf is Squad leaf)
-          {
-            var root = GetRootSquad(ctx, leaf.Id);
-            var entities = GetAllEntities(ctx, root.Id);
-            var aliveEntities = new List<EntityRef>();
-
-            foreach (var e in entities)
-            {
-              if (e.GamePlayerId != 0)
-              {
-                var g = ctx.Db.game_player.Id.Find(e.GamePlayerId);
-                if (g is GamePlayer gp2 && !gp2.Dead) aliveEntities.Add(e);
-              }
-              else if (e.SoldierId != 0)
-              {
-                var s = ctx.Db.soldier.Id.Find(e.SoldierId);
-                if (s is Soldier sol2 && !sol2.Dead) aliveEntities.Add(e);
-              }
-            }
-
-            if (aliveEntities.Count > 0)
-            {
-              var shares = ComputeDamageShares(ctx, ability.Distribution, resolved.Power, aliveEntities, dmgTarget.Position);
-              for (int i = 0; i < aliveEntities.Count; i++)
-              {
-                int share = shares[i];
-                if (share <= 0) continue;
-                bool entityDied = ApplyDamageToEntity(ctx, aliveEntities[i], share, gameId, affectedTargetIds);
-                if (entityDied && aliveEntities[i].GamePlayerId == dmgTargetId)
-                  killed = true;
-              }
-              effectivePower = resolved.Power;
-            }
-          }
-        }
-        else
-        {
-          int effectiveDamage = Math.Max(0, resolved.Power - dmgTarget.Armor);
-          effectivePower = effectiveDamage;
-          int newHealth = Math.Max(0, dmgTarget.Health - effectiveDamage);
-          var updated = dmgTarget with { Health = newHealth };
-
-          if (newHealth <= 0 && !dmgTarget.Dead)
-          {
-            updated = updated with { Dead = true, DiedAt = ctx.Timestamp };
-            killed = true;
-            ClearTargetsForGamePlayer(ctx, dmgTarget.Id, dmgTarget.GameSessionId);
-
-            ctx.Db.corpse.Insert(new Corpse
-            {
-              Id = 0,
-              GameSessionId = gameId,
-              GamePlayerId = dmgTarget.Id,
-              PlayerId = dmgTarget.PlayerId,
-              Position = dmgTarget.Position,
-              RotationY = dmgTarget.RotationY,
-            });
-          }
-
-          ctx.Db.game_player.Id.Update(updated);
-
-          if (killed)
-          {
-            var playerLeafSquad = FindLeafSquadForGamePlayer(ctx, dmgTargetId);
-            if (playerLeafSquad is Squad pls)
-              UpdateSquadCenters(ctx, pls.Id);
-          }
-
-          affectedTargetIds.Add(dmgTargetId);
-        }
-      }
-      else if (ability.Type == AbilityType.Heal && !dmgTarget.Dead)
-      {
-        int newHealth = Math.Min(dmgTarget.MaxHealth, dmgTarget.Health + resolved.Power);
-        ctx.Db.game_player.Id.Update(dmgTarget with { Health = newHealth });
-        affectedTargetIds.Add(dmgTargetId);
-      }
-    }
-    else if (resolved.Power > 0 && ability.Type == AbilityType.Damage && soldierTarget is Soldier solTarget && !solTarget.Dead)
-    {
-      int effectiveDamage = Math.Max(0, resolved.Power - solTarget.Armor);
-      effectivePower = effectiveDamage;
-      int newHealth = Math.Max(0, solTarget.Health - effectiveDamage);
-      var updated = solTarget with { Health = newHealth };
-
-      if (newHealth <= 0)
-      {
-        updated = updated with { Dead = true, DiedAt = ctx.Timestamp };
-        killed = true;
-      }
-
-      ctx.Db.soldier.Id.Update(updated);
-
-      if (killed)
-      {
-        var leafSquad = FindLeafSquadForSoldier(ctx, solTarget.Id);
-        if (leafSquad is Squad ls)
-          UpdateSquadCenters(ctx, ls.Id);
-
-        ctx.Db.corpse.Insert(new Corpse
+          AbilityType.Damage => BattleLogEventType.Attack,
+          AbilityType.Debuff => BattleLogEventType.Debuff,
+          _ => BattleLogEventType.Utility,
+        };
+        ctx.Db.battle_log.Insert(new BattleLogEntry
         {
           Id = 0,
           GameSessionId = gameId,
-          SoldierId = solTarget.Id,
-          GamePlayerId = null,
-          PlayerId = solTarget.OwnerPlayerId ?? 0,
-          Position = solTarget.Position,
-          RotationY = solTarget.RotationY,
+          OccurredAt = ctx.Timestamp,
+          EventType = eventType,
+          ActorEntityId = gp.EntityId,
+          AbilityId = abilityId,
+          TargetEntityIds = new List<ulong>(),
+          ResolvedPower = resolved.Power,
         });
+
+        Log.Info($"Player {player.Name} fired {ability.Name} (power: {resolved.Power}, speed: {ability.ProjectileSpeed})");
+        break;
       }
-    }
-    else if (resolved.Power > 0 && ability.Type == AbilityType.Heal && targetGamePlayerId is null)
-    {
-      gp = ctx.Db.game_player.Id.Find(gp.Id)!.Value;
-      if (!gp.Dead)
+
+      case TargetingMode.GroundTarget:
       {
-        int newHealth = Math.Min(gp.MaxHealth, gp.Health + resolved.Power);
-        ctx.Db.game_player.Id.Update(gp with { Health = newHealth });
+        if (targetPosition is not DbVector3 pos)
+          throw new Exception("Ground target ability requires a position");
+
+        float dx = pos.x - gpEnt.Position.x;
+        float dz = pos.z - gpEnt.Position.z;
+        float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+        if (resolved.Range > 0 && dist > resolved.Range)
+          throw new Exception("Target position is out of range");
+
+        PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
+        SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
+
+        if (ability.Type == AbilityType.Terrain && ability.SpawnedTerrainType is TerrainType terrainType)
+        {
+          Timestamp? expiresAt = ability.EffectDurationMs > 0
+            ? ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs)
+            : null;
+
+          var terrainEnt = CreateEntity(ctx, gameId, EntityType.Terrain, new DbVector3(pos.x, 0f, pos.z), targetRotationY ?? gpEnt.RotationY, gpEnt.TeamSlot);
+          CreateTargetable(ctx, terrainEnt.EntityId, ability.TerrainMaxHealth, ability.TerrainMaxHealth, 0);
+          ctx.Db.terrain_feature.Insert(new TerrainFeature
+          {
+            EntityId = terrainEnt.EntityId,
+            Type = terrainType,
+            SizeX = ability.TerrainSizeX,
+            SizeY = ability.TerrainSizeY,
+            SizeZ = ability.TerrainSizeZ,
+            CasterEntityId = gp.EntityId,
+            ExpiresAt = expiresAt,
+          });
+
+          if (expiresAt is Timestamp expiry)
+          {
+            ctx.Db.terrain_expiry_check.Insert(new TerrainExpiryCheck
+            {
+              Id = 0,
+              EntityId = terrainEnt.EntityId,
+              ScheduledAt = new ScheduleAt.Time(expiry),
+            });
+          }
+
+          if (terrainType == TerrainType.Outpost || terrainType == TerrainType.CommandCenter)
+            ScheduleOutpostRegen(ctx, terrainEnt.EntityId);
+        }
+
+        if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0)
+        {
+          var expiresAt = ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs);
+          float radiusSq = resolved.Radius * resolved.Radius;
+
+          foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameId))
+          {
+            if (ent.Type != EntityType.GamePlayer && ent.Type != EntityType.Soldier) continue;
+            if (ability.Type == AbilityType.Buff && gpEnt.TeamSlot != 0 && ent.TeamSlot != gpEnt.TeamSlot) continue;
+            var tgt = ctx.Db.targetable.EntityId.Find(ent.EntityId);
+            if (tgt is not Targetable t || t.Dead) continue;
+
+            float edx = ent.Position.x - pos.x;
+            float edz = ent.Position.z - pos.z;
+            if (radiusSq > 0 && edx * edx + edz * edz > radiusSq) continue;
+
+            ctx.Db.active_effect.Insert(new ActiveEffect
+            {
+              Id = 0,
+              EntityId = ent.EntityId,
+              CasterEntityId = gp.EntityId,
+              SourceAbilityId = abilityId,
+              Mods = ability.GrantedMods,
+              AffectedAbilityIds = ability.AffectedAbilityIds,
+              ExpiresAt = expiresAt,
+            });
+          }
+        }
+
+        if (ability.Type == AbilityType.Heal && resolved.Power > 0)
+        {
+          float radiusSq = resolved.Radius * resolved.Radius;
+          foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameId))
+          {
+            if (ent.Type != EntityType.GamePlayer && ent.Type != EntityType.Soldier) continue;
+            if (gpEnt.TeamSlot != 0 && ent.TeamSlot != gpEnt.TeamSlot) continue;
+            var tgt = ctx.Db.targetable.EntityId.Find(ent.EntityId);
+            if (tgt is not Targetable t || t.Dead) continue;
+
+            float edx = ent.Position.x - pos.x;
+            float edz = ent.Position.z - pos.z;
+            if (radiusSq > 0 && edx * edx + edz * edz > radiusSq) continue;
+
+            int newHealth = Math.Min(t.MaxHealth, t.Health + resolved.Power);
+            if (newHealth != t.Health)
+              ctx.Db.targetable.EntityId.Update(t with { Health = newHealth });
+          }
+        }
+
+        var groundEventType = ability.Type switch
+        {
+          AbilityType.Terrain => BattleLogEventType.TerrainSpawn,
+          AbilityType.Heal => BattleLogEventType.Heal,
+          AbilityType.Buff => BattleLogEventType.Buff,
+          AbilityType.Utility => BattleLogEventType.Utility,
+          _ => BattleLogEventType.Utility,
+        };
+
+        ctx.Db.battle_log.Insert(new BattleLogEntry
+        {
+          Id = 0,
+          GameSessionId = gameId,
+          OccurredAt = ctx.Timestamp,
+          EventType = groundEventType,
+          ActorEntityId = gp.EntityId,
+          AbilityId = abilityId,
+          TargetEntityIds = new List<ulong>(),
+          ResolvedPower = resolved.Power,
+        });
+
+        Log.Info($"Player {player.Name} used {ability.Name} at ground ({pos.x:F1}, {pos.z:F1})");
+        break;
       }
-    }
 
-    if (resolved.Power > 0 && ability.Type == AbilityType.Damage && terrainTarget is TerrainFeature tt)
-    {
-      int newHp = Math.Max(0, tt.Health - resolved.Power);
-      var updated = tt with { Health = newHp };
-      if (newHp <= 0)
-        updated = updated with { Expired = true };
-      ctx.Db.terrain_feature.Id.Update(updated);
-    }
-
-    var eventType = ability.Type switch
-    {
-      AbilityType.Damage => BattleLogEventType.Attack,
-      AbilityType.Heal => BattleLogEventType.Heal,
-      AbilityType.Buff => BattleLogEventType.Buff,
-      AbilityType.Debuff => BattleLogEventType.Debuff,
-      AbilityType.Terrain => BattleLogEventType.TerrainSpawn,
-      AbilityType.Utility => BattleLogEventType.Utility,
-      _ => BattleLogEventType.Utility,
-    };
-
-    var logTargetIds = affectedTargetIds.Count > 0
-      ? affectedTargetIds
-      : (targetGamePlayerId is ulong tid ? new List<ulong> { tid } : new List<ulong>());
-
-    ctx.Db.battle_log.Insert(new BattleLogEntry
-    {
-      Id = 0,
-      GameSessionId = gameId,
-      OccurredAt = ctx.Timestamp,
-      EventType = eventType,
-      ActorGamePlayerId = gp.Id,
-      AbilityId = abilityId,
-      TargetGamePlayerIds = logTargetIds,
-      ResolvedPower = effectivePower,
-    });
-
-    if (killed)
-    {
-      ctx.Db.battle_log.Insert(new BattleLogEntry
+      case TargetingMode.AllyTarget:
       {
-        Id = 0,
-        GameSessionId = gameId,
-        OccurredAt = ctx.Timestamp,
-        EventType = BattleLogEventType.Kill,
-        ActorGamePlayerId = gp.Id,
-        AbilityId = abilityId,
-        TargetGamePlayerIds = logTargetIds,
-        ResolvedPower = effectivePower,
-      });
-    }
+        if (targetEntityId is not ulong allyId)
+          throw new Exception("Ally-targeted ability requires a target entity");
 
-    Log.Info($"Player {player.Name} used {ability.Name} (power: {effectivePower}, event: {eventType}, target: {targetGamePlayerId?.ToString() ?? "none"}, soldier: {targetSoldierId?.ToString() ?? "none"}, terrain: {targetTerrainFeatureId?.ToString() ?? "none"})");
+        var tEnt = ctx.Db.entity.EntityId.Find(allyId)
+          ?? throw new Exception("Target not found");
+
+        ValidateAllyTarget(ctx, gpEnt, tEnt, ability, gameId, resolved.Range);
+
+        PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
+        SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
+
+        if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0 && ability.Type == AbilityType.Buff)
+        {
+          var expiresAt = ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs);
+          ctx.Db.active_effect.Insert(new ActiveEffect
+          {
+            Id = 0,
+            EntityId = allyId,
+            CasterEntityId = gp.EntityId,
+            SourceAbilityId = abilityId,
+            Mods = ability.GrantedMods,
+            AffectedAbilityIds = ability.AffectedAbilityIds,
+            ExpiresAt = expiresAt,
+          });
+        }
+
+        var affectedTargetIds = new List<ulong>();
+        if (ability.Type == AbilityType.Heal && resolved.Power > 0)
+        {
+          var tgt = ctx.Db.targetable.EntityId.Find(allyId);
+          if (tgt is Targetable t && !t.Dead)
+          {
+            int newHealth = Math.Min(t.MaxHealth, t.Health + resolved.Power);
+            ctx.Db.targetable.EntityId.Update(t with { Health = newHealth });
+            affectedTargetIds.Add(allyId);
+          }
+        }
+
+        var allyEventType = ability.Type switch
+        {
+          AbilityType.Heal => BattleLogEventType.Heal,
+          AbilityType.Buff => BattleLogEventType.Buff,
+          AbilityType.Utility => BattleLogEventType.Utility,
+          _ => BattleLogEventType.Utility,
+        };
+
+        ctx.Db.battle_log.Insert(new BattleLogEntry
+        {
+          Id = 0,
+          GameSessionId = gameId,
+          OccurredAt = ctx.Timestamp,
+          EventType = allyEventType,
+          ActorEntityId = gp.EntityId,
+          AbilityId = abilityId,
+          TargetEntityIds = affectedTargetIds.Count > 0 ? affectedTargetIds : new List<ulong> { allyId },
+          ResolvedPower = resolved.Power,
+        });
+
+        Log.Info($"Player {player.Name} used {ability.Name} on ally entity {allyId}");
+        break;
+      }
+
+      case TargetingMode.SelfCast:
+      {
+        PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
+        SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
+
+        if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0 && ability.Type == AbilityType.Buff)
+        {
+          var expiresAt = ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs);
+          ctx.Db.active_effect.Insert(new ActiveEffect
+          {
+            Id = 0,
+            EntityId = gp.EntityId,
+            CasterEntityId = gp.EntityId,
+            SourceAbilityId = abilityId,
+            Mods = ability.GrantedMods,
+            AffectedAbilityIds = ability.AffectedAbilityIds,
+            ExpiresAt = expiresAt,
+          });
+        }
+
+        if (ability.Type == AbilityType.Heal && resolved.Power > 0)
+        {
+          gpTarget = ctx.Db.targetable.EntityId.Find(gp.EntityId)!.Value;
+          if (!gpTarget.Dead)
+          {
+            int newHealth = Math.Min(gpTarget.MaxHealth, gpTarget.Health + resolved.Power);
+            ctx.Db.targetable.EntityId.Update(gpTarget with { Health = newHealth });
+          }
+        }
+
+        var selfEventType = ability.Type switch
+        {
+          AbilityType.Buff => BattleLogEventType.Buff,
+          AbilityType.Heal => BattleLogEventType.Heal,
+          AbilityType.Utility => BattleLogEventType.Utility,
+          _ => BattleLogEventType.Utility,
+        };
+
+        ctx.Db.battle_log.Insert(new BattleLogEntry
+        {
+          Id = 0,
+          GameSessionId = gameId,
+          OccurredAt = ctx.Timestamp,
+          EventType = selfEventType,
+          ActorEntityId = gp.EntityId,
+          AbilityId = abilityId,
+          TargetEntityIds = new List<ulong>(),
+          ResolvedPower = resolved.Power,
+        });
+
+        Log.Info($"Player {player.Name} used {ability.Name} (self-cast)");
+        break;
+      }
+
+      default:
+        throw new Exception($"Unknown targeting mode: {ability.Targeting}");
+    }
   }
 
   [SpacetimeDB.Reducer]
@@ -744,9 +689,9 @@ public static partial class Module
     if (skill.ArchetypeDefId != archetypeDefId)
       throw new Exception("Skillset does not belong to the selected archetype");
 
-    if (FindLoadout(ctx, gameId, player.Id) is Loadout existing)
+    if (FindLoadout(ctx, gameId, player.Id) is Loadout existing2)
     {
-      ctx.Db.loadout.Id.Update(existing with
+      ctx.Db.loadout.Id.Update(existing2 with
       {
         ArchetypeDefId = archetypeDefId,
         WeaponDefId = weaponDefId,
@@ -770,15 +715,20 @@ public static partial class Module
     int baseArmor = 0;
     int newMaxHealth = baseHealth + archetype.BonusHealth;
     int newArmor = baseArmor + archetype.BonusArmor;
-    ctx.Db.game_player.Id.Update(gp with
-    {
-      Health = newMaxHealth,
-      MaxHealth = newMaxHealth,
-      Armor = newArmor,
-    });
 
-    ClearResourcePools(ctx, gp.Id);
-    SeedResourcePools(ctx, gp.Id, archetype, weapon, skill);
+    var target = ctx.Db.targetable.EntityId.Find(gp.EntityId);
+    if (target is Targetable t)
+    {
+      ctx.Db.targetable.EntityId.Update(t with
+      {
+        Health = newMaxHealth,
+        MaxHealth = newMaxHealth,
+        Armor = newArmor,
+      });
+    }
+
+    ClearResourcePools(ctx, gp.EntityId);
+    SeedResourcePools(ctx, gp.EntityId, archetype, weapon, skill);
 
     Log.Info($"Player {player.Name} set loadout for game {gameId}: {archetype.Name} / {weapon.Name} / {skill.Name}");
   }

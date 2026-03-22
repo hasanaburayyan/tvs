@@ -17,31 +17,21 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "terrain_feature";
 
-            public sealed class GameSessionIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdUniqueIndex : UniqueIndexBase<ulong>
             {
-                protected override ulong GetKey(TerrainFeature row) => row.GameSessionId;
+                protected override ulong GetKey(TerrainFeature row) => row.EntityId;
 
-                public GameSessionIdIndex(TerrainFeatureHandle table) : base(table) { }
+                public EntityIdUniqueIndex(TerrainFeatureHandle table) : base(table) { }
             }
 
-            public readonly GameSessionIdIndex GameSessionId;
-
-            public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
-            {
-                protected override ulong GetKey(TerrainFeature row) => row.Id;
-
-                public IdUniqueIndex(TerrainFeatureHandle table) : base(table) { }
-            }
-
-            public readonly IdUniqueIndex Id;
+            public readonly EntityIdUniqueIndex EntityId;
 
             internal TerrainFeatureHandle(DbConnection conn) : base(conn)
             {
-                GameSessionId = new(this);
-                Id = new(this);
+                EntityId = new(this);
             }
 
-            protected override object GetPrimaryKey(TerrainFeature row) => row.Id;
+            protected override object GetPrimaryKey(TerrainFeature row) => row.EntityId;
         }
 
         public readonly TerrainFeatureHandle TerrainFeature;
@@ -49,53 +39,35 @@ namespace SpacetimeDB.Types
 
     public sealed class TerrainFeatureCols
     {
-        public global::SpacetimeDB.Col<TerrainFeature, ulong> Id { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, ulong> GameSessionId { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, ulong> EntityId { get; }
         public global::SpacetimeDB.Col<TerrainFeature, TerrainType> Type { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, float> PosX { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, float> PosY { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, float> PosZ { get; }
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeX { get; }
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeY { get; }
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeZ { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, float> RotationY { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, byte> TeamIndex { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, ulong> CasterGamePlayerId { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, ulong> CasterEntityId { get; }
         public global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp> ExpiresAt { get; }
         public global::SpacetimeDB.Col<TerrainFeature, bool> Expired { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, int> Health { get; }
-        public global::SpacetimeDB.Col<TerrainFeature, int> MaxHealth { get; }
 
         public TerrainFeatureCols(string tableName)
         {
-            Id = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "game_session_id");
+            EntityId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "entity_id");
             Type = new global::SpacetimeDB.Col<TerrainFeature, TerrainType>(tableName, "type");
-            PosX = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "pos_x");
-            PosY = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "pos_y");
-            PosZ = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "pos_z");
             SizeX = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_x");
             SizeY = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_y");
             SizeZ = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_z");
-            RotationY = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "rotation_y");
-            TeamIndex = new global::SpacetimeDB.Col<TerrainFeature, byte>(tableName, "team_index");
-            CasterGamePlayerId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "caster_game_player_id");
+            CasterEntityId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "caster_entity_id");
             ExpiresAt = new global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp>(tableName, "expires_at");
             Expired = new global::SpacetimeDB.Col<TerrainFeature, bool>(tableName, "expired");
-            Health = new global::SpacetimeDB.Col<TerrainFeature, int>(tableName, "health");
-            MaxHealth = new global::SpacetimeDB.Col<TerrainFeature, int>(tableName, "max_health");
         }
     }
 
     public sealed class TerrainFeatureIxCols
     {
-        public global::SpacetimeDB.IxCol<TerrainFeature, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<TerrainFeature, ulong> GameSessionId { get; }
+        public global::SpacetimeDB.IxCol<TerrainFeature, ulong> EntityId { get; }
 
         public TerrainFeatureIxCols(string tableName)
         {
-            Id = new global::SpacetimeDB.IxCol<TerrainFeature, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.IxCol<TerrainFeature, ulong>(tableName, "game_session_id");
+            EntityId = new global::SpacetimeDB.IxCol<TerrainFeature, ulong>(tableName, "entity_id");
         }
     }
 }

@@ -17,31 +17,21 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "soldier";
 
-            public sealed class GameSessionIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdUniqueIndex : UniqueIndexBase<ulong>
             {
-                protected override ulong GetKey(Soldier row) => row.GameSessionId;
+                protected override ulong GetKey(Soldier row) => row.EntityId;
 
-                public GameSessionIdIndex(SoldierHandle table) : base(table) { }
+                public EntityIdUniqueIndex(SoldierHandle table) : base(table) { }
             }
 
-            public readonly GameSessionIdIndex GameSessionId;
-
-            public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
-            {
-                protected override ulong GetKey(Soldier row) => row.Id;
-
-                public IdUniqueIndex(SoldierHandle table) : base(table) { }
-            }
-
-            public readonly IdUniqueIndex Id;
+            public readonly EntityIdUniqueIndex EntityId;
 
             internal SoldierHandle(DbConnection conn) : base(conn)
             {
-                GameSessionId = new(this);
-                Id = new(this);
+                EntityId = new(this);
             }
 
-            protected override object GetPrimaryKey(Soldier row) => row.Id;
+            protected override object GetPrimaryKey(Soldier row) => row.EntityId;
         }
 
         public readonly SoldierHandle Soldier;
@@ -49,43 +39,25 @@ namespace SpacetimeDB.Types
 
     public sealed class SoldierCols
     {
-        public global::SpacetimeDB.Col<Soldier, ulong> Id { get; }
-        public global::SpacetimeDB.Col<Soldier, ulong> GameSessionId { get; }
+        public global::SpacetimeDB.Col<Soldier, ulong> EntityId { get; }
         public global::SpacetimeDB.Col<Soldier, ulong> OwnerPlayerId { get; }
-        public global::SpacetimeDB.Col<Soldier, int> Health { get; }
-        public global::SpacetimeDB.Col<Soldier, int> MaxHealth { get; }
-        public global::SpacetimeDB.Col<Soldier, int> Armor { get; }
-        public global::SpacetimeDB.Col<Soldier, DbVector3> Position { get; }
-        public global::SpacetimeDB.Col<Soldier, float> RotationY { get; }
-        public global::SpacetimeDB.Col<Soldier, bool> Dead { get; }
-        public global::SpacetimeDB.Col<Soldier, SpacetimeDB.Timestamp> DiedAt { get; }
         public global::SpacetimeDB.Col<Soldier, byte> FormationIndex { get; }
 
         public SoldierCols(string tableName)
         {
-            Id = new global::SpacetimeDB.Col<Soldier, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.Col<Soldier, ulong>(tableName, "game_session_id");
+            EntityId = new global::SpacetimeDB.Col<Soldier, ulong>(tableName, "entity_id");
             OwnerPlayerId = new global::SpacetimeDB.Col<Soldier, ulong>(tableName, "owner_player_id");
-            Health = new global::SpacetimeDB.Col<Soldier, int>(tableName, "health");
-            MaxHealth = new global::SpacetimeDB.Col<Soldier, int>(tableName, "max_health");
-            Armor = new global::SpacetimeDB.Col<Soldier, int>(tableName, "armor");
-            Position = new global::SpacetimeDB.Col<Soldier, DbVector3>(tableName, "position");
-            RotationY = new global::SpacetimeDB.Col<Soldier, float>(tableName, "rotation_y");
-            Dead = new global::SpacetimeDB.Col<Soldier, bool>(tableName, "dead");
-            DiedAt = new global::SpacetimeDB.Col<Soldier, SpacetimeDB.Timestamp>(tableName, "died_at");
             FormationIndex = new global::SpacetimeDB.Col<Soldier, byte>(tableName, "formation_index");
         }
     }
 
     public sealed class SoldierIxCols
     {
-        public global::SpacetimeDB.IxCol<Soldier, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<Soldier, ulong> GameSessionId { get; }
+        public global::SpacetimeDB.IxCol<Soldier, ulong> EntityId { get; }
 
         public SoldierIxCols(string tableName)
         {
-            Id = new global::SpacetimeDB.IxCol<Soldier, ulong>(tableName, "id");
-            GameSessionId = new global::SpacetimeDB.IxCol<Soldier, ulong>(tableName, "game_session_id");
+            EntityId = new global::SpacetimeDB.IxCol<Soldier, ulong>(tableName, "entity_id");
         }
     }
 }

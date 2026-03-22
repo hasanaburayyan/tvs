@@ -13,43 +13,26 @@ namespace SpacetimeDB.Types
     [DataContract]
     public sealed partial class Corpse
     {
-        [DataMember(Name = "id")]
-        public ulong Id;
-        [DataMember(Name = "game_session_id")]
-        public ulong GameSessionId;
-        [DataMember(Name = "game_player_id")]
-        public ulong? GamePlayerId;
-        [DataMember(Name = "soldier_id")]
-        public ulong? SoldierId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
+        [DataMember(Name = "source_entity_id")]
+        public ulong? SourceEntityId;
         [DataMember(Name = "player_id")]
         public ulong PlayerId;
-        [DataMember(Name = "position")]
-        public DbVector3 Position;
-        [DataMember(Name = "rotation_y")]
-        public float RotationY;
 
         public Corpse(
-            ulong Id,
-            ulong GameSessionId,
-            ulong? GamePlayerId,
-            ulong? SoldierId,
-            ulong PlayerId,
-            DbVector3 Position,
-            float RotationY
+            ulong EntityId,
+            ulong? SourceEntityId,
+            ulong PlayerId
         )
         {
-            this.Id = Id;
-            this.GameSessionId = GameSessionId;
-            this.GamePlayerId = GamePlayerId;
-            this.SoldierId = SoldierId;
+            this.EntityId = EntityId;
+            this.SourceEntityId = SourceEntityId;
             this.PlayerId = PlayerId;
-            this.Position = Position;
-            this.RotationY = RotationY;
         }
 
         public Corpse()
         {
-            this.Position = new();
         }
     }
 }

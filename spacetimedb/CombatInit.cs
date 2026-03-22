@@ -6,6 +6,143 @@ public static partial class Module
   public static void Init(ReducerContext ctx)
   {
     SeedCombatData(ctx);
+    SeedMapData(ctx);
+  }
+
+  static void SeedMapData(ReducerContext ctx)
+  {
+    var map = ctx.Db.map_def.Insert(new MapDef
+    {
+      Id = 0,
+      Name = "No Man's Land",
+      SizeX = 400f,
+      SizeZ = 400f,
+    });
+    var id = map.Id;
+
+    // ============================================================
+    // TEAM 1 HOME BASE (Z = -160)
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.CommandCenter, 0f, 0f, -160f, 0f, 1,
+      12f, 6f, 8f, 500, 0, true);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, -15f, -1f, -148f, 0f, 1,
+      20f, 2f, 3f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, 15f, -1f, -148f, 0f, 1,
+      20f, 2f, 3f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, -10f, 0f, -144f, 0f, 1,
+      8f, 3f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, 10f, 0f, -144f, 0f, 1,
+      8f, 3f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Building, 0f, 0f, -180f, 0f, 1,
+      8f, 5f, 6f, 0, 0, false);
+
+    // ============================================================
+    // TEAM 1 FORWARD BASE - LEFT (-40, -80)
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.Outpost, -40f, 0f, -80f, 0f, 1,
+      4f, 3f, 4f, 200, 0, true);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, -40f, -1f, -65f, 0f, 1,
+      15f, 2f, 3f, 0, 0, false);
+
+    // ============================================================
+    // TEAM 1 FORWARD BASE - RIGHT (40, -80)
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.Outpost, 40f, 0f, -80f, 0f, 1,
+      4f, 3f, 4f, 200, 0, true);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, 40f, -1f, -65f, 0f, 1,
+      15f, 2f, 3f, 0, 0, false);
+
+    // ============================================================
+    // NO MAN'S LAND (Z = -40 to +40) - COVER
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.Wall, -30f, 0f, -16f, 15f, 0,
+      6f, 3f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, 30f, 0f, 16f, -15f, 0,
+      6f, 3f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, -15f, 0f, 10f, -10f, 0,
+      5f, 2.5f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, 15f, 0f, -10f, 10f, 0,
+      5f, 2.5f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Tree, -60f, 0f, -6f, 0f, 0,
+      2f, 6f, 2f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Tree, 60f, 0f, 6f, 45f, 0,
+      2f, 7f, 2f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Tree, -8f, 0f, 25f, 90f, 0,
+      2f, 5f, 2f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Tree, 8f, 0f, -25f, 180f, 0,
+      2f, 5f, 2f, 0, 0, false);
+
+    // ============================================================
+    // TEAM 2 FORWARD BASE - LEFT (-40, 80)
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.Outpost, -40f, 0f, 80f, 180f, 2,
+      4f, 3f, 4f, 200, 0, true);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, -40f, -1f, 65f, 0f, 2,
+      15f, 2f, 3f, 0, 0, false);
+
+    // ============================================================
+    // TEAM 2 FORWARD BASE - RIGHT (40, 80)
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.Outpost, 40f, 0f, 80f, 180f, 2,
+      4f, 3f, 4f, 200, 0, true);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, 40f, -1f, 65f, 0f, 2,
+      15f, 2f, 3f, 0, 0, false);
+
+    // ============================================================
+    // TEAM 2 HOME BASE (Z = 160)
+    // ============================================================
+    InsertMapTerrain(ctx, id, TerrainType.CommandCenter, 0f, 0f, 160f, 180f, 2,
+      12f, 6f, 8f, 500, 0, true);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, -15f, -1f, 148f, 0f, 2,
+      20f, 2f, 3f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Trench, 15f, -1f, 148f, 0f, 2,
+      20f, 2f, 3f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, -10f, 0f, 144f, 0f, 2,
+      8f, 3f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Wall, 10f, 0f, 144f, 0f, 2,
+      8f, 3f, 1f, 0, 0, false);
+    InsertMapTerrain(ctx, id, TerrainType.Building, 0f, 0f, 180f, 180f, 2,
+      8f, 5f, 6f, 0, 0, false);
+
+    // ============================================================
+    // CAPTURE POINTS - side flanks (no flags in no man's land)
+    // ============================================================
+    InsertMapCapturePoint(ctx, id, -160f, 0f, 0f, 12f, 100);
+    InsertMapCapturePoint(ctx, id, 160f, 0f, 0f, 12f, 100);
+
+    Log.Info($"Map data seeded: '{map.Name}' (id={map.Id})");
+  }
+
+  static void InsertMapTerrain(ReducerContext ctx, ulong mapDefId,
+    TerrainType type, float px, float py, float pz, float rotY, byte team,
+    float sx, float sy, float sz, int maxHp, int armor, bool outpostRegen)
+  {
+    ctx.Db.map_terrain_def.Insert(new MapTerrainDef
+    {
+      Id = 0,
+      MapDefId = mapDefId,
+      TerrainType = type,
+      PositionX = px, PositionY = py, PositionZ = pz,
+      RotationY = rotY,
+      TeamSlot = team,
+      SizeX = sx, SizeY = sy, SizeZ = sz,
+      MaxHealth = maxHp,
+      Armor = armor,
+      HasOutpostRegen = outpostRegen,
+    });
+  }
+
+  static void InsertMapCapturePoint(ReducerContext ctx, ulong mapDefId,
+    float px, float py, float pz, float radius, int maxInfluence)
+  {
+    ctx.Db.map_capture_point_def.Insert(new MapCapturePointDef
+    {
+      Id = 0,
+      MapDefId = mapDefId,
+      PositionX = px, PositionY = py, PositionZ = pz,
+      Radius = radius,
+      MaxInfluence = maxInfluence,
+    });
   }
 
   static void SeedCombatData(ReducerContext ctx)
@@ -29,6 +166,8 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 80f,
     });
 
     var fireSmg = ctx.Db.ability_def.Insert(new AbilityDef
@@ -49,6 +188,8 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 70f,
     });
 
     var fireRifle = ctx.Db.ability_def.Insert(new AbilityDef
@@ -70,6 +211,8 @@ public static partial class Module
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       AllowSubSquadTargeting = true,
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 120f,
     });
 
     var fireTrenchGun = ctx.Db.ability_def.Insert(new AbilityDef
@@ -91,6 +234,8 @@ public static partial class Module
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       Distribution = DamageDistribution.ProximityFalloff,
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 50f,
     });
 
     // ================================================================
@@ -153,6 +298,7 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     var issueOrders = ctx.Db.ability_def.Insert(new AbilityDef
@@ -171,6 +317,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     // -- Infantry innates --
@@ -193,6 +340,7 @@ public static partial class Module
       },
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     // -- Support innates --
@@ -216,6 +364,7 @@ public static partial class Module
       SpawnedTerrainType = TerrainType.Outpost,
       TerrainSizeX = 4f, TerrainSizeY = 3f, TerrainSizeZ = 4f,
       TerrainMaxHealth = 200,
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var resupply = ctx.Db.ability_def.Insert(new AbilityDef
@@ -235,6 +384,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     // -- Scout innates --
@@ -254,6 +404,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     // ================================================================
@@ -328,6 +479,7 @@ public static partial class Module
       },
       EffectDurationMs = 12000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     var weaponFocus = ctx.Db.ability_def.Insert(new AbilityDef
@@ -349,6 +501,7 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var suppress = ctx.Db.ability_def.Insert(new AbilityDef
@@ -370,6 +523,8 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 50f,
     });
 
     // -- Officer / Tactical Mage --
@@ -392,6 +547,7 @@ public static partial class Module
       },
       EffectDurationMs = 12000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var massHaste = ctx.Db.ability_def.Insert(new AbilityDef
@@ -413,6 +569,7 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var arcaneShield = ctx.Db.ability_def.Insert(new AbilityDef
@@ -434,6 +591,7 @@ public static partial class Module
       },
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     // -- Officer / Necromancer --
@@ -454,6 +612,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     var raiseDead = ctx.Db.ability_def.Insert(new AbilityDef
@@ -472,6 +631,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var deathGrip = ctx.Db.ability_def.Insert(new AbilityDef
@@ -491,6 +651,8 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 40f,
     });
 
     // -- Infantry / Vanguard --
@@ -514,6 +676,7 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var ironWill = ctx.Db.ability_def.Insert(new AbilityDef
@@ -532,6 +695,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var brace = ctx.Db.ability_def.Insert(new AbilityDef
@@ -553,6 +717,7 @@ public static partial class Module
       },
       EffectDurationMs = 6000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     // -- Infantry / Evoker --
@@ -574,6 +739,8 @@ public static partial class Module
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       Distribution = DamageDistribution.EvenSplit,
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 30f,
     });
 
     var enchantWeapon = ctx.Db.ability_def.Insert(new AbilityDef
@@ -595,6 +762,7 @@ public static partial class Module
       },
       EffectDurationMs = 12000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var arcaneBarrage = ctx.Db.ability_def.Insert(new AbilityDef
@@ -615,6 +783,8 @@ public static partial class Module
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       Distribution = DamageDistribution.EvenSplit,
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 25f,
     });
 
     // -- Infantry / Commando --
@@ -635,6 +805,8 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 200f,
     });
 
     var sprint = ctx.Db.ability_def.Insert(new AbilityDef
@@ -656,6 +828,7 @@ public static partial class Module
       },
       EffectDurationMs = 5000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var stealth = ctx.Db.ability_def.Insert(new AbilityDef
@@ -674,6 +847,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     // -- Support / Technician --
@@ -697,6 +871,7 @@ public static partial class Module
       SpawnedTerrainType = TerrainType.Outpost,
       TerrainSizeX = 4f, TerrainSizeY = 3f, TerrainSizeZ = 4f,
       TerrainMaxHealth = 200,
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var plantTrap = ctx.Db.ability_def.Insert(new AbilityDef
@@ -719,6 +894,7 @@ public static partial class Module
       SpawnedTerrainType = TerrainType.Trap,
       TerrainSizeX = 1f, TerrainSizeY = 0.2f, TerrainSizeZ = 1f,
       TerrainMaxHealth = 30,
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var buildFortification = ctx.Db.ability_def.Insert(new AbilityDef
@@ -741,6 +917,7 @@ public static partial class Module
       SpawnedTerrainType = TerrainType.Fortification,
       TerrainSizeX = 8f, TerrainSizeY = 2.5f, TerrainSizeZ = 1f,
       TerrainMaxHealth = 150,
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var disarm = ctx.Db.ability_def.Insert(new AbilityDef
@@ -759,6 +936,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     // -- Support / Priest --
@@ -779,6 +957,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var priestResurrect = ctx.Db.ability_def.Insert(new AbilityDef
@@ -798,6 +977,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     var divineShield = ctx.Db.ability_def.Insert(new AbilityDef
@@ -819,6 +999,7 @@ public static partial class Module
       },
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.AllyTarget,
     });
 
     // -- Support / Fire Support --
@@ -842,6 +1023,7 @@ public static partial class Module
       SpawnedTerrainType = TerrainType.MountedWeapon,
       TerrainSizeX = 2f, TerrainSizeY = 1.5f, TerrainSizeZ = 2f,
       TerrainMaxHealth = 100,
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var deployMortar = ctx.Db.ability_def.Insert(new AbilityDef
@@ -864,6 +1046,7 @@ public static partial class Module
       SpawnedTerrainType = TerrainType.MountedWeapon,
       TerrainSizeX = 2f, TerrainSizeY = 1f, TerrainSizeZ = 2f,
       TerrainMaxHealth = 80,
+      Targeting = TargetingMode.GroundTarget,
     });
 
     var deconstruct = ctx.Db.ability_def.Insert(new AbilityDef
@@ -882,6 +1065,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     // -- Scout / Pioneer --
@@ -901,6 +1085,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var revealStealth = ctx.Db.ability_def.Insert(new AbilityDef
@@ -919,6 +1104,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var pathfinderAura = ctx.Db.ability_def.Insert(new AbilityDef
@@ -937,6 +1123,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 12000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
     });
 
     // -- Scout / Specialist --
@@ -959,6 +1146,7 @@ public static partial class Module
       },
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var steadyAim = ctx.Db.ability_def.Insert(new AbilityDef
@@ -980,6 +1168,7 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var quickReload = ctx.Db.ability_def.Insert(new AbilityDef
@@ -1001,6 +1190,7 @@ public static partial class Module
       },
       EffectDurationMs = 8000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     // -- Scout / Seer --
@@ -1023,6 +1213,8 @@ public static partial class Module
       },
       EffectDurationMs = 12000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 50f,
     });
 
     var farsight = ctx.Db.ability_def.Insert(new AbilityDef
@@ -1041,6 +1233,7 @@ public static partial class Module
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.SelfCast,
     });
 
     var hex = ctx.Db.ability_def.Insert(new AbilityDef
@@ -1062,6 +1255,8 @@ public static partial class Module
       },
       EffectDurationMs = 10000,
       AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.Projectile,
+      ProjectileSpeed = 50f,
     });
 
     // ================================================================

@@ -16,7 +16,8 @@ public static partial class Module
   {
     foreach (var gp in ctx.Db.game_player.PlayerId.Filter(playerId))
     {
-      if (gp.GameSessionId == gameSessionId) return gp;
+      var ent = ctx.Db.entity.EntityId.Find(gp.EntityId);
+      if (ent is Entity e && e.GameSessionId == gameSessionId) return gp;
     }
     return null;
   }
@@ -30,12 +31,13 @@ public static partial class Module
     return null;
   }
 
-  static void ClearTargetsForGamePlayer(ReducerContext ctx, ulong gamePlayerId, ulong gameSessionId)
+  static void ClearTargetsForEntity(ReducerContext ctx, ulong entityId, ulong gameSessionId)
   {
-    foreach (var other in ctx.Db.game_player.GameSessionId.Filter(gameSessionId))
+    foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameSessionId))
     {
-      if (other.TargetGamePlayerId == gamePlayerId)
-        ctx.Db.game_player.Id.Update(other with { TargetGamePlayerId = null });
+      if (ent.Type != EntityType.GamePlayer) continue;
+      if (ctx.Db.game_player.EntityId.Find(ent.EntityId) is GamePlayer other && other.TargetEntityId == entityId)
+        ctx.Db.game_player.EntityId.Update(other with { TargetEntityId = null });
     }
   }
 
@@ -43,8 +45,9 @@ public static partial class Module
   {
     if (FindActiveGamePlayer(ctx, playerId) is GamePlayer gp)
     {
-      ClearTargetsForGamePlayer(ctx, gp.Id, gp.GameSessionId);
-      ctx.Db.game_player.Id.Update(gp with { Active = false, TargetGamePlayerId = null });
+      var ent = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+      ClearTargetsForEntity(ctx, gp.EntityId, ent.GameSessionId);
+      ctx.Db.game_player.EntityId.Update(gp with { Active = false, TargetEntityId = null });
     }
   }
 
@@ -111,37 +114,41 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void CreateGame(ReducerContext ctx, uint maxPlayers, uint? respawnTimerSeconds)
+  public static void CreateGame(ReducerContext ctx, uint maxPlayers, uint? respawnTimerSeconds, ulong mapDefId)
   {
-    var seed = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
+    if (ctx.Db.map_def.Id.Find(mapDefId) is not MapDef)
+      throw new Exception($"Map definition not found: {mapDefId}");
+
     var session = ctx.Db.game_session.Insert(new GameSession
     {
       OwnerIdentity = ctx.Sender,
       State = SessionState.Lobby,
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
-      MapSeed = seed,
+      MapDefId = mapDefId,
       RespawnTimerSeconds = respawnTimerSeconds ?? 15,
     });
-    GenerateMap(ctx, session.Id, seed);
+    GenerateMap(ctx, session.Id, mapDefId);
     SchedulePassiveRegen(ctx, session.Id);
     ScheduleLosCheck(ctx, session.Id);
   }
 
   [SpacetimeDB.Reducer]
-  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers, uint? respawnTimerSeconds)
+  public static void CreateGameAndJoin(ReducerContext ctx, uint maxPlayers, uint? respawnTimerSeconds, ulong mapDefId)
   {
-    var seed = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
+    if (ctx.Db.map_def.Id.Find(mapDefId) is not MapDef)
+      throw new Exception($"Map definition not found: {mapDefId}");
+
     var session = ctx.Db.game_session.Insert(new GameSession
     {
       OwnerIdentity = ctx.Sender,
       State = SessionState.Lobby,
       MaxPlayers = maxPlayers,
       CreatedAt = ctx.Timestamp,
-      MapSeed = seed,
+      MapDefId = mapDefId,
       RespawnTimerSeconds = respawnTimerSeconds ?? 15,
     });
-    GenerateMap(ctx, session.Id, seed);
+    GenerateMap(ctx, session.Id, mapDefId);
     SchedulePassiveRegen(ctx, session.Id);
     ScheduleLosCheck(ctx, session.Id);
     JoinGame(ctx, session.Id);
@@ -183,30 +190,47 @@ public static partial class Module
   [SpacetimeDB.Reducer]
   public static void DeleteGame(ReducerContext ctx, ulong gameId)
   {
-    foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameId))
+    foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameId))
     {
-      foreach (var check in ctx.Db.terrain_expiry_check.Iter())
+      if (ent.Type == EntityType.Terrain)
       {
-        if (check.TerrainFeatureId == feature.Id)
-          ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+        foreach (var check in ctx.Db.terrain_expiry_check.Iter())
+        {
+          if (check.EntityId == ent.EntityId)
+            ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+        }
+        foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+        {
+          if (regen.EntityId == ent.EntityId)
+            ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
+        }
+        ctx.Db.terrain_feature.EntityId.Delete(ent.EntityId);
       }
-      foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+      else if (ent.Type == EntityType.GamePlayer)
       {
-        if (regen.TerrainFeatureId == feature.Id)
-          ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
+        foreach (var pool in ctx.Db.resource_pool.EntityId.Filter(ent.EntityId))
+          ctx.Db.resource_pool.Id.Delete(pool.Id);
+        foreach (var cd in ctx.Db.ability_cooldown.EntityId.Filter(ent.EntityId))
+          ctx.Db.ability_cooldown.Id.Delete(cd.Id);
+        foreach (var effect in ctx.Db.active_effect.EntityId.Filter(ent.EntityId))
+          ctx.Db.active_effect.Id.Delete(effect.Id);
+        ctx.Db.game_player.EntityId.Delete(ent.EntityId);
       }
-      ctx.Db.terrain_feature.Id.Delete(feature.Id);
-    }
+      else if (ent.Type == EntityType.Soldier)
+      {
+        ctx.Db.soldier.EntityId.Delete(ent.EntityId);
+      }
+      else if (ent.Type == EntityType.Corpse)
+      {
+        ctx.Db.corpse.EntityId.Delete(ent.EntityId);
+      }
+      else if (ent.Type == EntityType.CapturePoint)
+      {
+        ctx.Db.capture_point.EntityId.Delete(ent.EntityId);
+      }
 
-    foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameId))
-    {
-      foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
-        ctx.Db.resource_pool.Id.Delete(pool.Id);
-      foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gp.Id))
-        ctx.Db.ability_cooldown.Id.Delete(cd.Id);
-      foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
-        ctx.Db.active_effect.Id.Delete(effect.Id);
-      ctx.Db.game_player.Id.Delete(gp.Id);
+      ctx.Db.targetable.EntityId.Delete(ent.EntityId);
+      ctx.Db.entity.EntityId.Delete(ent.EntityId);
     }
 
     foreach (var loadout in ctx.Db.loadout.GameSessionId.Filter(gameId))
@@ -226,12 +250,6 @@ public static partial class Module
       if (los.GameSessionId == gameId)
         ctx.Db.los_check_schedule.Id.Delete(los.Id);
     }
-
-    foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
-      ctx.Db.corpse.Id.Delete(c.Id);
-
-    foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(gameId))
-      ctx.Db.capture_point.Id.Delete(cp.Id);
 
     foreach (var ct in ctx.Db.capture_tick.Iter())
     {
@@ -255,9 +273,11 @@ public static partial class Module
   static int CountActivePlayers(ReducerContext ctx, ulong gameSessionId)
   {
     int count = 0;
-    foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSessionId))
+    foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameSessionId))
     {
-      if (gp.Active) count++;
+      if (ent.Type != EntityType.GamePlayer) continue;
+      if (ctx.Db.game_player.EntityId.Find(ent.EntityId) is GamePlayer gp && gp.Active)
+        count++;
     }
     return count;
   }
@@ -283,8 +303,9 @@ public static partial class Module
         throw new Exception("Game session is full!");
 
       DeactivateGamePlayer(ctx, player.Id);
-      ctx.Db.game_player.Id.Update(ex with { Active = true });
-      CreatePlayerSquad(ctx, gameSession.Id, player.Id, ex.Id, ex.Position);
+      ctx.Db.game_player.EntityId.Update(ex with { Active = true });
+      var exEnt = ctx.Db.entity.EntityId.Find(ex.EntityId)!.Value;
+      CreatePlayerSquad(ctx, gameSession.Id, player.Id, ex.EntityId, exEnt.Position);
       return;
     }
 
@@ -301,9 +322,10 @@ public static partial class Module
     var try_spawn_location = bool () =>
     {
       var desired = new DbVector3(spawnX, spawnY, spawnZ);
-      foreach (var other_player in ctx.Db.game_player.GameSessionId.Filter(gameId))
+      foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameId))
       {
-        if (other_player.Active && other_player.Position == desired)
+        if (ent.Type != EntityType.GamePlayer) continue;
+        if (ctx.Db.game_player.EntityId.Find(ent.EntityId) is GamePlayer gp2 && gp2.Active && ent.Position == desired)
           return false;
       }
       return true;
@@ -316,19 +338,16 @@ public static partial class Module
 
     var desired_spawn_location = new DbVector3(spawnX, spawnY, spawnZ);
 
-    var gp = ctx.Db.game_player.Insert(new GamePlayer
+    var entity = CreateEntity(ctx, gameSession.Id, EntityType.GamePlayer, desired_spawn_location, 0f, 0);
+    CreateTargetable(ctx, entity.EntityId, 100, 100, 0);
+    ctx.Db.game_player.Insert(new GamePlayer
     {
-      GameSessionId = gameSession.Id,
+      EntityId = entity.EntityId,
       PlayerId = player.Id,
       Active = true,
-      Health = 100,
-      MaxHealth = 100,
-      Armor = 0,
-      Position = desired_spawn_location,
-      RotationY = 0f
     });
 
-    CreatePlayerSquad(ctx, gameSession.Id, player.Id, gp.Id, desired_spawn_location);
+    CreatePlayerSquad(ctx, gameSession.Id, player.Id, entity.EntityId, desired_spawn_location);
   }
 
   [SpacetimeDB.Reducer]
@@ -339,8 +358,9 @@ public static partial class Module
 
     if (gamePlayer.Active)
     {
-      ClearTargetsForGamePlayer(ctx, gamePlayer.Id, gamePlayer.GameSessionId);
-      ctx.Db.game_player.Id.Update(gamePlayer with { Active = false, TargetGamePlayerId = null });
+      var ent = ctx.Db.entity.EntityId.Find(gamePlayer.EntityId)!.Value;
+      ClearTargetsForEntity(ctx, gamePlayer.EntityId, ent.GameSessionId);
+      ctx.Db.game_player.EntityId.Update(gamePlayer with { Active = false, TargetEntityId = null });
     }
     CleanupPlayerSquad(ctx, player.Id, gameId);
   }
@@ -353,8 +373,9 @@ public static partial class Module
 
     if (gp.Active)
     {
-      ClearTargetsForGamePlayer(ctx, gp.Id, gp.GameSessionId);
-      ctx.Db.game_player.Id.Update(gp with { Active = false, TargetGamePlayerId = null });
+      var ent = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+      ClearTargetsForEntity(ctx, gp.EntityId, ent.GameSessionId);
+      ctx.Db.game_player.EntityId.Update(gp with { Active = false, TargetEntityId = null });
     }
     CleanupPlayerSquad(ctx, player.Id, gameId);
     CleanupPositionOverrides(ctx, player.Id);
@@ -366,22 +387,32 @@ public static partial class Module
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
 
-    if (gp.GameSessionId != gameId)
+    var ent = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+    if (ent.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
 
     if (teamSlot > 2)
       throw new Exception("Invalid team slot (0=Neutral, 1=Entente, 2=Central)");
 
-    ctx.Db.game_player.Id.Update(gp with { TeamSlot = teamSlot });
+    var spawnPos = GetTeamSpawn(ctx, teamSlot);
+    ctx.Db.entity.EntityId.Update(ent with { TeamSlot = teamSlot, Position = spawnPos });
     Log.Info($"Player {player.Name} joined team {teamSlot} in game {gameId}");
   }
 
-  static DbVector3 GetTeamSpawn(byte teamSlot)
+  static DbVector3 GetTeamSpawn(ReducerContext ctx, byte teamSlot)
   {
+    uint hash = (uint)(ctx.Timestamp.MicrosecondsSinceUnixEpoch & 0xFFFFFFFF);
+    hash ^= hash >> 16;
+    hash *= 0x45d9f3b;
+    hash ^= hash >> 16;
+
+    float offsetX = ((hash % 1000) / 1000f - 0.5f) * 30f;
+    float offsetZ = (((hash >> 10) % 1000) / 1000f) * 10f;
+
     return teamSlot switch
     {
-      1 => new DbVector3(0, 3, -85),
-      2 => new DbVector3(0, 3, 85),
+      1 => new DbVector3(offsetX, 3, -140f + offsetZ),
+      2 => new DbVector3(offsetX, 3, 140f - offsetZ),
       _ => new DbVector3(0, 3, 0),
     };
   }
@@ -392,32 +423,34 @@ public static partial class Module
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
 
-    if (gp.GameSessionId != gameId)
+    var ent = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+    if (ent.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
 
-    if (!gp.Dead)
+    var target = ctx.Db.targetable.EntityId.Find(gp.EntityId)!.Value;
+    if (!target.Dead)
       throw new Exception("Player is not dead");
 
     var session = ctx.Db.game_session.Id.Find(gameId)
       ?? throw new Exception("Game session not found");
 
-    if (gp.DiedAt is Timestamp diedAt)
+    if (target.DiedAt is Timestamp diedAt)
     {
       var requiredWait = TimeSpan.FromSeconds(session.RespawnTimerSeconds);
       if (ctx.Timestamp < diedAt + requiredWait)
         throw new Exception("Respawn timer has not expired yet");
     }
 
-    var spawnPos = GetTeamSpawn(gp.TeamSlot);
+    var spawnPos = GetTeamSpawn(ctx, ent.TeamSlot);
 
-    ctx.Db.game_player.Id.Update(gp with
+    ctx.Db.entity.EntityId.Update(ent with { Position = spawnPos });
+    ctx.Db.targetable.EntityId.Update(target with
     {
-      Health = gp.MaxHealth,
+      Health = target.MaxHealth,
       Dead = false,
       DiedAt = null,
-      Position = spawnPos,
-      TargetGamePlayerId = null,
     });
+    ctx.Db.game_player.EntityId.Update(gp with { TargetEntityId = null });
 
     ctx.Db.battle_log.Insert(new BattleLogEntry
     {
@@ -425,9 +458,9 @@ public static partial class Module
       GameSessionId = gameId,
       OccurredAt = ctx.Timestamp,
       EventType = BattleLogEventType.Revive,
-      ActorGamePlayerId = gp.Id,
+      ActorEntityId = gp.EntityId,
       AbilityId = null,
-      TargetGamePlayerIds = new List<ulong> { gp.Id },
+      TargetEntityIds = new List<ulong> { gp.EntityId },
       ResolvedPower = 0,
     });
 
@@ -439,10 +472,11 @@ public static partial class Module
       Position = spawnPos,
     });
 
-    foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameId))
+    foreach (var c in ctx.Db.entity.GameSessionId.Filter(gameId))
     {
-      if (c.GamePlayerId == gp.Id)
-        ctx.Db.corpse.Id.Update(c with { GamePlayerId = null });
+      if (c.Type != EntityType.Corpse) continue;
+      if (ctx.Db.corpse.EntityId.Find(c.EntityId) is Corpse corpse && corpse.SourceEntityId == gp.EntityId)
+        ctx.Db.corpse.EntityId.Update(corpse with { SourceEntityId = null });
     }
 
     var loadout = FindLoadout(ctx, gameId, player.Id);
@@ -453,40 +487,46 @@ public static partial class Module
       var skill = ctx.Db.skill_def.Id.Find(lo.SkillDefId);
       if (archetype is ArchetypeDef a && weapon is WeaponDef w && skill is SkillDef s)
       {
-        ClearResourcePools(ctx, gp.Id);
-        SeedResourcePools(ctx, gp.Id, a, w, s);
+        ClearResourcePools(ctx, gp.EntityId);
+        SeedResourcePools(ctx, gp.EntityId, a, w, s);
       }
     }
 
-    RespawnSoldiers(ctx, gp.Id, spawnPos);
+    RespawnSoldiers(ctx, gp.EntityId, spawnPos);
 
-    Log.Info($"Player {player.Name} respawned at team {gp.TeamSlot} spawn in game {gameId}");
+    Log.Info($"Player {player.Name} respawned at team {ent.TeamSlot} spawn in game {gameId}");
   }
 
   [SpacetimeDB.Reducer]
-  public static void SetTarget(ReducerContext ctx, ulong gameId, ulong? targetGamePlayerId)
+  public static void SetTarget(ReducerContext ctx, ulong gameId, ulong? targetEntityId)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
 
-    if (gp.Dead)
+    var gpTarget = ctx.Db.targetable.EntityId.Find(gp.EntityId);
+    if (gpTarget is Targetable t && t.Dead)
       throw new Exception("Cannot set target while dead");
 
-    if (gp.GameSessionId != gameId)
+    var gpEnt = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+    if (gpEnt.GameSessionId != gameId)
       throw new Exception("Game session mismatch");
 
-    if (targetGamePlayerId is ulong targetId)
+    if (targetEntityId is ulong targetId)
     {
-      var target = ctx.Db.game_player.Id.Find(targetId) ?? throw new Exception("Target not found");
-      if (target.GameSessionId != gameId)
+      var targetEnt = ctx.Db.entity.EntityId.Find(targetId) ?? throw new Exception("Target not found");
+      if (targetEnt.GameSessionId != gameId)
         throw new Exception("Target is not in the same game");
-      if (!target.Active)
-        throw new Exception("Target is not active");
-      if (!HasLineOfSight(ctx, gp.Position, target.Position, gameId))
+      if (targetEnt.Type == EntityType.GamePlayer)
+      {
+        var targetGp = ctx.Db.game_player.EntityId.Find(targetId);
+        if (targetGp is GamePlayer tgp && !tgp.Active)
+          throw new Exception("Target is not active");
+      }
+      if (!HasLineOfSight(ctx, gpEnt.Position, targetEnt.Position, gameId))
         throw new Exception("Target is not in line of sight");
     }
 
-    ctx.Db.game_player.Id.Update(gp with { TargetGamePlayerId = targetGamePlayerId });
+    ctx.Db.game_player.EntityId.Update(gp with { TargetEntityId = targetEntityId });
   }
 
   [SpacetimeDB.Reducer(ReducerKind.ClientDisconnected)]
@@ -502,13 +542,14 @@ public static partial class Module
     {
       foreach (var gp in ctx.Db.game_player.PlayerId.Filter(player.Id))
       {
-        foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
+        foreach (var pool in ctx.Db.resource_pool.EntityId.Filter(gp.EntityId))
           ctx.Db.resource_pool.Id.Delete(pool.Id);
-        foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gp.Id))
+        foreach (var cd in ctx.Db.ability_cooldown.EntityId.Filter(gp.EntityId))
           ctx.Db.ability_cooldown.Id.Delete(cd.Id);
-        foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
+        foreach (var effect in ctx.Db.active_effect.EntityId.Filter(gp.EntityId))
           ctx.Db.active_effect.Id.Delete(effect.Id);
-        ctx.Db.game_player.Id.Delete(gp.Id);
+        ctx.Db.game_player.EntityId.Delete(gp.EntityId);
+        DestroyEntity(ctx, gp.EntityId);
       }
 
       CleanupAllSquadsForPlayer(ctx, player.Id);
@@ -516,34 +557,58 @@ public static partial class Module
       foreach (var gameSession in ctx.Db.game_session.OwnerIdentity.Filter(ctx.Sender))
       {
         CleanupSquadsForGame(ctx, gameSession.Id);
-        foreach (var gp in ctx.Db.game_player.GameSessionId.Filter(gameSession.Id))
+
+        foreach (var ent in ctx.Db.entity.GameSessionId.Filter(gameSession.Id))
         {
-          foreach (var pool in ctx.Db.resource_pool.GamePlayerId.Filter(gp.Id))
-            ctx.Db.resource_pool.Id.Delete(pool.Id);
-          foreach (var cd in ctx.Db.ability_cooldown.GamePlayerId.Filter(gp.Id))
-            ctx.Db.ability_cooldown.Id.Delete(cd.Id);
-          foreach (var effect in ctx.Db.active_effect.GamePlayerId.Filter(gp.Id))
-            ctx.Db.active_effect.Id.Delete(effect.Id);
-          ctx.Db.game_player.Id.Delete(gp.Id);
+          if (ent.Type == EntityType.GamePlayer)
+          {
+            if (ctx.Db.game_player.EntityId.Find(ent.EntityId) is GamePlayer gp2)
+            {
+              foreach (var pool in ctx.Db.resource_pool.EntityId.Filter(ent.EntityId))
+                ctx.Db.resource_pool.Id.Delete(pool.Id);
+              foreach (var cd in ctx.Db.ability_cooldown.EntityId.Filter(ent.EntityId))
+                ctx.Db.ability_cooldown.Id.Delete(cd.Id);
+              foreach (var effect in ctx.Db.active_effect.EntityId.Filter(ent.EntityId))
+                ctx.Db.active_effect.Id.Delete(effect.Id);
+              ctx.Db.game_player.EntityId.Delete(ent.EntityId);
+            }
+          }
+          else if (ent.Type == EntityType.Terrain)
+          {
+            foreach (var check in ctx.Db.terrain_expiry_check.Iter())
+            {
+              if (check.EntityId == ent.EntityId)
+                ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
+            }
+            foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
+            {
+              if (regen.EntityId == ent.EntityId)
+                ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
+            }
+            ctx.Db.terrain_feature.EntityId.Delete(ent.EntityId);
+          }
+          else if (ent.Type == EntityType.Soldier)
+          {
+            ctx.Db.soldier.EntityId.Delete(ent.EntityId);
+          }
+          else if (ent.Type == EntityType.Corpse)
+          {
+            ctx.Db.corpse.EntityId.Delete(ent.EntityId);
+          }
+          else if (ent.Type == EntityType.CapturePoint)
+          {
+            ctx.Db.capture_point.EntityId.Delete(ent.EntityId);
+          }
+
+          ctx.Db.targetable.EntityId.Delete(ent.EntityId);
+          ctx.Db.entity.EntityId.Delete(ent.EntityId);
         }
+
         foreach (var loadout in ctx.Db.loadout.GameSessionId.Filter(gameSession.Id))
           ctx.Db.loadout.Id.Delete(loadout.Id);
         foreach (var log in ctx.Db.battle_log.GameSessionId.Filter(gameSession.Id))
           ctx.Db.battle_log.Id.Delete(log.Id);
-        foreach (var feature in ctx.Db.terrain_feature.GameSessionId.Filter(gameSession.Id))
-        {
-          foreach (var check in ctx.Db.terrain_expiry_check.Iter())
-          {
-            if (check.TerrainFeatureId == feature.Id)
-              ctx.Db.terrain_expiry_check.Id.Delete(check.Id);
-          }
-          foreach (var regen in ctx.Db.outpost_regen_tick.Iter())
-          {
-            if (regen.TerrainFeatureId == feature.Id)
-              ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
-          }
-          ctx.Db.terrain_feature.Id.Delete(feature.Id);
-        }
+
         foreach (var regen in ctx.Db.passive_regen_tick.Iter())
         {
           if (regen.GameSessionId == gameSession.Id)
@@ -559,10 +624,6 @@ public static partial class Module
           if (tick.GameSessionId == gameSession.Id)
             ctx.Db.ai_squad_tick.Id.Delete(tick.Id);
         }
-        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(gameSession.Id))
-          ctx.Db.corpse.Id.Delete(c.Id);
-        foreach (var cp in ctx.Db.capture_point.GameSessionId.Filter(gameSession.Id))
-          ctx.Db.capture_point.Id.Delete(cp.Id);
         foreach (var ct in ctx.Db.capture_tick.Iter())
         {
           if (ct.GameSessionId == gameSession.Id)

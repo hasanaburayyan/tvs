@@ -39,8 +39,8 @@ public class SpacetimeTestClient : IDisposable
         _dbName = dbName;
 
         conn.Reducers.OnCreatePlayer += (ctx, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnCreateGame += (ctx, _, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnCreateGameAndJoin += (ctx, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateGame += (ctx, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnCreateGameAndJoin += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnDeletePlayer += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnDeleteGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnJoinGame += (ctx, _) => HandleReducerEvent(ctx);
@@ -60,7 +60,7 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnMovePlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnTeleportPlayer += (ctx, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetLoadout += (ctx, _, _, _, _) => HandleReducerEvent(ctx);
-        conn.Reducers.OnUseAbility += (ctx, _, _, _, _, _, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnUseAbility += (ctx, _, _, _, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetTarget += (ctx, _, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnRespawn += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnStartGame += (ctx, _) => HandleReducerEvent(ctx);
@@ -152,10 +152,18 @@ public class SpacetimeTestClient : IDisposable
         return player.Id;
     }
 
+    public ulong GetDefaultMapId()
+    {
+        var map = Db.MapDef.Iter().FirstOrDefault();
+        if (map == null) throw new Exception("No MapDef found — Init may not have run");
+        return map.Id;
+    }
+
     /// Creates a game and returns its ID by finding the session owned by this client.
     public ulong CreateGame(uint maxPlayers, uint? respawnTimerSeconds = null)
     {
-        Call(r => r.CreateGame(maxPlayers, respawnTimerSeconds));
+        var mapId = GetDefaultMapId();
+        Call(r => r.CreateGame(maxPlayers, respawnTimerSeconds, mapId));
         var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
         if (game == null) throw new Exception("CreateGame succeeded but game not found in client cache");
         return game.Id;
@@ -164,7 +172,8 @@ public class SpacetimeTestClient : IDisposable
     /// Creates a game, joins it, and returns the game session ID.
     public ulong CreateGameAndJoin(uint maxPlayers, uint? respawnTimerSeconds = null)
     {
-        Call(r => r.CreateGameAndJoin(maxPlayers, respawnTimerSeconds));
+        var mapId = GetDefaultMapId();
+        Call(r => r.CreateGameAndJoin(maxPlayers, respawnTimerSeconds, mapId));
         var game = Db.GameSession.OwnerIdentity.Filter(Identity).MaxBy(g => g.Id);
         if (game == null) throw new Exception("CreateGameAndJoin succeeded but game not found");
         return game.Id;
@@ -175,8 +184,68 @@ public class SpacetimeTestClient : IDisposable
     {
         var player = Db.Player.Iter().FirstOrDefault(p => p.ControllerIdentity == Identity);
         if (player == null) throw new Exception("No active player");
-        return Db.GamePlayer.GameSessionId.Filter(gameId)
-            .First(gp => gp.PlayerId == player.Id && gp.Active);
+        foreach (var entity in Db.Entity.GameSessionId.Filter(gameId))
+        {
+            if (entity.Type != EntityType.GamePlayer) continue;
+            var gp = Db.GamePlayer.EntityId.Find(entity.EntityId);
+            if (gp != null && gp.PlayerId == player.Id && gp.Active)
+                return gp;
+        }
+        throw new Exception("No active GamePlayer found in session");
+    }
+
+    // ── Entity helpers (for ECS-based lookups) ────────────────────────────────
+
+    public System.Collections.Generic.IEnumerable<SpacetimeDB.Types.GamePlayer> GamePlayersInSession(ulong gameId)
+    {
+        foreach (var entity in Db.Entity.GameSessionId.Filter(gameId))
+        {
+            if (entity.Type != EntityType.GamePlayer) continue;
+            var gp = Db.GamePlayer.EntityId.Find(entity.EntityId);
+            if (gp != null) yield return gp;
+        }
+    }
+
+    public System.Collections.Generic.IEnumerable<SpacetimeDB.Types.Soldier> SoldiersInSession(ulong gameId)
+    {
+        foreach (var entity in Db.Entity.GameSessionId.Filter(gameId))
+        {
+            if (entity.Type != EntityType.Soldier) continue;
+            var s = Db.Soldier.EntityId.Find(entity.EntityId);
+            if (s != null) yield return s;
+        }
+    }
+
+    public System.Collections.Generic.IEnumerable<SpacetimeDB.Types.TerrainFeature> TerrainInSession(ulong gameId)
+    {
+        foreach (var entity in Db.Entity.GameSessionId.Filter(gameId))
+        {
+            if (entity.Type != EntityType.Terrain) continue;
+            var t = Db.TerrainFeature.EntityId.Find(entity.EntityId);
+            if (t != null) yield return t;
+        }
+    }
+
+    public System.Collections.Generic.IEnumerable<SpacetimeDB.Types.Corpse> CorpsesInSession(ulong gameId)
+    {
+        foreach (var entity in Db.Entity.GameSessionId.Filter(gameId))
+        {
+            if (entity.Type != EntityType.Corpse) continue;
+            var c = Db.Corpse.EntityId.Find(entity.EntityId);
+            if (c != null) yield return c;
+        }
+    }
+
+    public SpacetimeDB.Types.Targetable GetTargetable(ulong entityId)
+    {
+        return Db.Targetable.EntityId.Find(entityId)
+            ?? throw new Exception($"Targetable not found for entity {entityId}");
+    }
+
+    public SpacetimeDB.Types.Entity GetEntity(ulong entityId)
+    {
+        return Db.Entity.EntityId.Find(entityId)
+            ?? throw new Exception($"Entity not found: {entityId}");
     }
 
     /// Calls ClearData and waits for it to commit.

@@ -18,7 +18,11 @@ public partial class PlayerRow : HBoxContainer
   private GamePlayer? FindInSession(ulong playerId) {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(playerId))
-	  if (gp.GameSessionId == hud.sessionID && gp.Active) return gp;
+	{
+	  if (!gp.Active) continue;
+	  var entity = conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null && entity.GameSessionId == hud.sessionID) return gp;
+	}
 	return null;
   }
 
@@ -39,12 +43,15 @@ public partial class PlayerRow : HBoxContainer
 	var teleportToGamePlayer = FindInSession(player.Id);
 	if (teleportToGamePlayer is null) return;
 
+	var targetEntity = conn.Db.Entity.EntityId.Find(teleportToGamePlayer.EntityId);
+	if (targetEntity is null) return;
+
 	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId
 	  ?? throw new Exception("No active player selected");
 	var myPlayer = conn.Db.Player.Id.Find(activePlayerId)
 	  ?? throw new Exception("Active player not found");
 
-	conn.Reducers.TeleportPlayer(hud.sessionID, myPlayer.Name, teleportToGamePlayer.Position);
+	conn.Reducers.TeleportPlayer(hud.sessionID, myPlayer.Name, targetEntity.Position);
   }
 
   public void OnTeleportButtonPressed() {
@@ -54,7 +61,10 @@ public partial class PlayerRow : HBoxContainer
 	var myGamePlayer = FindInSession(activePlayerId);
 	if (myGamePlayer is null) return;
 
-	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, myGamePlayer.Position);
+	var myEntity = conn.Db.Entity.EntityId.Find(myGamePlayer.EntityId);
+	if (myEntity is null) return;
+
+	conn.Reducers.TeleportPlayer(hud.sessionID, player.Name, myEntity.Position);
   }
 
   public void OnKickButtonPressed() {
