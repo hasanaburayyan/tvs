@@ -185,7 +185,8 @@ public partial class HotbarSlot : VBoxContainer
 		var aimPoint = Targeting.Instance?.RaycastAimPoint();
 		if (aimPoint is not Vector3 aim) return;
 		var targetPos = new DbVector3 { X = aim.X, Y = aim.Y, Z = aim.Z };
-		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null);
+		var barrelPos = Targeting.Instance?.GetLocalBarrelPosition();
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null, barrelPos);
 		GD.Print($"[Hotbar] Firing {_abilityName}");
 		break;
 	  }
@@ -201,7 +202,7 @@ public partial class HotbarSlot : VBoxContainer
 		var aimPoint = Targeting.Instance?.RaycastAimPoint();
 		if (aimPoint is not Vector3 aim) return;
 		var targetPos = new DbVector3 { X = aim.X, Y = aim.Y, Z = aim.Z };
-		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null);
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null, null);
 		GD.Print($"[Hotbar] Casting {_abilityName} at ground");
 		break;
 	  }
@@ -214,14 +215,14 @@ public partial class HotbarSlot : VBoxContainer
 		  GD.Print($"[Hotbar] {_abilityName} requires an ally target");
 		  return;
 		}
-		conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetEntityId, null, null);
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetEntityId, null, null, null);
 		GD.Print($"[Hotbar] Casting {_abilityName} on ally");
 		break;
 	  }
 
 	  case TargetingMode.SelfCast:
 	  {
-		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, null, null);
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, null, null, null);
 		GD.Print($"[Hotbar] Casting {_abilityName} (self)");
 		break;
 	  }

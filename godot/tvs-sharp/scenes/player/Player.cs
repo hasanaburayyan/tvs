@@ -6,6 +6,7 @@ public partial class Player : CharacterBody3D
 {
 
   public Camera3D Camera;
+  public Marker3D BarrelMarker { get; private set; }
 
   public const float SYNC_INTERVAL = 0.05f;
   public const float Speed = 5.0f;
@@ -37,6 +38,7 @@ public partial class Player : CharacterBody3D
   public override void _Ready()
   {
 	Camera = GetNode<Camera3D>("%Camera3D");
+	BarrelMarker = GetNode<Node3D>("%Nurse").FindChild("EndOfBarrel", true, false) as Marker3D;
 	_lerpStart = Position;
 	_lerpTarget = Position;
 	_rotLerpStart = Rotation.Y;

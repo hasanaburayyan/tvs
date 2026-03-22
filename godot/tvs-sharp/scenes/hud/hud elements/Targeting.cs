@@ -98,6 +98,16 @@ public partial class Targeting : Control
 	return ResolveTarget(result);
   }
 
+  public DbVector3? GetLocalBarrelPosition()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.ActivePlayerId == null) return null;
+	var playerNode = GetTree().Root.FindChild(mgr.ActivePlayerId.Value.ToString(), true, false) as Player;
+	if (playerNode?.BarrelMarker == null) return null;
+	var pos = playerNode.BarrelMarker.GlobalPosition;
+	return new DbVector3 { X = pos.X, Y = pos.Y, Z = pos.Z };
+  }
+
   public Vector3? RaycastAimPoint(Camera3D cam = null)
   {
 	cam ??= GetActiveCamera();
@@ -154,12 +164,14 @@ public partial class Targeting : Control
 	if (aimPoint is not Vector3 aim) return;
 
 	var targetPos = new DbVector3 { X = aim.X, Y = aim.Y, Z = aim.Z };
+	var barrelPos = GetLocalBarrelPosition();
 	conn.Reducers.UseAbility(
 	  localEntity.GameSessionId,
 	  weapon.PrimaryAbilityId,
 	  null,
 	  targetPos,
-	  null
+	  null,
+	  barrelPos
 	);
   }
 

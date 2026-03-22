@@ -343,7 +343,7 @@ public static partial class Module
   }
 
   [SpacetimeDB.Reducer]
-  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetEntityId, DbVector3? targetPosition, float? targetRotationY)
+  public static void UseAbility(ReducerContext ctx, ulong gameId, ulong abilityId, ulong? targetEntityId, DbVector3? targetPosition, float? targetRotationY, DbVector3? spawnPosition)
   {
     var player = GetPlayerForSender(ctx);
     var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
@@ -382,16 +382,27 @@ public static partial class Module
         PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
         SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
 
-        float dx = aimPoint.x - gpEnt.Position.x;
-        float dy = aimPoint.y - gpEnt.Position.y;
-        float dz = aimPoint.z - gpEnt.Position.z;
+        const float MAX_BARREL_OFFSET = 5f;
+        var origin = gpEnt.Position;
+        if (spawnPosition is DbVector3 barrel)
+        {
+          float bx = barrel.x - gpEnt.Position.x;
+          float by = barrel.y - gpEnt.Position.y;
+          float bz = barrel.z - gpEnt.Position.z;
+          if (bx * bx + by * by + bz * bz <= MAX_BARREL_OFFSET * MAX_BARREL_OFFSET)
+            origin = barrel;
+        }
+
+        float dx = aimPoint.x - origin.x;
+        float dy = aimPoint.y - origin.y;
+        float dz = aimPoint.z - origin.z;
         float len = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (len < 0.001f) { dx = 0f; dy = 0f; dz = 1f; len = 1f; }
         float inv = 1f / len;
         dx *= inv; dy *= inv; dz *= inv;
 
         SpawnProjectile(ctx, gameId, gp.EntityId, abilityId,
-          gpEnt.Position, dx, dy, dz,
+          origin, dx, dy, dz,
           ability.ProjectileSpeed > 0 ? ability.ProjectileSpeed : 60f,
           ability.BaseRadius, resolved.Range,
           gpEnt.TeamSlot, resolved.Power,

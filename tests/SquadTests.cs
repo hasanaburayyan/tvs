@@ -575,7 +575,7 @@ public class SquadCombatDistributionTests : IDisposable
     _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, 3f, 0f), 0f));
     target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 3f, 0f), 0f));
 
-    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.EntityId, null, null, null));
 
     var targetAfterHealth = _client.GetTargetable(targetGp.EntityId).Health;
     Assert.True(targetAfterHealth < healthBefore);
@@ -753,7 +753,7 @@ public class SquadSoldierDeathTests : IDisposable
       .First();
     var centerBefore = compositeBefore.CenterPosition;
 
-    _client.Call(r => r.UseAbility(gameId, rifleId, soldierToKill.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifleId, soldierToKill.EntityId, null, null, null));
 
     var killedSoldierTargetable = _client.GetTargetable(soldierToKill.EntityId);
     Assert.True(killedSoldierTargetable.Dead);
@@ -789,7 +789,7 @@ public class SquadSoldierDeathTests : IDisposable
       .Where(c => c.SourceEntityId == soldierToKill.EntityId).Count();
     Assert.Equal(0, corpsesBefore);
 
-    _client.Call(r => r.UseAbility(gameId, rifleId, soldierToKill.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifleId, soldierToKill.EntityId, null, null, null));
 
     var corpsesAfter = _client.CorpsesInSession(gameId)
       .Where(c => c.SourceEntityId == soldierToKill.EntityId).ToList();
@@ -816,15 +816,15 @@ public class SquadSoldierDeathTests : IDisposable
     Assert.True(soldiersBeforeCount > 0, "Target should have soldiers");
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null, null));
 
     var soldierCorpses = _client.CorpsesInSession(gameId)
       .Where(c => c.SourceEntityId != null).Count();
     Assert.True(soldierCorpses > 0, "Should have soldier corpses after fireball");
 
     var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
-    _client.Call(r => r.UseAbility(gameId, rifleId, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, rifleId, targetGp.EntityId, null, null, null));
 
     var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
     Assert.True(targetAfterKill.Dead, "Target player should be dead before respawn");
@@ -918,10 +918,10 @@ public class SquadLifecycleTests : IDisposable
       .First(g => g.PlayerId == gp.PlayerId);
 
     var fireball = attacker.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    attacker.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
+    attacker.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null, null));
     var arcaneBarrage = attacker.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    attacker.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
-    attacker.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null));
+    attacker.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null, null));
+    attacker.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null, null));
 
     _client.Sync();
     var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
@@ -961,10 +961,10 @@ public class SquadLifecycleTests : IDisposable
     var centerBefore = compositeBefore.CenterPosition;
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null, null));
     var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null, null));
 
     var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
     Assert.True(targetAfterKill.Dead, "Target should be dead");
@@ -1024,7 +1024,7 @@ public class SquadSplitResilienceTests : IDisposable
     Assert.Equal(2, soldiers.Count);
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null, null));
 
     var deadSoldiers = _client.SoldiersInSession(gameId)
       .Where(s => s.OwnerPlayerId == targetGp.PlayerId && _client.GetTargetable(s.EntityId).Dead).Count();
@@ -1090,10 +1090,10 @@ public class SquadSplitResilienceTests : IDisposable
     _client.Sync();
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
-    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, fireball.Id, targetGp.EntityId, null, null, null));
     var arcaneBarrage = _client.Db.AbilityDef.Iter().First(a => a.Name == "Arcane Barrage");
-    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null));
-    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null));
+    _client.Call(r => r.UseAbility(gameId, arcaneBarrage.Id, targetGp.EntityId, null, null, null));
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, targetGp.EntityId, null, null, null));
 
     _client.Sync();
     var targetAfterKill = _client.GetTargetable(targetGp.EntityId);
