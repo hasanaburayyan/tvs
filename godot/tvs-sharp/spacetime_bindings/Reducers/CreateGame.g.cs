@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void CreateGameHandler(ReducerEventContext ctx, uint maxPlayers, uint? respawnTimerSeconds);
+        public delegate void CreateGameHandler(ReducerEventContext ctx, uint maxPlayers, uint? respawnTimerSeconds, ulong mapDefId);
         public event CreateGameHandler? OnCreateGame;
 
-        public void CreateGame(uint maxPlayers, uint? respawnTimerSeconds)
+        public void CreateGame(uint maxPlayers, uint? respawnTimerSeconds, ulong mapDefId)
         {
-            conn.InternalCallReducer(new Reducer.CreateGame(maxPlayers, respawnTimerSeconds));
+            conn.InternalCallReducer(new Reducer.CreateGame(maxPlayers, respawnTimerSeconds, mapDefId));
         }
 
         public bool InvokeCreateGame(ReducerEventContext ctx, Reducer.CreateGame args)
@@ -37,7 +37,8 @@ namespace SpacetimeDB.Types
             OnCreateGame(
                 ctx,
                 args.MaxPlayers,
-                args.RespawnTimerSeconds
+                args.RespawnTimerSeconds,
+                args.MapDefId
             );
             return true;
         }
@@ -53,14 +54,18 @@ namespace SpacetimeDB.Types
             public uint MaxPlayers;
             [DataMember(Name = "respawn_timer_seconds")]
             public uint? RespawnTimerSeconds;
+            [DataMember(Name = "map_def_id")]
+            public ulong MapDefId;
 
             public CreateGame(
                 uint MaxPlayers,
-                uint? RespawnTimerSeconds
+                uint? RespawnTimerSeconds,
+                ulong MapDefId
             )
             {
                 this.MaxPlayers = MaxPlayers;
                 this.RespawnTimerSeconds = RespawnTimerSeconds;
+                this.MapDefId = MapDefId;
             }
 
             public CreateGame()

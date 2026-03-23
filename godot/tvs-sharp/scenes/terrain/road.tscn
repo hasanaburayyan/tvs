@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://b85v6avpx1f3"]
+
+[sub_resource type="StandardMaterial3D" id="mat_road"]
+albedo_color = Color(0.08, 0.08, 0.08, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="mesh_road"]
+material = SubResource("mat_road")
+size = Vector3(1, 1, 1)
+
+[sub_resource type="BoxShape3D" id="shape_road"]
+size = Vector3(1, 1, 1)
+
+[node name="Road" type="StaticBody3D" unique_id=813837443]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh_road")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("shape_road")

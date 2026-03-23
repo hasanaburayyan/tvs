@@ -17,14 +17,14 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "resource_pool";
 
-            public sealed class GamePlayerIdIndex : BTreeIndexBase<ulong>
+            public sealed class EntityIdIndex : BTreeIndexBase<ulong>
             {
-                protected override ulong GetKey(ResourcePool row) => row.GamePlayerId;
+                protected override ulong GetKey(ResourcePool row) => row.EntityId;
 
-                public GamePlayerIdIndex(ResourcePoolHandle table) : base(table) { }
+                public EntityIdIndex(ResourcePoolHandle table) : base(table) { }
             }
 
-            public readonly GamePlayerIdIndex GamePlayerId;
+            public readonly EntityIdIndex EntityId;
 
             public sealed class IdUniqueIndex : UniqueIndexBase<ulong>
             {
@@ -37,7 +37,7 @@ namespace SpacetimeDB.Types
 
             internal ResourcePoolHandle(DbConnection conn) : base(conn)
             {
-                GamePlayerId = new(this);
+                EntityId = new(this);
                 Id = new(this);
             }
 
@@ -50,7 +50,7 @@ namespace SpacetimeDB.Types
     public sealed class ResourcePoolCols
     {
         public global::SpacetimeDB.Col<ResourcePool, ulong> Id { get; }
-        public global::SpacetimeDB.Col<ResourcePool, ulong> GamePlayerId { get; }
+        public global::SpacetimeDB.Col<ResourcePool, ulong> EntityId { get; }
         public global::SpacetimeDB.Col<ResourcePool, ResourceKind> Kind { get; }
         public global::SpacetimeDB.Col<ResourcePool, int> Current { get; }
         public global::SpacetimeDB.Col<ResourcePool, int> Max { get; }
@@ -58,7 +58,7 @@ namespace SpacetimeDB.Types
         public ResourcePoolCols(string tableName)
         {
             Id = new global::SpacetimeDB.Col<ResourcePool, ulong>(tableName, "id");
-            GamePlayerId = new global::SpacetimeDB.Col<ResourcePool, ulong>(tableName, "game_player_id");
+            EntityId = new global::SpacetimeDB.Col<ResourcePool, ulong>(tableName, "entity_id");
             Kind = new global::SpacetimeDB.Col<ResourcePool, ResourceKind>(tableName, "kind");
             Current = new global::SpacetimeDB.Col<ResourcePool, int>(tableName, "current");
             Max = new global::SpacetimeDB.Col<ResourcePool, int>(tableName, "max");
@@ -68,12 +68,12 @@ namespace SpacetimeDB.Types
     public sealed class ResourcePoolIxCols
     {
         public global::SpacetimeDB.IxCol<ResourcePool, ulong> Id { get; }
-        public global::SpacetimeDB.IxCol<ResourcePool, ulong> GamePlayerId { get; }
+        public global::SpacetimeDB.IxCol<ResourcePool, ulong> EntityId { get; }
 
         public ResourcePoolIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<ResourcePool, ulong>(tableName, "id");
-            GamePlayerId = new global::SpacetimeDB.IxCol<ResourcePool, ulong>(tableName, "game_player_id");
+            EntityId = new global::SpacetimeDB.IxCol<ResourcePool, ulong>(tableName, "entity_id");
         }
     }
 }

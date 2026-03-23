@@ -15,8 +15,8 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "id")]
         public ulong Id;
-        [DataMember(Name = "game_player_id")]
-        public ulong GamePlayerId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "ability_id")]
         public ulong AbilityId;
         [DataMember(Name = "ready_at")]
@@ -24,13 +24,13 @@ namespace SpacetimeDB.Types
 
         public AbilityCooldown(
             ulong Id,
-            ulong GamePlayerId,
+            ulong EntityId,
             ulong AbilityId,
             SpacetimeDB.Timestamp ReadyAt
         )
         {
             this.Id = Id;
-            this.GamePlayerId = GamePlayerId;
+            this.EntityId = EntityId;
             this.AbilityId = AbilityId;
             this.ReadyAt = ReadyAt;
         }

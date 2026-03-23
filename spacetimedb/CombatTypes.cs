@@ -66,6 +66,7 @@ public static partial class Module
     Infantry,
     Support,
     Scout,
+    Engineer,
   }
 
   [SpacetimeDB.Type]
@@ -88,5 +89,15 @@ public static partial class Module
     Single,
     EvenSplit,
     ProximityFalloff,
+  }
+
+  [SpacetimeDB.Type]
+  public enum TargetingMode : byte
+  {
+    Projectile,
+    GroundTarget,
+    AllyTarget,
+    SelfCast,
+    UpgradeTarget,
   }
 }

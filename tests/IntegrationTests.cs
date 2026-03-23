@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using SpacetimeDB.Types;
 using Xunit;
 
 public class PlayerTests : IDisposable
@@ -205,7 +206,7 @@ public class JoinGameTests : IDisposable
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
 
-    var players = _client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList();
+    var players = _client.GamePlayersInSession(gameId).ToList();
     Assert.Single(players);
     Assert.Equal(playerId, players[0].PlayerId);
   }
@@ -238,12 +239,12 @@ public class JoinGameTests : IDisposable
     _client.CreatePlayerAndGetId("Leaver");
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
-    var gps = _client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList();
+    var gps = _client.GamePlayersInSession(gameId).ToList();
     Assert.Single(gps);
     Assert.True(gps[0].Active);
 
     _client.Call(r => r.LeaveGame(gameId));
-    gps = _client.Db.GamePlayer.GameSessionId.Filter(gameId).ToList();
+    gps = _client.GamePlayersInSession(gameId).ToList();
     Assert.Single(gps);
     Assert.False(gps[0].Active);
   }
@@ -255,18 +256,22 @@ public class JoinGameTests : IDisposable
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
 
-    var movedPos = new SpacetimeDB.Types.DbVector3(10, 5, 10);
+    var movedPos = new DbVector3(10, 5, 10);
     _client.Call(r => r.MovePlayer(gameId, movedPos, 0f));
 
+    var gpBeforeLeave = _client.GamePlayersInSession(gameId).First();
+    var posBeforeLeave = _client.GetEntity(gpBeforeLeave.EntityId).Position;
+    Assert.Equal(movedPos, posBeforeLeave);
+
     _client.Call(r => r.LeaveGame(gameId));
-    var gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
-    Assert.False(gp.Active);
-    Assert.Equal(movedPos, gp.Position);
+    var gpAfterLeave = _client.GamePlayersInSession(gameId).First();
+    Assert.False(gpAfterLeave.Active);
 
     _client.Call(r => r.JoinGame(gameId));
-    gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
-    Assert.True(gp.Active);
-    Assert.Equal(movedPos, gp.Position);
+    var gpAfterRejoin = _client.GamePlayersInSession(gameId).First(gp => gp.Active);
+    var posAfterRejoin = _client.GetEntity(gpAfterRejoin.EntityId).Position;
+    Assert.True(gpAfterRejoin.Active);
+    Assert.Equal(movedPos, posAfterRejoin);
   }
 
   [Fact]
@@ -277,16 +282,16 @@ public class JoinGameTests : IDisposable
     var gameB = _client.CreateGame(4);
 
     _client.Call(r => r.JoinGame(gameA));
-    var gpA = _client.Db.GamePlayer.GameSessionId.Filter(gameA).ToList();
+    var gpA = _client.GamePlayersInSession(gameA).ToList();
     Assert.Single(gpA);
     Assert.True(gpA[0].Active);
 
     _client.Call(r => r.JoinGame(gameB));
-    var gpB = _client.Db.GamePlayer.GameSessionId.Filter(gameB).ToList();
+    var gpB = _client.GamePlayersInSession(gameB).ToList();
     Assert.Single(gpB);
     Assert.True(gpB[0].Active);
 
-    gpA = _client.Db.GamePlayer.GameSessionId.Filter(gameA).ToList();
+    gpA = _client.GamePlayersInSession(gameA).ToList();
     Assert.Single(gpA);
     Assert.False(gpA[0].Active);
   }
@@ -298,18 +303,22 @@ public class JoinGameTests : IDisposable
     var gameId = _client.CreateGame(4);
     _client.Call(r => r.JoinGame(gameId));
 
-    var movedPos = new SpacetimeDB.Types.DbVector3(7, 3, 7);
+    var movedPos = new DbVector3(7, 3, 7);
     _client.Call(r => r.MovePlayer(gameId, movedPos, 0f));
 
+    var gpBeforeKick = _client.GamePlayersInSession(gameId).First();
+    var posBeforeKick = _client.GetEntity(gpBeforeKick.EntityId).Position;
+    Assert.Equal(movedPos, posBeforeKick);
+
     _client.Call(r => r.KickPlayerFromGame(gameId, "KickTarget"));
-    var gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
-    Assert.False(gp.Active);
-    Assert.Equal(movedPos, gp.Position);
+    var gpAfterKick = _client.GamePlayersInSession(gameId).First();
+    Assert.False(gpAfterKick.Active);
 
     _client.Call(r => r.JoinGame(gameId));
-    gp = _client.Db.GamePlayer.GameSessionId.Filter(gameId).First();
-    Assert.True(gp.Active);
-    Assert.Equal(movedPos, gp.Position);
+    var gpAfterRejoin = _client.GamePlayersInSession(gameId).First(gp => gp.Active);
+    var posAfterRejoin = _client.GetEntity(gpAfterRejoin.EntityId).Position;
+    Assert.True(gpAfterRejoin.Active);
+    Assert.Equal(movedPos, posAfterRejoin);
   }
 }
 

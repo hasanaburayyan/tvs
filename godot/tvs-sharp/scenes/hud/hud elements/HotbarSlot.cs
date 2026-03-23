@@ -21,11 +21,13 @@ public partial class HotbarSlot : VBoxContainer
   private ulong _abilityId;
   private string _abilityName;
   private List<TargetType> _validTargets = new();
+  private TargetingMode _targetingMode;
   private float _terrainSizeX;
   private float _terrainSizeY;
   private float _terrainSizeZ;
   private float _baseRange;
-  public ulong _gamePlayerId;
+  private TerrainType? _spawnedTerrainType;
+  public ulong _entityId;
   public ulong _gameSessionId;
 
   private TextureProgressBar _cooldownOverlay;
@@ -71,11 +73,13 @@ public partial class HotbarSlot : VBoxContainer
 	_abilityId = ability.Id;
 	_abilityName = ability.Name;
 	_validTargets = ability.ValidTargets;
+	_targetingMode = ability.Targeting;
 	_gameSessionId = gameSessionId;
 	_baseRange = ability.BaseRange;
 	_terrainSizeX = ability.TerrainSizeX;
 	_terrainSizeY = ability.TerrainSizeY;
 	_terrainSizeZ = ability.TerrainSizeZ;
+	_spawnedTerrainType = ability.SpawnedTerrainType;
 	_cooldownDurationSec = ability.CooldownMs / 1000.0;
 
 	_label.Text = keybindLabel;
@@ -120,21 +124,21 @@ public partial class HotbarSlot : VBoxContainer
 
   public void OnAbilityCoolDownInsert(EventContext ctx, AbilityCooldown ac)
   {
-	if (ac.GamePlayerId != _gamePlayerId) return;
+	if (ac.EntityId != _entityId) return;
 	if (ac.AbilityId != _abilityId) return;
 	StartCooldown(ac.ReadyAt);
   }
 
   public void OnAbilityCoolDownUpdate(EventContext ctx, AbilityCooldown oldAC, AbilityCooldown newAC)
   {
-	if (newAC.GamePlayerId != _gamePlayerId) return;
+	if (newAC.EntityId != _entityId) return;
 	if (newAC.AbilityId != _abilityId) return;
 	StartCooldown(newAC.ReadyAt);
   }
 
   public void OnAbilityCoolDownDelete(EventContext ctx, AbilityCooldown ac)
   {
-	if (ac.GamePlayerId != _gamePlayerId) return;
+	if (ac.EntityId != _entityId) return;
 	if (ac.AbilityId != _abilityId) return;
 	ClearCooldown();
   }
@@ -166,18 +170,6 @@ public partial class HotbarSlot : VBoxContainer
 	GetViewport().SetInputAsHandled();
   }
 
-  private bool RequiresTarget()
-  {
-	return _validTargets.Contains(TargetType.Enemy) || _validTargets.Contains(TargetType.Ally);
-  }
-
-  private bool IsGroundTargeted()
-  {
-	return _validTargets.Contains(TargetType.Ground)
-	  && !_validTargets.Contains(TargetType.Enemy)
-	  && !_validTargets.Contains(TargetType.Ally);
-  }
-
   private void CastAbility()
   {
 	if (_abilityId == 0) return;
@@ -188,22 +180,62 @@ public partial class HotbarSlot : VBoxContainer
 
 	var conn = mgr.Conn;
 
-	if (IsGroundTargeted() && _terrainSizeX > 0)
+	switch (_targetingMode)
 	{
-	  PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ);
-	  GD.Print($"[Hotbar] Entering placement mode for {_abilityName}");
-	  return;
+	  case TargetingMode.Projectile:
+	  {
+		var aimPoint = Targeting.Instance?.RaycastAimPoint();
+		if (aimPoint is not Vector3 aim) return;
+		var targetPos = new DbVector3 { X = aim.X, Y = aim.Y, Z = aim.Z };
+		var barrelPos = Targeting.Instance?.GetLocalBarrelPosition();
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null, barrelPos);
+		GD.Print($"[Hotbar] Firing {_abilityName}");
+		break;
+	  }
+
+	  case TargetingMode.GroundTarget:
+	  {
+		if (_terrainSizeX > 0)
+		{
+		  bool snap = _spawnedTerrainType == TerrainType.Road;
+		  PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ, snap);
+		  GD.Print($"[Hotbar] Entering placement mode for {_abilityName}");
+		  return;
+		}
+		var aimPoint = Targeting.Instance?.RaycastAimPoint();
+		if (aimPoint is not Vector3 aim) return;
+		var targetPos = new DbVector3 { X = aim.X, Y = aim.Y, Z = aim.Z };
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null, null);
+		GD.Print($"[Hotbar] Casting {_abilityName} at ground");
+		break;
+	  }
+
+	  case TargetingMode.UpgradeTarget:
+	  {
+		UpgradeMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange);
+		GD.Print($"[Hotbar] Entering upgrade targeting for {_abilityName}");
+		return;
+	  }
+
+	  case TargetingMode.AllyTarget:
+	  {
+		var targetEntityId = Targeting.Instance?.ResolveCurrentTargetEntityId(_abilityId);
+		if (targetEntityId == null)
+		{
+		  GD.Print($"[Hotbar] {_abilityName} requires an ally target");
+		  return;
+		}
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetEntityId, null, null, null);
+		GD.Print($"[Hotbar] Casting {_abilityName} on ally");
+		break;
+	  }
+
+	  case TargetingMode.SelfCast:
+	  {
+		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, null, null, null);
+		GD.Print($"[Hotbar] Casting {_abilityName} (self)");
+		break;
+	  }
 	}
-
-	var (targetGpId, targetSoldierId, targetTerrainId) = Targeting.Instance?.ResolveCurrentTarget(_abilityId) ?? (null, null, null);
-
-	if (RequiresTarget() && targetGpId == null && targetSoldierId == null)
-	{
-	  GD.Print($"[Hotbar] {_abilityName} requires a target");
-	  return;
-	}
-
-	conn.Reducers.UseAbility(_gameSessionId, _abilityId, targetGpId, targetSoldierId, targetTerrainId, null, null);
-	GD.Print($"[Hotbar] Casting {_abilityName}");
   }
 }

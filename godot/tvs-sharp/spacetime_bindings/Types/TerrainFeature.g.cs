@@ -13,74 +13,42 @@ namespace SpacetimeDB.Types
     [DataContract]
     public sealed partial class TerrainFeature
     {
-        [DataMember(Name = "id")]
-        public ulong Id;
-        [DataMember(Name = "game_session_id")]
-        public ulong GameSessionId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "type")]
         public TerrainType Type;
-        [DataMember(Name = "pos_x")]
-        public float PosX;
-        [DataMember(Name = "pos_y")]
-        public float PosY;
-        [DataMember(Name = "pos_z")]
-        public float PosZ;
         [DataMember(Name = "size_x")]
         public float SizeX;
         [DataMember(Name = "size_y")]
         public float SizeY;
         [DataMember(Name = "size_z")]
         public float SizeZ;
-        [DataMember(Name = "rotation_y")]
-        public float RotationY;
-        [DataMember(Name = "team_index")]
-        public byte TeamIndex;
-        [DataMember(Name = "caster_game_player_id")]
-        public ulong? CasterGamePlayerId;
+        [DataMember(Name = "caster_entity_id")]
+        public ulong? CasterEntityId;
         [DataMember(Name = "expires_at")]
         public SpacetimeDB.Timestamp? ExpiresAt;
         [DataMember(Name = "expired")]
         public bool Expired;
-        [DataMember(Name = "health")]
-        public int Health;
-        [DataMember(Name = "max_health")]
-        public int MaxHealth;
 
         public TerrainFeature(
-            ulong Id,
-            ulong GameSessionId,
+            ulong EntityId,
             TerrainType Type,
-            float PosX,
-            float PosY,
-            float PosZ,
             float SizeX,
             float SizeY,
             float SizeZ,
-            float RotationY,
-            byte TeamIndex,
-            ulong? CasterGamePlayerId,
+            ulong? CasterEntityId,
             SpacetimeDB.Timestamp? ExpiresAt,
-            bool Expired,
-            int Health,
-            int MaxHealth
+            bool Expired
         )
         {
-            this.Id = Id;
-            this.GameSessionId = GameSessionId;
+            this.EntityId = EntityId;
             this.Type = Type;
-            this.PosX = PosX;
-            this.PosY = PosY;
-            this.PosZ = PosZ;
             this.SizeX = SizeX;
             this.SizeY = SizeY;
             this.SizeZ = SizeZ;
-            this.RotationY = RotationY;
-            this.TeamIndex = TeamIndex;
-            this.CasterGamePlayerId = CasterGamePlayerId;
+            this.CasterEntityId = CasterEntityId;
             this.ExpiresAt = ExpiresAt;
             this.Expired = Expired;
-            this.Health = Health;
-            this.MaxHealth = MaxHealth;
         }
 
         public TerrainFeature()

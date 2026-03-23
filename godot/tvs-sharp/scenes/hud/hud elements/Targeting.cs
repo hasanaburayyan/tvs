@@ -1,6 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 using SpacetimeDB.Types;
+using TargetableComponent = global::Targetable;
 
 public partial class Targeting : Control
 {
@@ -23,7 +24,7 @@ public partial class Targeting : Control
 
   private Camera3D _camera;
   private Node3D _currentTarget;
-  private Targetable _currentTargetable;
+  private TargetableComponent _currentTargetable;
   private MeshInstance3D _ringIndicator;
 
   public override void _Ready()
@@ -50,6 +51,7 @@ public partial class Targeting : Control
   {
 	if (@event is not InputEventMouseButton mb || !mb.Pressed) return;
 	if (PlacementMode.Instance?.IsActive == true) return;
+	if (UpgradeMode.Instance?.IsActive == true) return;
 
 	var cam = GetActiveCamera();
 	if (cam == null) return;
@@ -69,9 +71,7 @@ public partial class Targeting : Control
 	}
 	else if (mb.ButtonIndex == MouseButton.Left)
 	{
-	  var (target, targetable) = RaycastFromScreenCenter(cam);
-	  SetTarget(target, targetable);
-	  FirePrimaryAbility();
+	  FirePrimaryAbility(cam);
 	}
   }
 
@@ -89,7 +89,7 @@ public partial class Targeting : Control
 	SetTarget(target, targetable);
   }
 
-  private (Node3D, Targetable) RaycastFromScreenCenter(Camera3D cam)
+  private (Node3D, TargetableComponent) RaycastFromScreenCenter(Camera3D cam)
   {
 	var center = GetViewport().GetVisibleRect().Size / 2;
 	var rayOrigin = cam.ProjectRayOrigin(center);
@@ -99,7 +99,59 @@ public partial class Targeting : Control
 	return ResolveTarget(result);
   }
 
-  private void FirePrimaryAbility()
+  public DbVector3? GetLocalBarrelPosition()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.ActivePlayerId == null) return null;
+
+	var idStr = mgr.ActivePlayerId.Value.ToString();
+	Player playerNode = null;
+
+	var scene = GetTree().CurrentScene;
+	if (scene != null)
+	  playerNode = scene.GetNodeOrNull<Player>(idStr);
+
+	if (playerNode == null)
+	  playerNode = GetTree().Root.FindChild(idStr, true, false) as Player;
+
+	if (playerNode == null) return null;
+
+	if (playerNode.BarrelMarker != null)
+	{
+	  var pos = playerNode.BarrelMarker.GlobalPosition;
+	  return new DbVector3 { X = pos.X, Y = pos.Y, Z = pos.Z };
+	}
+
+	var gp = playerNode.GlobalPosition;
+	float yaw = playerNode.Rotation.Y;
+	float forwardX = -Mathf.Sin(yaw);
+	float forwardZ = -Mathf.Cos(yaw);
+	return new DbVector3
+	{
+	  X = gp.X + forwardX * 0.3f,
+	  Y = gp.Y + 1.4f,
+	  Z = gp.Z + forwardZ * 0.3f,
+	};
+  }
+
+  public Vector3? RaycastAimPoint(Camera3D cam = null)
+  {
+	cam ??= GetActiveCamera();
+	if (cam == null) return null;
+
+	var center = GetViewport().GetVisibleRect().Size / 2;
+	var rayOrigin = cam.ProjectRayOrigin(center);
+	var rayEnd = rayOrigin + cam.ProjectRayNormal(center) * RayLength;
+	var query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
+	var result = GetViewport().World3D.DirectSpaceState.IntersectRay(query);
+
+	if (result != null && result.Count > 0 && result.TryGetValue("position", out var posVariant))
+	  return (Vector3)posVariant;
+
+	return rayEnd;
+  }
+
+  private void FirePrimaryAbility(Camera3D cam)
   {
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
@@ -117,8 +169,11 @@ public partial class Targeting : Control
 	}
 	if (localGp == null) return;
 
+	var localEntity = conn.Db.Entity.EntityId.Find(localGp.EntityId);
+	if (localEntity == null) return;
+
 	Loadout loadout = null;
-	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localGp.GameSessionId))
+	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localEntity.GameSessionId))
 	{
 	  if (lo.PlayerId == mgr.ActivePlayerId)
 	  {
@@ -131,37 +186,18 @@ public partial class Targeting : Control
 	var weapon = conn.Db.WeaponDef.Id.Find(loadout.WeaponDefId);
 	if (weapon == null) return;
 
-	var ability = conn.Db.AbilityDef.Id.Find(weapon.PrimaryAbilityId);
-	if (ability == null) return;
+	var aimPoint = RaycastAimPoint(cam);
+	if (aimPoint is not Vector3 aim) return;
 
-	ulong? targetGpId = null;
-	ulong? targetSoldierId = null;
-	ulong? targetTerrainId = null;
-
-	if (_currentTargetable != null)
-	{
-	  switch (_currentTargetable.Kind)
-	  {
-		case TargetKind.Player:
-		  targetGpId = _currentTargetable.EntityId;
-		  break;
-		case TargetKind.Soldier:
-		  if (ability.AllowSubSquadTargeting)
-			targetSoldierId = _currentTargetable.EntityId;
-		  else
-			targetGpId = ResolveSquadTarget(_currentTargetable);
-		  break;
-		case TargetKind.TerrainFeature:
-		  targetTerrainId = _currentTargetable.EntityId;
-		  break;
-	  }
-	}
-
+	var targetPos = new DbVector3 { X = aim.X, Y = aim.Y, Z = aim.Z };
+	var barrelPos = GetLocalBarrelPosition();
 	conn.Reducers.UseAbility(
-	  localGp.GameSessionId,
+	  localEntity.GameSessionId,
 	  weapon.PrimaryAbilityId,
-	  targetGpId, targetSoldierId, targetTerrainId,
-	  null, null
+	  null,
+	  targetPos,
+	  null,
+	  barrelPos
 	);
   }
 
@@ -178,8 +214,8 @@ public partial class Targeting : Control
 
 	if (_currentTargetable != null && !ActiveWeaponAllowsSubSquadTargeting())
 	{
-	  var gpId = ResolveSquadTarget(_currentTargetable);
-	  if (gpId is ulong id && id != 0)
+	  var resolvedEntityId = ResolveSquadTarget(_currentTargetable);
+	  if (resolvedEntityId is ulong id && id != 0)
 	  {
 		var bounds = ComputeSquadBounds(id);
 		if (bounds.HasValue)
@@ -205,7 +241,7 @@ public partial class Targeting : Control
 	_ringIndicator.Visible = false;
   }
 
-  private void SetTarget(Node3D target, Targetable targetable)
+  private void SetTarget(Node3D target, TargetableComponent targetable)
   {
 	_currentTarget = target;
 	_currentTargetable = targetable;
@@ -221,33 +257,40 @@ public partial class Targeting : Control
 	_ringIndicator.Scale = new Vector3(IndividualRingRadius, 1f, IndividualRingRadius);
 	_ringIndicator.Visible = true;
 
-	SyncTargetToServer(ResolveSquadTarget(targetable));
+	SyncTargetToServer(targetable?.EntityId);
   }
 
-  private static void SyncTargetToServer(ulong? gamePlayerId)
+  private static void SyncTargetToServer(ulong? targetEntityId)
   {
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
 
 	var conn = mgr.Conn;
 
+	GamePlayer localGp = null;
 	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
 	{
 	  if (gp.Active)
 	  {
-		conn.Reducers.SetTarget(gp.GameSessionId, gamePlayerId);
-		return;
+		localGp = gp;
+		break;
 	  }
 	}
+	if (localGp == null) return;
+
+	var localEntity = conn.Db.Entity.EntityId.Find(localGp.EntityId);
+	if (localEntity == null) return;
+
+	conn.Reducers.SetTarget(localEntity.GameSessionId, targetEntityId);
   }
 
-  private (Node3D, Targetable) ResolveTarget(Godot.Collections.Dictionary result)
+  private (Node3D, TargetableComponent) ResolveTarget(Godot.Collections.Dictionary result)
   {
 	if (result == null || result.Count == 0) return (null, null);
 	if (!result.TryGetValue("collider", out var colliderVariant)) return (null, null);
 	if (colliderVariant.Obj is not Node colliderNode) return (null, null);
 
-	var targetable = Targetable.FindIn(colliderNode);
+	var targetable = TargetableComponent.FindIn(colliderNode);
 	if (targetable == null) return (null, null);
 
 	var owner = targetable.GetOwner<Node3D>();
@@ -258,13 +301,19 @@ public partial class Targeting : Control
 	return (owner, targetable);
   }
 
-  private static bool IsOwnEntity(Node3D node, Targetable targetable)
+  private static bool IsOwnEntity(Node3D node, TargetableComponent targetable)
   {
-	switch (targetable.Kind)
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return false;
+
+	var entity = conn.Db.Entity.EntityId.Find(targetable.EntityId);
+	if (entity == null) return false;
+
+	switch (entity.Type)
 	{
-	  case TargetKind.Player:
+	  case EntityType.GamePlayer:
 		return node is Player player && player.IsLocal;
-	  case TargetKind.Soldier:
+	  case EntityType.Soldier:
 		var mgr = SpacetimeNetworkManager.Instance;
 		return mgr?.ActivePlayerId != null && node is Soldier soldier
 		  && soldier.OwnerPlayerId == mgr.ActivePlayerId;
@@ -273,60 +322,52 @@ public partial class Targeting : Control
 	}
   }
 
-  public (ulong? gpId, ulong? soldierId, ulong? terrainId) ResolveCurrentTarget(ulong abilityId)
+  public ulong? ResolveCurrentTargetEntityId(ulong abilityId)
   {
-	if (_currentTargetable == null) return (null, null, null);
+	if (_currentTargetable == null) return null;
 
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
-	if (conn == null) return (null, null, null);
+	if (conn == null) return null;
 
 	var ability = conn.Db.AbilityDef.Id.Find(abilityId);
+	if (ability != null && !ability.AllowSubSquadTargeting)
+	  return ResolveSquadTarget(_currentTargetable);
 
-	switch (_currentTargetable.Kind)
-	{
-	  case TargetKind.Player:
-		return (_currentTargetable.EntityId, null, null);
-	  case TargetKind.Soldier:
-		if (ability != null && ability.AllowSubSquadTargeting)
-		  return (null, _currentTargetable.EntityId, null);
-		return (ResolveSquadTarget(_currentTargetable), null, null);
-	  case TargetKind.TerrainFeature:
-		return (null, null, _currentTargetable.EntityId);
-	  default:
-		return (null, null, null);
-	}
+	return _currentTargetable.EntityId;
   }
 
   public bool HasTarget => _currentTargetable != null;
 
-  private ulong? ResolveSquadTarget(Targetable targetable)
+  private ulong? ResolveSquadTarget(TargetableComponent targetable)
   {
 	if (targetable == null) return null;
-	return targetable.Kind switch
+
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return null;
+
+	var entity = conn.Db.Entity.EntityId.Find(targetable.EntityId);
+	if (entity == null) return null;
+
+	return entity.Type switch
 	{
-	  TargetKind.Player => targetable.EntityId,
-	  TargetKind.Soldier => FindOwnerGamePlayerId(targetable.EntityId) is var id and > 0 ? id : null,
-	  _ => null,
+	  EntityType.GamePlayer => targetable.EntityId,
+	  EntityType.Soldier => FindOwnerPlayerEntityId(targetable.EntityId) is var id and > 0 ? id : null,
+	  _ => targetable.EntityId,
 	};
   }
 
-  private static ulong FindOwnerGamePlayerId(ulong soldierId)
+  private static ulong FindOwnerPlayerEntityId(ulong soldierEntityId)
   {
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
 	if (conn == null) return 0;
 
-	foreach (var sq in conn.Db.Squad.SoldierId.Filter(soldierId))
+	foreach (var sq in conn.Db.Squad.EntityId.Filter(soldierEntityId))
 	{
 	  if (sq.ParentSquadId == 0) return 0;
-	  var parent = conn.Db.Squad.Id.Find(sq.ParentSquadId);
-	  if (parent == null) return 0;
 
-	  foreach (var sibling in conn.Db.Squad.ParentSquadId.Filter(parent.Id))
-	  {
-		if (sibling.GamePlayerId != 0) return sibling.GamePlayerId;
-	  }
+	  var root = conn.Db.Squad.Id.Find(sq.ParentSquadId);
+	  if (root == null) return 0;
 
-	  var root = parent;
 	  int depth = 0;
 	  while (root.ParentSquadId != 0 && depth < 100)
 	  {
@@ -335,9 +376,15 @@ public partial class Targeting : Control
 		root = p;
 		depth++;
 	  }
+
 	  foreach (var leaf in IterateLeaves(conn, root.Id))
 	  {
-		if (leaf.GamePlayerId != 0) return leaf.GamePlayerId;
+		if (leaf.EntityId != 0)
+		{
+		  var leafEntity = conn.Db.Entity.EntityId.Find(leaf.EntityId);
+		  if (leafEntity?.Type == EntityType.GamePlayer)
+			return leaf.EntityId;
+		}
 	  }
 	}
 	return 0;
@@ -355,7 +402,7 @@ public partial class Targeting : Control
 	var squad = conn.Db.Squad.Id.Find(squadId);
 	if (squad == null) return;
 
-	if (squad.GamePlayerId != 0 || squad.SoldierId != 0)
+	if (squad.EntityId != 0)
 	{
 	  leaves.Add(squad);
 	  return;
@@ -380,8 +427,11 @@ public partial class Targeting : Control
 	}
 	if (localGp == null) return false;
 
+	var localEntity = conn.Db.Entity.EntityId.Find(localGp.EntityId);
+	if (localEntity == null) return false;
+
 	Loadout loadout = null;
-	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localGp.GameSessionId))
+	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localEntity.GameSessionId))
 	{
 	  if (lo.PlayerId == mgr.ActivePlayerId) { loadout = lo; break; }
 	}
@@ -396,13 +446,13 @@ public partial class Targeting : Control
 	return ability.AllowSubSquadTargeting;
   }
 
-  private (Vector3 center, float radius)? ComputeSquadBounds(ulong targetGamePlayerId)
+  private (Vector3 center, float radius)? ComputeSquadBounds(ulong targetEntityId)
   {
 	var conn = SpacetimeNetworkManager.Instance?.Conn;
 	if (conn == null) return null;
 
 	Squad leafSquad = null;
-	foreach (var sq in conn.Db.Squad.GamePlayerId.Filter(targetGamePlayerId))
+	foreach (var sq in conn.Db.Squad.EntityId.Filter(targetEntityId))
 	{
 	  leafSquad = sq;
 	  break;
@@ -435,19 +485,12 @@ public partial class Targeting : Control
 	var squad = conn.Db.Squad.Id.Find(squadId);
 	if (squad == null) return;
 
-	if (squad.GamePlayerId != 0)
+	if (squad.EntityId != 0)
 	{
-	  var gp = conn.Db.GamePlayer.Id.Find(squad.GamePlayerId);
-	  if (gp != null && !gp.Dead)
-		positions.Add(new Vector3(gp.Position.X, gp.Position.Y, gp.Position.Z));
-	  return;
-	}
-
-	if (squad.SoldierId != 0)
-	{
-	  var sol = conn.Db.Soldier.Id.Find(squad.SoldierId);
-	  if (sol != null && !sol.Dead)
-		positions.Add(new Vector3(sol.Position.X, sol.Position.Y, sol.Position.Z));
+	  var entity = conn.Db.Entity.EntityId.Find(squad.EntityId);
+	  var targetable = conn.Db.Targetable.EntityId.Find(squad.EntityId);
+	  if (entity != null && (targetable == null || !targetable.Dead))
+		positions.Add(new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z));
 	  return;
 	}
 

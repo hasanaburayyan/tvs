@@ -28,23 +28,33 @@ public partial class PlayerManager : Node
 
   public void LoadLobby() {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
-	foreach (var gamePlayer in conn.Db.GamePlayer.GameSessionId.Filter(GameId)) {
-	  if (gamePlayer.Active) SpawnPlayer(gamePlayer);
-	}
 
-	foreach (var corpse in conn.Db.Corpse.GameSessionId.Filter(GameId))
-	  SpawnCorpse(corpse);
+	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(GameId))
+	{
+	  if (entity.Type == EntityType.GamePlayer)
+	  {
+		var gp = conn.Db.GamePlayer.EntityId.Find(entity.EntityId);
+		if (gp != null && gp.Active) SpawnPlayer(entity, gp);
+	  }
+	  else if (entity.Type == EntityType.Corpse)
+	  {
+		var corpse = conn.Db.Corpse.EntityId.Find(entity.EntityId);
+		if (corpse != null) SpawnCorpse(entity, corpse);
+	  }
+	}
 
 	conn.Db.GamePlayer.OnInsert += OnGamePlayerInsert;
 	conn.Db.GamePlayer.OnDelete += OnGamePlayerDelete;
 	conn.Db.GamePlayer.OnUpdate += OnGamePlayerUpdate;
+	conn.Db.Entity.OnUpdate += OnEntityUpdate;
+	conn.Db.Targetable.OnUpdate += OnTargetableUpdate;
 	conn.Db.PositionOverride.OnInsert += OnPositionOverrideInsert;
 	conn.Db.BattleLog.OnInsert += OnBattleLogInsert;
 	conn.Db.Corpse.OnInsert += OnCorpseInsert;
 	conn.Db.Corpse.OnDelete += OnCorpseDelete;
   }
 
-  public void SpawnPlayer(GamePlayer gamePlayer) {
+  public void SpawnPlayer(Entity entity, GamePlayer gamePlayer) {
 	var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Id.Find(gamePlayer.PlayerId);
 	if (owner is null)
 	{
@@ -52,33 +62,36 @@ public partial class PlayerManager : Node
 	  return;
 	}
 
+	var targetable = SpacetimeNetworkManager.Instance.Conn.Db.Targetable.EntityId.Find(entity.EntityId);
+
 	var player = PlayerScene.Instantiate<Player>();
 	player.Name = gamePlayer.PlayerId.ToString();
 	player.PlayerId = gamePlayer.PlayerId;
-	player.GamePlayerId = gamePlayer.Id;
+	player.EntityId = entity.EntityId;
 	player.GameId = GameId;
-	player.Position = new Vector3(gamePlayer.Position.X, gamePlayer.Position.Y, gamePlayer.Position.Z);
-	player.Rotation = new Vector3(0, gamePlayer.RotationY, 0);
+	player.Position = new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
+	player.Rotation = new Vector3(0, entity.RotationY, 0);
 	player.username = owner.Name;
 	PlayerSpawnPath.AddChild(player);
 
-	player.SetTeamColor(gamePlayer.TeamSlot);
+	player.SetTeamColor(entity.TeamSlot);
 
-	if (gamePlayer.Dead)
+	if (targetable != null && targetable.Dead)
 	  player.PlayDeath();
   }
 
   public void OnGamePlayerInsert(EventContext ctx, GamePlayer gamePlayer) {
-	if (gamePlayer.GameSessionId != GameId || !gamePlayer.Active) {
-	  return;
-	}
-	SpawnPlayer(gamePlayer);
+	if (!gamePlayer.Active) return;
+
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(gamePlayer.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+
+	SpawnPlayer(entity, gamePlayer);
   }
 
   public void OnGamePlayerDelete(EventContext ctx, GamePlayer gamePlayer) {
-	if (gamePlayer.GameSessionId != GameId) {
-	  return;
-	}
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(gamePlayer.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
 	RemovePlayer(gamePlayer);
   }
 
@@ -93,9 +106,8 @@ public partial class PlayerManager : Node
   }
 
   public void OnGamePlayerUpdate(EventContext ctx, GamePlayer oldGamePlayer, GamePlayer newGamePlayer) {
-	if (newGamePlayer.GameSessionId != GameId) {
-	  return;
-	}
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(newGamePlayer.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
 
 	if (oldGamePlayer.Active && !newGamePlayer.Active) {
 	  RemovePlayer(oldGamePlayer);
@@ -103,110 +115,135 @@ public partial class PlayerManager : Node
 	}
 
 	if (!oldGamePlayer.Active && newGamePlayer.Active) {
-	  SpawnPlayer(newGamePlayer);
+	  SpawnPlayer(entity, newGamePlayer);
 	  return;
 	}
 
 	if (newGamePlayer.Active) {
-	  var player = PlayerSpawnPath.GetNodeOrNull<Player>(newGamePlayer.PlayerId.ToString());
-	  if (player != null) {
-		if (!oldGamePlayer.Dead && newGamePlayer.Dead)
-		{
-		  player.PlayDeath();
-	  
-
-		  var conn = SpacetimeNetworkManager.Instance.Conn;
-		  string victimName = conn.Db.Player.Id.Find(newGamePlayer.PlayerId)?.Name ?? "Unknown";
-		  string killerName = "Unknown";
-		  byte killerTeam = 0;
-
-		  var killLog = conn.Db.BattleLog.GameSessionId.Filter(GameId)
-			.FirstOrDefault(log => log.EventType == BattleLogEventType.Kill
-			  && log.TargetGamePlayerIds.Contains(newGamePlayer.Id));
-
-		  if (killLog != null)
-		  {
-			var actorGp = conn.Db.GamePlayer.Id.Find(killLog.ActorGamePlayerId);
-			if (actorGp != null)
-			{
-			  killerName = conn.Db.Player.Id.Find(actorGp.PlayerId)?.Name ?? "Unknown";
-			  killerTeam = actorGp.TeamSlot;
-			}
-		  }
-
-		  EmitSignal(SignalName.PlayerKilled, killerName, victimName, killerTeam, newGamePlayer.TeamSlot);
-
-		  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
-		  {
-			var session = conn.Db.GameSession.Id.Find(GameId);
-			uint timer = session?.RespawnTimerSeconds ?? 15;
-			long diedMicros = newGamePlayer.DiedAt?.MicrosecondsSinceUnixEpoch ?? 0;
-			EmitSignal(SignalName.LocalPlayerDied, GameId, diedMicros, timer);
-		  }
-		}
-		else if (oldGamePlayer.Dead && !newGamePlayer.Dead)
-		{
-		  player.Revive();
-		  player.ApplyPositionOverride(
-			new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z)
-		  );
-
-		  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
-			EmitSignal(SignalName.LocalPlayerRevived);
-		}
-		else
-		{
-		  player.OnStateUpdated(
-			new Vector3(newGamePlayer.Position.X, newGamePlayer.Position.Y, newGamePlayer.Position.Z),
-			newGamePlayer.RotationY
-		  );
-		}
-
-		if (oldGamePlayer.TeamSlot != newGamePlayer.TeamSlot)
-		  player.SetTeamColor(newGamePlayer.TeamSlot);
-	  }
-
 	  if (newGamePlayer.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId
-		&& oldGamePlayer.TargetGamePlayerId != null
-		&& newGamePlayer.TargetGamePlayerId == null)
+		&& oldGamePlayer.TargetEntityId != null
+		&& newGamePlayer.TargetEntityId == null)
 	  {
 		Targeting.Instance?.ClearTarget();
 	  }
 	}
   }
 
-  private void SpawnCorpse(SpacetimeDB.Types.Corpse corpse)
+  private void OnEntityUpdate(EventContext ctx, Entity oldEntity, Entity newEntity) {
+	if (newEntity.GameSessionId != GameId) return;
+	if (newEntity.Type != EntityType.GamePlayer) return;
+
+	var gp = SpacetimeNetworkManager.Instance.Conn.Db.GamePlayer.EntityId.Find(newEntity.EntityId);
+	if (gp == null || !gp.Active) return;
+
+	var player = PlayerSpawnPath.GetNodeOrNull<Player>(gp.PlayerId.ToString());
+	if (player == null) return;
+
+	if (!player.IsLocal)
+	{
+	  player.OnStateUpdated(
+		new Vector3(newEntity.Position.X, newEntity.Position.Y, newEntity.Position.Z),
+		newEntity.RotationY
+	  );
+	}
+
+	if (oldEntity.TeamSlot != newEntity.TeamSlot)
+	  player.SetTeamColor(newEntity.TeamSlot);
+  }
+
+  private void OnTargetableUpdate(EventContext ctx, SpacetimeDB.Types.Targetable oldT, SpacetimeDB.Types.Targetable newT) {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	var entity = conn.Db.Entity.EntityId.Find(newT.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	if (entity.Type != EntityType.GamePlayer) return;
+
+	var gp = conn.Db.GamePlayer.EntityId.Find(newT.EntityId);
+	if (gp == null || !gp.Active) return;
+
+	var player = PlayerSpawnPath.GetNodeOrNull<Player>(gp.PlayerId.ToString());
+	if (player == null) return;
+
+	if (!oldT.Dead && newT.Dead)
+	{
+	  player.PlayDeath();
+
+	  string victimName = conn.Db.Player.Id.Find(gp.PlayerId)?.Name ?? "Unknown";
+	  string killerName = "Unknown";
+	  byte killerTeam = 0;
+
+	  var killLog = conn.Db.BattleLog.GameSessionId.Filter(GameId)
+		.FirstOrDefault(log => log.EventType == BattleLogEventType.Kill
+		  && log.TargetEntityIds.Contains(newT.EntityId));
+
+	  if (killLog != null)
+	  {
+		var actorEntity = conn.Db.Entity.EntityId.Find(killLog.ActorEntityId);
+		var actorGp = conn.Db.GamePlayer.EntityId.Find(killLog.ActorEntityId);
+		if (actorGp != null)
+		{
+		  killerName = conn.Db.Player.Id.Find(actorGp.PlayerId)?.Name ?? "Unknown";
+		  killerTeam = actorEntity?.TeamSlot ?? 0;
+		}
+	  }
+
+	  EmitSignal(SignalName.PlayerKilled, killerName, victimName, killerTeam, entity.TeamSlot);
+
+	  if (gp.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
+	  {
+		var session = conn.Db.GameSession.Id.Find(GameId);
+		uint timer = session?.RespawnTimerSeconds ?? 15;
+		long diedMicros = newT.DiedAt?.MicrosecondsSinceUnixEpoch ?? 0;
+		EmitSignal(SignalName.LocalPlayerDied, GameId, diedMicros, timer);
+	  }
+	}
+	else if (oldT.Dead && !newT.Dead)
+	{
+	  player.Revive();
+	  player.ApplyPositionOverride(
+		new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z)
+	  );
+
+	  if (gp.PlayerId == SpacetimeNetworkManager.Instance.ActivePlayerId)
+		EmitSignal(SignalName.LocalPlayerRevived);
+	}
+  }
+
+  private void SpawnCorpse(Entity entity, SpacetimeDB.Types.Corpse corpse)
   {
 	var container = CorpseContainer ?? this;
 	var node = new Corpse();
-	node.Name = $"Corpse_{corpse.Id}";
-	node.CorpseId = corpse.Id;
-	node.GamePlayerId = corpse.GamePlayerId;
-	node.SoldierId = corpse.SoldierId;
+	node.Name = $"Corpse_{entity.EntityId}";
+	node.EntityId = entity.EntityId;
+	node.SourceEntityId = corpse.SourceEntityId;
 	node.PlayerId = corpse.PlayerId;
 
-	if (corpse.SoldierId == null)
+	var sourceEntity = corpse.SourceEntityId.HasValue
+	  ? SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(corpse.SourceEntityId.Value)
+	  : null;
+	if (sourceEntity?.Type != EntityType.Soldier)
 	{
 	  var owner = SpacetimeNetworkManager.Instance.Conn.Db.Player.Id.Find(corpse.PlayerId);
 	  node.PlayerName = owner?.Name ?? "";
 	}
 
-	node.Position = new Vector3(corpse.Position.X, corpse.Position.Y, corpse.Position.Z);
-	node.Rotation = new Vector3(0, corpse.RotationY, 0);
+	node.Position = new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
+	node.Rotation = new Vector3(0, entity.RotationY, 0);
 	container.AddChild(node);
   }
 
   private void OnCorpseInsert(EventContext ctx, SpacetimeDB.Types.Corpse corpse)
   {
-	if (corpse.GameSessionId != GameId) return;
-	SpawnCorpse(corpse);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(corpse.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	SpawnCorpse(entity, corpse);
   }
 
   private void OnCorpseDelete(EventContext ctx, SpacetimeDB.Types.Corpse corpse)
   {
-	if (corpse.GameSessionId != GameId) return;
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(corpse.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
 	var container = CorpseContainer ?? this;
-	var node = container.GetNodeOrNull<Corpse>($"Corpse_{corpse.Id}");
+	var node = container.GetNodeOrNull<Corpse>($"Corpse_{corpse.EntityId}");
 	node?.QueueFree();
   }
 
@@ -237,18 +274,25 @@ public partial class PlayerManager : Node
 
 	bool isHeal = entry.EventType == BattleLogEventType.Heal;
 
-	foreach (var targetId in entry.TargetGamePlayerIds)
+	foreach (var targetEntityId in entry.TargetEntityIds)
 	{
-	  var targetGp = conn.Db.GamePlayer.Id.Find(targetId);
-	  if (targetGp == null) continue;
+	  var targetEntity = conn.Db.Entity.EntityId.Find(targetEntityId);
+	  if (targetEntity == null) continue;
 
-	  var playerNode = PlayerSpawnPath.GetNodeOrNull<Player>(targetGp.PlayerId.ToString());
-	  if (playerNode == null) continue;
+	  Node3D targetNode = null;
+	  if (targetEntity.Type == EntityType.GamePlayer)
+	  {
+		var targetGp = conn.Db.GamePlayer.EntityId.Find(targetEntityId);
+		if (targetGp != null)
+		  targetNode = PlayerSpawnPath.GetNodeOrNull<Player>(targetGp.PlayerId.ToString());
+	  }
+
+	  if (targetNode == null) continue;
 
 	  var dmgNum = DamageNumberScene.Instantiate<DamageNumber>();
 	  dmgNum.Setup(entry.ResolvedPower, isHeal);
 	  GetTree().Root.AddChild(dmgNum);
-	  dmgNum.GlobalPosition = playerNode.GlobalPosition + new Vector3(0, 2.2f, 0);
+	  dmgNum.GlobalPosition = targetNode.GlobalPosition + new Vector3(0, 2.2f, 0);
 	}
   }
 

@@ -14,15 +14,15 @@ public partial class ServerSelect : PopulableMenu
   private VBoxContainer _serverListContainer;
   private Button _createServer;
   private SpinBox _serverSizeRange;
+  private OptionButton _mapSelect;
 
-
-  // Called when the node enters the scene tree for the first time.
   public override void _Ready()
   {
 	_refreshButton = GetNode<Button>("%RefreshButton");
 	_serverListContainer = GetNode<VBoxContainer>("%ServerListContainer");
 	_createServer = GetNode<Button>("%CreateServerButton");
 	_serverSizeRange = GetNode<SpinBox>("%ServerSizeRange");
+	_mapSelect = GetNodeOrNull<OptionButton>("%MapSelect");
 
 	_refreshButton.Pressed += OnRefreshButtonPressed;
 	_createServer.Pressed += OnServerCreateButtonPressed;
@@ -31,6 +31,31 @@ public partial class ServerSelect : PopulableMenu
   public override void Populate()
   {
 	PopulateServerList();
+	PopulateMapSelect();
+  }
+
+  void PopulateMapSelect()
+  {
+	if (_mapSelect == null) return;
+	_mapSelect.Clear();
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+	foreach (var map in conn.Db.MapDef.Iter())
+	{
+	  _mapSelect.AddItem(map.Name, (int)map.Id);
+	}
+	if (_mapSelect.ItemCount > 0) _mapSelect.Selected = 0;
+  }
+
+  ulong GetSelectedMapDefId()
+  {
+	if (_mapSelect != null && _mapSelect.ItemCount > 0)
+	  return (ulong)_mapSelect.GetItemId(_mapSelect.Selected);
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return 0;
+	foreach (var map in conn.Db.MapDef.Iter())
+	  return map.Id;
+	return 0;
   }
 
   void ClearServerList()
@@ -56,7 +81,13 @@ public partial class ServerSelect : PopulableMenu
 		break;
 	  }
 	  serverItem.hud = hud;
-	  var currentPlayerCount = conn.Db.GamePlayer.GameSessionId.Filter(server.Id).Count(gp => gp.Active);
+	  var currentPlayerCount = 0;
+	  foreach (var entity in conn.Db.Entity.GameSessionId.Filter(server.Id))
+	  {
+		if (entity.Type != EntityType.GamePlayer) continue;
+		var gp = conn.Db.GamePlayer.EntityId.Find(entity.EntityId);
+		if (gp != null && gp.Active) currentPlayerCount++;
+	  }
 	  _serverListContainer.AddChild(serverItem);
 	  serverItem.Populate(ownerName, currentPlayerCount, server.MaxPlayers, server.Id, server.State.ToString());
 	}
@@ -70,11 +101,12 @@ public partial class ServerSelect : PopulableMenu
   void OnServerCreateButtonPressed()
   {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
+	var mapId = GetSelectedMapDefId();
 	conn.Reducers.OnCreateGameAndJoin += OnCreateGameAndJoinResult;
-	conn.Reducers.CreateGameAndJoin((uint)_serverSizeRange.Value, null);
+	conn.Reducers.CreateGameAndJoin((uint)_serverSizeRange.Value, null, mapId);
   }
 
-  void OnCreateGameAndJoinResult(ReducerEventContext ctx, uint maxPlayers, uint? respawnTimerSeconds)
+  void OnCreateGameAndJoinResult(ReducerEventContext ctx, uint maxPlayers, uint? respawnTimerSeconds, ulong mapDefId)
   {
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 
@@ -88,9 +120,11 @@ public partial class ServerSelect : PopulableMenu
 
 	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(activePlayerId.Value))
 	{
-	  if (gp.Active)
+	  if (!gp.Active) continue;
+	  var entity = conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null)
 	  {
-		hud.EnterGameOrLoadoutSelect(gp.GameSessionId);
+		hud.EnterGameOrFactionSelect(entity.GameSessionId);
 		return;
 	  }
 	}

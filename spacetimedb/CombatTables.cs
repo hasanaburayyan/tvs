@@ -32,6 +32,11 @@ public static partial class Module
     public DamageDistribution Distribution;
     [SpacetimeDB.Default(false)]
     public bool AllowSubSquadTargeting;
+
+    [SpacetimeDB.Default(0)]
+    public TargetingMode Targeting;
+    [SpacetimeDB.Default(0f)]
+    public float ProjectileSpeed;
   }
 
   [SpacetimeDB.Table(Accessor = "archetype_def", Public = true)]
@@ -91,14 +96,14 @@ public static partial class Module
   }
 
   [SpacetimeDB.Table(Accessor = "ability_cooldown", Public = true)]
-  [SpacetimeDB.Index.BTree(Accessor = "by_gp_ability", Columns = new[] { "GamePlayerId", "AbilityId" })]
+  [SpacetimeDB.Index.BTree(Accessor = "by_entity_ability", Columns = new[] { "EntityId", "AbilityId" })]
   public partial struct AbilityCooldown
   {
     [SpacetimeDB.PrimaryKey]
     [SpacetimeDB.AutoInc]
     public ulong Id;
     [SpacetimeDB.Index.BTree]
-    public ulong GamePlayerId;
+    public ulong EntityId;
     public ulong AbilityId;
     public Timestamp ReadyAt;
   }
@@ -110,8 +115,8 @@ public static partial class Module
     [SpacetimeDB.AutoInc]
     public ulong Id;
     [SpacetimeDB.Index.BTree]
-    public ulong GamePlayerId;
-    public ulong CasterGamePlayerId;
+    public ulong EntityId;
+    public ulong CasterEntityId;
     public ulong SourceAbilityId;
     public List<AbilityMod> Mods;
     public List<ulong> AffectedAbilityIds;
@@ -125,7 +130,7 @@ public static partial class Module
     [SpacetimeDB.AutoInc]
     public ulong Id;
     [SpacetimeDB.Index.BTree]
-    public ulong GamePlayerId;
+    public ulong EntityId;
     public ResourceKind Kind;
     public int Current;
     public int Max;
@@ -142,9 +147,9 @@ public static partial class Module
     public Timestamp OccurredAt;
     public BattleLogEventType EventType;
     [SpacetimeDB.Index.BTree]
-    public ulong ActorGamePlayerId;
+    public ulong ActorEntityId;
     public ulong? AbilityId;
-    public List<ulong> TargetGamePlayerIds;
+    public List<ulong> TargetEntityIds;
     public int ResolvedPower;
   }
 }

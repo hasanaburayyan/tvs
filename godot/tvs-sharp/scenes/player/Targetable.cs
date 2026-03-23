@@ -1,15 +1,9 @@
 using Godot;
-
-public enum TargetKind : byte
-{
-  Player,
-  Soldier,
-  TerrainFeature,
-}
+using SpacetimeDB.Types;
 
 public partial class Targetable : Node
 {
-  public TargetKind Kind { get; set; }
+  public EntityType Type { get; set; }
   public ulong EntityId { get; set; }
 
   public static Targetable FindIn(Node node)

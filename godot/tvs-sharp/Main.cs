@@ -18,6 +18,9 @@ public partial class Main : Node3D
   [Export]
   public MapManager MapManager;
 
+  [Export]
+  public ProjectileManager ProjectileManager;
+
 	public override void _Ready()
 	{
 	Hud.StartLobby += (id) => {
@@ -27,6 +30,8 @@ public partial class Main : Node3D
 	  SquadManager.LoadSquads();
 	  MapManager.GameId = (ulong)id;
 	  MapManager.LoadMap();
+	  ProjectileManager.GameId = (ulong)id;
+	  ProjectileManager.Initialize();
 	  Hud.ActivateFreelook();
 	};
 
@@ -41,6 +46,7 @@ public partial class Main : Node3D
 	  SquadManager.DestroyAll();
 	  MapManager.GameId = 0;
 	  MapManager.DestroyMap();
+	  ProjectileManager.GameId = 0;
 	  PlayerManager.DestroyLobby();
 	};
 

@@ -1,5 +1,6 @@
 using Godot;
 using SpacetimeDB.Types;
+using System;
 using System.Linq;
 
 public partial class LoadoutSelect : PopulableMenu
@@ -182,6 +183,22 @@ public partial class LoadoutSelect : PopulableMenu
       _confirmButton.Disabled = false;
       GD.PrintErr("SetLoadout failed");
       return;
+    }
+
+    var activePlayerId = SpacetimeNetworkManager.Instance?.ActivePlayerId;
+    if (activePlayerId != null)
+    {
+      var gp = conn.Db.GamePlayer.PlayerId.Filter(activePlayerId.Value).FirstOrDefault(g => g.Active);
+      if (gp != null)
+      {
+        var targetable = conn.Db.Targetable.EntityId.Find(gp.EntityId);
+        if (targetable != null && targetable.Dead)
+        {
+          hud.CloseMenus();
+          hud.ShowDeathOverlay(hud.sessionID, 0, 0);
+          return;
+        }
+      }
     }
 
     hud.EmitSignal(Hud.SignalName.StartLobby, (long)hud.sessionID);

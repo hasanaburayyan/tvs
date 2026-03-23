@@ -1,12 +1,12 @@
 using Godot;
 using SpacetimeDB;
 using System;
-using SpacetimeDB.Types;
 
 public partial class Player : CharacterBody3D
 {
 
   public Camera3D Camera;
+  public Marker3D BarrelMarker { get; private set; }
 
   public const float SYNC_INTERVAL = 0.05f;
   public const float Speed = 5.0f;
@@ -15,7 +15,7 @@ public partial class Player : CharacterBody3D
   public const float ROTATION_SYNC_THRESHOLD = 0.01f;
 
   public ulong PlayerId;
-  public ulong GamePlayerId;
+  public ulong EntityId;
 
   public ulong GameId;
   public bool IsLocal;
@@ -23,6 +23,7 @@ public partial class Player : CharacterBody3D
 
   public bool IsDead { get; private set; }
 
+  private bool _isResupplying = false;
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
   private float _lastSyncedRotationY = 0.0f;
@@ -38,6 +39,7 @@ public partial class Player : CharacterBody3D
   public override void _Ready()
   {
 	Camera = GetNode<Camera3D>("%Camera3D");
+	BarrelMarker = GetNode<Node3D>("%Nurse").FindChild("EndOfBarrel", true, false) as Marker3D;
 	_lerpStart = Position;
 	_lerpTarget = Position;
 	_rotLerpStart = Rotation.Y;
@@ -53,8 +55,8 @@ public partial class Player : CharacterBody3D
 	_nametag.Text = username;
 
 	var targetable = GetNode<Targetable>("%Targetable");
-	targetable.Kind = TargetKind.Player;
-	targetable.EntityId = GamePlayerId;
+	targetable.Type = SpacetimeDB.Types.EntityType.GamePlayer;
+	targetable.EntityId = EntityId;
   }
 
   public void OnStateUpdated(Vector3 newPosition, float newRotationY)
@@ -79,6 +81,11 @@ public partial class Player : CharacterBody3D
   public void PlayDeath()
   {
 	IsDead = true;
+	if (_isResupplying)
+	{
+	  _isResupplying = false;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.StopResupply(GameId);
+	}
 	_animPlayer.Play("Death");
   }
 
@@ -158,6 +165,17 @@ public partial class Player : CharacterBody3D
 	  SpacetimeNetworkManager.Instance.Conn.Reducers.SplitOwnedSquads(GameId);
 	}
 
+	if (Input.IsActionJustPressed("resupply") && !_isResupplying)
+	{
+	  _isResupplying = true;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.StartResupply(GameId);
+	}
+	else if (Input.IsActionJustReleased("resupply") && _isResupplying)
+	{
+	  _isResupplying = false;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.StopResupply(GameId);
+	}
+
 	_syncTimer += (float)delta;
 	bool positionChanged = Position.DistanceSquaredTo(_lastSyncedPosition) > 0.001f;
 	bool rotationChanged = Mathf.Abs(Rotation.Y - _lastSyncedRotationY) > ROTATION_SYNC_THRESHOLD;
@@ -168,7 +186,7 @@ public partial class Player : CharacterBody3D
 	  _syncTimer = 0.0f;
 	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(
 	  GameId,
-	  new DbVector3(Position.X, Position.Y, Position.Z),
+	  new SpacetimeDB.Types.DbVector3(Position.X, Position.Y, Position.Z),
 	  Rotation.Y
 	  );
 	}

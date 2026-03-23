@@ -8,31 +8,23 @@ public static partial class Module
   const int SOLDIER_ARMOR = 0;
   const float FORMATION_DISTANCE = 1.5f;
 
-  public static ulong CreatePlayerSquad(ReducerContext ctx, ulong gameSessionId, ulong playerId, ulong gamePlayerId, DbVector3 spawnPosition)
+  public static ulong CreatePlayerSquad(ReducerContext ctx, ulong gameSessionId, ulong playerId, ulong playerEntityId, DbVector3 spawnPosition)
   {
-    var soldier0 = ctx.Db.soldier.Insert(new Soldier
+    var ent0 = CreateEntity(ctx, gameSessionId, EntityType.Soldier, spawnPosition + DeterministicFormationOffset(0, 0f), 0f, 0);
+    CreateTargetable(ctx, ent0.EntityId, SOLDIER_HEALTH, SOLDIER_HEALTH, SOLDIER_ARMOR);
+    ctx.Db.soldier.Insert(new Soldier
     {
-      Id = 0,
-      GameSessionId = gameSessionId,
+      EntityId = ent0.EntityId,
       OwnerPlayerId = playerId,
-      Health = SOLDIER_HEALTH,
-      MaxHealth = SOLDIER_HEALTH,
-      Armor = SOLDIER_ARMOR,
-      Position = spawnPosition + DeterministicFormationOffset(0, 0f),
-      RotationY = 0f,
       FormationIndex = 0,
     });
 
-    var soldier1 = ctx.Db.soldier.Insert(new Soldier
+    var ent1 = CreateEntity(ctx, gameSessionId, EntityType.Soldier, spawnPosition + DeterministicFormationOffset(1, 0f), 0f, 0);
+    CreateTargetable(ctx, ent1.EntityId, SOLDIER_HEALTH, SOLDIER_HEALTH, SOLDIER_ARMOR);
+    ctx.Db.soldier.Insert(new Soldier
     {
-      Id = 0,
-      GameSessionId = gameSessionId,
+      EntityId = ent1.EntityId,
       OwnerPlayerId = playerId,
-      Health = SOLDIER_HEALTH,
-      MaxHealth = SOLDIER_HEALTH,
-      Armor = SOLDIER_ARMOR,
-      Position = spawnPosition + DeterministicFormationOffset(1, 0f),
-      RotationY = 0f,
       FormationIndex = 1,
     });
 
@@ -44,8 +36,7 @@ public static partial class Module
       OwnerPlayerId = playerId,
       CohesionRadius = DEFAULT_COHESION_RADIUS,
       CenterPosition = spawnPosition,
-      GamePlayerId = gamePlayerId,
-      SoldierId = 0,
+      EntityId = playerEntityId,
     });
 
     var leafSoldier0 = ctx.Db.squad.Insert(new Squad
@@ -55,9 +46,8 @@ public static partial class Module
       ParentSquadId = 0,
       OwnerPlayerId = playerId,
       CohesionRadius = DEFAULT_COHESION_RADIUS,
-      CenterPosition = soldier0.Position,
-      GamePlayerId = 0,
-      SoldierId = soldier0.Id,
+      CenterPosition = ent0.Position,
+      EntityId = ent0.EntityId,
     });
 
     var leafSoldier1 = ctx.Db.squad.Insert(new Squad
@@ -67,9 +57,8 @@ public static partial class Module
       ParentSquadId = 0,
       OwnerPlayerId = playerId,
       CohesionRadius = DEFAULT_COHESION_RADIUS,
-      CenterPosition = soldier1.Position,
-      GamePlayerId = 0,
-      SoldierId = soldier1.Id,
+      CenterPosition = ent1.Position,
+      EntityId = ent1.EntityId,
     });
 
     var composite = ctx.Db.squad.Insert(new Squad
@@ -80,8 +69,7 @@ public static partial class Module
       OwnerPlayerId = playerId,
       CohesionRadius = DEFAULT_COHESION_RADIUS,
       CenterPosition = spawnPosition,
-      GamePlayerId = 0,
-      SoldierId = 0,
+      EntityId = 0,
     });
 
     ctx.Db.squad.Id.Update(leafPlayer with { ParentSquadId = composite.Id });
@@ -101,23 +89,18 @@ public static partial class Module
       OwnerPlayerId = null,
       CohesionRadius = DEFAULT_COHESION_RADIUS,
       CenterPosition = spawnPosition,
-      GamePlayerId = 0,
-      SoldierId = 0,
+      EntityId = 0,
     });
 
     for (byte i = 0; i < soldierCount; i++)
     {
       var soldierPos = spawnPosition + DeterministicFormationOffset(i, 0f);
-      var soldier = ctx.Db.soldier.Insert(new Soldier
+      var ent = CreateEntity(ctx, gameSessionId, EntityType.Soldier, soldierPos, 0f, 0);
+      CreateTargetable(ctx, ent.EntityId, SOLDIER_HEALTH, SOLDIER_HEALTH, SOLDIER_ARMOR);
+      ctx.Db.soldier.Insert(new Soldier
       {
-        Id = 0,
-        GameSessionId = gameSessionId,
+        EntityId = ent.EntityId,
         OwnerPlayerId = null,
-        Health = SOLDIER_HEALTH,
-        MaxHealth = SOLDIER_HEALTH,
-        Armor = SOLDIER_ARMOR,
-        Position = soldierPos,
-        RotationY = 0f,
         FormationIndex = i,
       });
 
@@ -129,28 +112,18 @@ public static partial class Module
         OwnerPlayerId = null,
         CohesionRadius = DEFAULT_COHESION_RADIUS,
         CenterPosition = soldierPos,
-        GamePlayerId = 0,
-        SoldierId = soldier.Id,
+        EntityId = ent.EntityId,
       });
     }
 
     return composite.Id;
   }
 
-  public static Squad? FindLeafSquadForGamePlayer(ReducerContext ctx, ulong gamePlayerId)
+  public static Squad? FindLeafSquadForEntity(ReducerContext ctx, ulong entityId)
   {
-    foreach (var sq in ctx.Db.squad.GamePlayerId.Filter(gamePlayerId))
+    foreach (var sq in ctx.Db.squad.EntityId.Filter(entityId))
     {
-      if (sq.GamePlayerId != 0) return sq;
-    }
-    return null;
-  }
-
-  public static Squad? FindLeafSquadForSoldier(ReducerContext ctx, ulong soldierId)
-  {
-    foreach (var sq in ctx.Db.squad.SoldierId.Filter(soldierId))
-    {
-      if (sq.SoldierId != 0) return sq;
+      if (sq.EntityId != 0) return sq;
     }
     return null;
   }
@@ -185,7 +158,7 @@ public static partial class Module
 
   public static bool IsLeafSquad(Squad sq)
   {
-    return sq.GamePlayerId != 0 || sq.SoldierId != 0;
+    return sq.EntityId != 0;
   }
 
   public static List<Squad> GetLeafSquads(ReducerContext ctx, ulong squadId)
@@ -208,36 +181,16 @@ public static partial class Module
     return leaves;
   }
 
-  public struct EntityRef
+  public static List<ulong> GetAllEntityIds(ReducerContext ctx, ulong squadId)
   {
-    public ulong GamePlayerId;
-    public ulong SoldierId;
-  }
-
-  public static List<EntityRef> GetAllEntities(ReducerContext ctx, ulong squadId)
-  {
-    var entities = new List<EntityRef>();
+    var entityIds = new List<ulong>();
     var leaves = GetLeafSquads(ctx, squadId);
     foreach (var leaf in leaves)
     {
-      entities.Add(new EntityRef { GamePlayerId = leaf.GamePlayerId, SoldierId = leaf.SoldierId });
+      if (leaf.EntityId != 0)
+        entityIds.Add(leaf.EntityId);
     }
-    return entities;
-  }
-
-  static DbVector3 GetEntityPosition(ReducerContext ctx, Squad leaf)
-  {
-    if (leaf.GamePlayerId != 0)
-    {
-      var gp = ctx.Db.game_player.Id.Find(leaf.GamePlayerId);
-      if (gp is GamePlayer g) return g.Position;
-    }
-    if (leaf.SoldierId != 0)
-    {
-      var s = ctx.Db.soldier.Id.Find(leaf.SoldierId);
-      if (s is Soldier sol) return sol.Position;
-    }
-    return leaf.CenterPosition;
+    return entityIds;
   }
 
   public static DbVector3 ComputeSquadCenter(ReducerContext ctx, ulong squadId)
@@ -249,20 +202,10 @@ public static partial class Module
     int count = 0;
     foreach (var leaf in leaves)
     {
-      bool isDead = false;
-      if (leaf.GamePlayerId != 0)
-      {
-        var gp = ctx.Db.game_player.Id.Find(leaf.GamePlayerId);
-        if (gp is GamePlayer g && g.Dead) isDead = true;
-      }
-      if (leaf.SoldierId != 0)
-      {
-        var s = ctx.Db.soldier.Id.Find(leaf.SoldierId);
-        if (s is Soldier sol && sol.Dead) isDead = true;
-      }
-      if (isDead) continue;
+      if (leaf.EntityId == 0) continue;
+      if (ctx.Db.targetable.EntityId.Find(leaf.EntityId) is Targetable t && t.Dead) continue;
 
-      var pos = GetEntityPosition(ctx, leaf);
+      var pos = GetEntityPosition(ctx, leaf.EntityId);
       sumX += pos.x;
       sumY += pos.y;
       sumZ += pos.z;
@@ -326,9 +269,9 @@ public static partial class Module
     return new DbVector3(worldX, 0, worldZ);
   }
 
-  public static void MoveSoldiersWithPlayer(ReducerContext ctx, ulong gamePlayerId, DbVector3 playerPosition, float rotationY)
+  public static void MoveSoldiersWithPlayer(ReducerContext ctx, ulong playerEntityId, DbVector3 playerPosition, float rotationY)
   {
-    var leafSquad = FindLeafSquadForGamePlayer(ctx, gamePlayerId);
+    var leafSquad = FindLeafSquadForEntity(ctx, playerEntityId);
     if (leafSquad is not Squad playerLeaf) return;
 
     if (playerLeaf.ParentSquadId == 0)
@@ -340,21 +283,23 @@ public static partial class Module
     var siblings = GetDirectChildren(ctx, playerLeaf.ParentSquadId);
     foreach (var sibling in siblings)
     {
-      if (sibling.SoldierId != 0)
+      if (sibling.EntityId != 0 && sibling.EntityId != playerEntityId)
       {
-        var soldier = ctx.Db.soldier.Id.Find(sibling.SoldierId);
+        var sibEnt = ctx.Db.entity.EntityId.Find(sibling.EntityId);
+        if (sibEnt is not Entity se || se.Type != EntityType.Soldier) continue;
+        var soldier = ctx.Db.soldier.EntityId.Find(sibling.EntityId);
         if (soldier is not Soldier s) continue;
 
         var offset = DeterministicFormationOffset(s.FormationIndex, rotationY);
         var newPos = playerPosition + offset;
 
-        if (s.Dead)
+        if (ctx.Db.targetable.EntityId.Find(sibling.EntityId) is Targetable t && t.Dead)
         {
           ctx.Db.squad.Id.Update(sibling with { CenterPosition = newPos });
           continue;
         }
 
-        ctx.Db.soldier.Id.Update(s with { Position = newPos, RotationY = rotationY });
+        ctx.Db.entity.EntityId.Update(se with { Position = newPos, RotationY = rotationY });
         ctx.Db.squad.Id.Update(sibling with { CenterPosition = newPos });
       }
     }
@@ -365,31 +310,34 @@ public static partial class Module
 
   public static void CleanupSquadsForGame(ReducerContext ctx, ulong gameSessionId)
   {
-    foreach (var soldier in ctx.Db.soldier.GameSessionId.Filter(gameSessionId))
-      ctx.Db.soldier.Id.Delete(soldier.Id);
-
     foreach (var squad in ctx.Db.squad.GameSessionId.Filter(gameSessionId))
       ctx.Db.squad.Id.Delete(squad.Id);
   }
 
   public static void CleanupAllSquadsForPlayer(ReducerContext ctx, ulong playerId)
   {
-    var soldiersToDelete = new List<ulong>();
     var squadsToDelete = new List<ulong>();
+    var entityIdsToDestroy = new List<ulong>();
 
-    foreach (var soldier in ctx.Db.soldier.Iter())
-    {
-      if (soldier.OwnerPlayerId == playerId)
-        soldiersToDelete.Add(soldier.Id);
-    }
     foreach (var squad in ctx.Db.squad.Iter())
     {
       if (squad.OwnerPlayerId == playerId)
+      {
+        if (squad.EntityId != 0)
+        {
+          var ent = ctx.Db.entity.EntityId.Find(squad.EntityId);
+          if (ent is Entity e && e.Type == EntityType.Soldier)
+          {
+            ctx.Db.soldier.EntityId.Delete(squad.EntityId);
+            entityIdsToDestroy.Add(squad.EntityId);
+          }
+        }
         squadsToDelete.Add(squad.Id);
+      }
     }
 
-    foreach (var id in soldiersToDelete)
-      ctx.Db.soldier.Id.Delete(id);
+    foreach (var id in entityIdsToDestroy)
+      DestroyEntity(ctx, id);
     foreach (var id in squadsToDelete)
       ctx.Db.squad.Id.Delete(id);
   }
@@ -397,14 +345,21 @@ public static partial class Module
   public static void CleanupPlayerSquad(ReducerContext ctx, ulong playerId, ulong gameSessionId)
   {
     var squadsToDelete = new List<ulong>();
-    var soldiersToDelete = new List<ulong>();
+    var entityIdsToDestroy = new List<ulong>();
 
     foreach (var squad in ctx.Db.squad.GameSessionId.Filter(gameSessionId))
     {
       if (squad.OwnerPlayerId != playerId) continue;
 
-      if (squad.SoldierId != 0)
-        soldiersToDelete.Add(squad.SoldierId);
+      if (squad.EntityId != 0)
+      {
+        var ent = ctx.Db.entity.EntityId.Find(squad.EntityId);
+        if (ent is Entity e && e.Type == EntityType.Soldier)
+        {
+          ctx.Db.soldier.EntityId.Delete(squad.EntityId);
+          entityIdsToDestroy.Add(squad.EntityId);
+        }
+      }
 
       squadsToDelete.Add(squad.Id);
     }
@@ -419,8 +374,8 @@ public static partial class Module
       }
     }
 
-    foreach (var soldierId in soldiersToDelete)
-      ctx.Db.soldier.Id.Delete(soldierId);
+    foreach (var entityId in entityIdsToDestroy)
+      DestroyEntity(ctx, entityId);
 
     foreach (var squadId in squadsToDelete)
       ctx.Db.squad.Id.Delete(squadId);
@@ -454,69 +409,97 @@ public static partial class Module
     }
   }
 
-  public static void RespawnSoldiers(ReducerContext ctx, ulong gamePlayerId, DbVector3 spawnPosition)
+  public static void RespawnSoldiers(ReducerContext ctx, ulong playerEntityId, DbVector3 spawnPosition)
   {
-    var leafSquad = FindLeafSquadForGamePlayer(ctx, gamePlayerId);
+    var leafSquad = FindLeafSquadForEntity(ctx, playerEntityId);
     if (leafSquad is not Squad playerLeaf)
     {
-      var gp = ctx.Db.game_player.Id.Find(gamePlayerId);
-      if (gp is GamePlayer g)
-        CreatePlayerSquad(ctx, g.GameSessionId, g.PlayerId, g.Id, spawnPosition);
+      var gpEnt = ctx.Db.entity.EntityId.Find(playerEntityId);
+      if (gpEnt is Entity e)
+      {
+        var gp = ctx.Db.game_player.EntityId.Find(playerEntityId);
+        if (gp is GamePlayer g)
+          CreatePlayerSquad(ctx, e.GameSessionId, g.PlayerId, playerEntityId, spawnPosition);
+      }
       return;
     }
 
     if (playerLeaf.ParentSquadId == 0)
     {
-      var gp = ctx.Db.game_player.Id.Find(gamePlayerId);
+      var gpEnt = ctx.Db.entity.EntityId.Find(playerEntityId);
+      if (gpEnt is not Entity e) return;
+      var gp = ctx.Db.game_player.EntityId.Find(playerEntityId);
       if (gp is not GamePlayer g) return;
 
       var orphanedSquads = new List<ulong>();
-      var orphanedSoldiers = new List<ulong>();
-      foreach (var sq in ctx.Db.squad.GameSessionId.Filter(g.GameSessionId))
+      var orphanedSoldierEntityIds = new List<ulong>();
+      foreach (var sq in ctx.Db.squad.GameSessionId.Filter(e.GameSessionId))
       {
         if (sq.OwnerPlayerId != g.PlayerId) continue;
-        if (sq.SoldierId != 0) orphanedSoldiers.Add(sq.SoldierId);
+        if (sq.EntityId != 0)
+        {
+          var sqEnt = ctx.Db.entity.EntityId.Find(sq.EntityId);
+          if (sqEnt is Entity se && se.Type == EntityType.Soldier)
+            orphanedSoldierEntityIds.Add(sq.EntityId);
+        }
         orphanedSquads.Add(sq.Id);
       }
-      foreach (var sid in orphanedSoldiers)
+      foreach (var solEntId in orphanedSoldierEntityIds)
       {
-        ctx.Db.soldier.Id.Delete(sid);
-        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(g.GameSessionId))
+        ctx.Db.soldier.EntityId.Delete(solEntId);
+
+        foreach (var c in ctx.Db.entity.GameSessionId.Filter(e.GameSessionId))
         {
-          if (c.SoldierId == sid) ctx.Db.corpse.Id.Delete(c.Id);
+          if (c.Type != EntityType.Corpse) continue;
+          if (ctx.Db.corpse.EntityId.Find(c.EntityId) is Corpse corpse && corpse.SourceEntityId == solEntId)
+          {
+            ctx.Db.corpse.EntityId.Delete(c.EntityId);
+            DestroyEntity(ctx, c.EntityId);
+          }
         }
+        DestroyEntity(ctx, solEntId);
       }
       foreach (var sqId in orphanedSquads)
         ctx.Db.squad.Id.Delete(sqId);
 
-      CreatePlayerSquad(ctx, g.GameSessionId, g.PlayerId, g.Id, spawnPosition);
+      CreatePlayerSquad(ctx, e.GameSessionId, g.PlayerId, playerEntityId, spawnPosition);
       return;
     }
 
     var siblings = GetDirectChildren(ctx, playerLeaf.ParentSquadId);
     foreach (var sibling in siblings)
     {
-      if (sibling.SoldierId != 0)
+      if (sibling.EntityId != 0 && sibling.EntityId != playerEntityId)
       {
-        var soldier = ctx.Db.soldier.Id.Find(sibling.SoldierId);
+        var sibEnt = ctx.Db.entity.EntityId.Find(sibling.EntityId);
+        if (sibEnt is not Entity se || se.Type != EntityType.Soldier) continue;
+        var soldier = ctx.Db.soldier.EntityId.Find(sibling.EntityId);
         if (soldier is not Soldier s) continue;
 
         var offset = DeterministicFormationOffset(s.FormationIndex, 0f);
         var newPos = spawnPosition + offset;
-        ctx.Db.soldier.Id.Update(s with
+        ctx.Db.entity.EntityId.Update(se with { Position = newPos, RotationY = 0f });
+
+        var soldierTarget = ctx.Db.targetable.EntityId.Find(sibling.EntityId);
+        if (soldierTarget is Targetable st)
         {
-          Health = s.MaxHealth,
-          Dead = false,
-          DiedAt = null,
-          Position = newPos,
-          RotationY = 0f,
-        });
+          ctx.Db.targetable.EntityId.Update(st with
+          {
+            Health = st.MaxHealth,
+            Dead = false,
+            DiedAt = null,
+          });
+        }
         ctx.Db.squad.Id.Update(sibling with { CenterPosition = newPos });
 
-        foreach (var c in ctx.Db.corpse.GameSessionId.Filter(s.GameSessionId))
+        foreach (var c in ctx.Db.entity.GameSessionId.Filter(se.GameSessionId))
         {
-          if (c.SoldierId == s.Id)
-            ctx.Db.corpse.Id.Delete(c.Id);
+          if (c.Type != EntityType.Corpse) continue;
+          if (ctx.Db.corpse.EntityId.Find(c.EntityId) is Corpse corpse && corpse.SourceEntityId == sibling.EntityId)
+          {
+            ctx.Db.corpse.EntityId.Delete(c.EntityId);
+            DestroyEntity(ctx, c.EntityId);
+          }
         }
       }
     }
@@ -537,11 +520,11 @@ public static partial class Module
     var leaves = GetLeafSquads(ctx, squad.Id);
     foreach (var leaf in leaves)
     {
-      if (leaf.GamePlayerId != 0)
+      if (leaf.EntityId != 0)
       {
-        var gp = ctx.Db.game_player.Id.Find(leaf.GamePlayerId);
-        if (gp is GamePlayer g)
-          return g.TeamSlot;
+        var ent = ctx.Db.entity.EntityId.Find(leaf.EntityId);
+        if (ent is Entity e)
+          return e.TeamSlot;
       }
     }
     return null;
@@ -586,8 +569,7 @@ public static partial class Module
           OwnerPlayerId = null,
           CohesionRadius = DEFAULT_COHESION_RADIUS,
           CenterPosition = center,
-          GamePlayerId = 0,
-          SoldierId = 0,
+          EntityId = 0,
         });
 
         ctx.Db.squad.Id.Update(cm with { ParentSquadId = newComposite.Id });
@@ -600,15 +582,10 @@ public static partial class Module
 
   static bool IsLeafDead(ReducerContext ctx, Squad leaf)
   {
-    if (leaf.GamePlayerId != 0)
+    if (leaf.EntityId != 0)
     {
-      var gp = ctx.Db.game_player.Id.Find(leaf.GamePlayerId);
-      if (gp is GamePlayer g && g.Dead) return true;
-    }
-    if (leaf.SoldierId != 0)
-    {
-      var s = ctx.Db.soldier.Id.Find(leaf.SoldierId);
-      if (s is Soldier sol && sol.Dead) return true;
+      if (ctx.Db.targetable.EntityId.Find(leaf.EntityId) is Targetable t && t.Dead)
+        return true;
     }
     return false;
   }
@@ -675,13 +652,13 @@ public static partial class Module
 
   const ulong AI_TICK_INTERVAL_MS = 1000;
   const float AI_MOVE_SPEED = 2.0f;
-  const float AI_MAP_BOUND = 90f;
+  const float AI_MAP_BOUND = 180f;
 
   public static void SpawnAiSquads(ReducerContext ctx, ulong gameSessionId, int count)
   {
     var session = ctx.Db.game_session.Id.Find(gameSessionId);
     if (session is not GameSession gs) return;
-    uint seed = gs.MapSeed;
+    uint seed = (uint)(gameSessionId * 2654435761);
 
     for (int i = 0; i < count; i++)
     {
@@ -745,19 +722,18 @@ public static partial class Module
       var leaves = GetLeafSquads(ctx, aiRoot.Id);
       foreach (var leaf in leaves)
       {
-        if (leaf.SoldierId != 0)
-        {
-          var soldier = ctx.Db.soldier.Id.Find(leaf.SoldierId);
-          if (soldier is not Soldier s || s.Dead) continue;
+        if (leaf.EntityId == 0) continue;
+        var ent = ctx.Db.entity.EntityId.Find(leaf.EntityId);
+        if (ent is not Entity e || e.Type != EntityType.Soldier) continue;
+        if (ctx.Db.targetable.EntityId.Find(leaf.EntityId) is Targetable t && t.Dead) continue;
 
-          float newX = Math.Clamp(s.Position.x + dx, -AI_MAP_BOUND, AI_MAP_BOUND);
-          float newZ = Math.Clamp(s.Position.z + dz, -AI_MAP_BOUND, AI_MAP_BOUND);
-          var newPos = new DbVector3(newX, s.Position.y, newZ);
-          float newRotY = angle;
+        float newX = Math.Clamp(e.Position.x + dx, -AI_MAP_BOUND, AI_MAP_BOUND);
+        float newZ = Math.Clamp(e.Position.z + dz, -AI_MAP_BOUND, AI_MAP_BOUND);
+        var newPos = new DbVector3(newX, e.Position.y, newZ);
+        float newRotY = angle;
 
-          ctx.Db.soldier.Id.Update(s with { Position = newPos, RotationY = newRotY });
-          ctx.Db.squad.Id.Update(leaf with { CenterPosition = newPos });
-        }
+        ctx.Db.entity.EntityId.Update(e with { Position = newPos, RotationY = newRotY });
+        ctx.Db.squad.Id.Update(leaf with { CenterPosition = newPos });
       }
 
       UpdateSquadCenters(ctx, aiRoot.Id);

@@ -13,59 +13,26 @@ namespace SpacetimeDB.Types
     [DataContract]
     public sealed partial class Soldier
     {
-        [DataMember(Name = "id")]
-        public ulong Id;
-        [DataMember(Name = "game_session_id")]
-        public ulong GameSessionId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "owner_player_id")]
         public ulong? OwnerPlayerId;
-        [DataMember(Name = "health")]
-        public int Health;
-        [DataMember(Name = "max_health")]
-        public int MaxHealth;
-        [DataMember(Name = "armor")]
-        public int Armor;
-        [DataMember(Name = "position")]
-        public DbVector3 Position;
-        [DataMember(Name = "rotation_y")]
-        public float RotationY;
-        [DataMember(Name = "dead")]
-        public bool Dead;
-        [DataMember(Name = "died_at")]
-        public SpacetimeDB.Timestamp? DiedAt;
         [DataMember(Name = "formation_index")]
         public byte FormationIndex;
 
         public Soldier(
-            ulong Id,
-            ulong GameSessionId,
+            ulong EntityId,
             ulong? OwnerPlayerId,
-            int Health,
-            int MaxHealth,
-            int Armor,
-            DbVector3 Position,
-            float RotationY,
-            bool Dead,
-            SpacetimeDB.Timestamp? DiedAt,
             byte FormationIndex
         )
         {
-            this.Id = Id;
-            this.GameSessionId = GameSessionId;
+            this.EntityId = EntityId;
             this.OwnerPlayerId = OwnerPlayerId;
-            this.Health = Health;
-            this.MaxHealth = MaxHealth;
-            this.Armor = Armor;
-            this.Position = Position;
-            this.RotationY = RotationY;
-            this.Dead = Dead;
-            this.DiedAt = DiedAt;
             this.FormationIndex = FormationIndex;
         }
 
         public Soldier()
         {
-            this.Position = new();
         }
     }
 }

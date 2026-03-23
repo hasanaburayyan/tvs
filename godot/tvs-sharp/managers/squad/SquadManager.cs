@@ -23,15 +23,20 @@ public partial class SquadManager : Node
 
 	UnsubscribeHandlers(conn);
 
-	foreach (var soldier in conn.Db.Soldier.GameSessionId.Filter(GameId))
+	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(GameId))
 	{
-	  if (!soldier.Dead)
-		SpawnSoldier(soldier);
+	  if (entity.Type != EntityType.Soldier) continue;
+	  var soldier = conn.Db.Soldier.EntityId.Find(entity.EntityId);
+	  if (soldier == null) continue;
+	  var targetable = conn.Db.Targetable.EntityId.Find(entity.EntityId);
+	  if (targetable != null && targetable.Dead) continue;
+	  SpawnSoldier(entity, soldier);
 	}
 
 	conn.Db.Soldier.OnInsert += OnSoldierInsert;
-	conn.Db.Soldier.OnUpdate += OnSoldierUpdate;
 	conn.Db.Soldier.OnDelete += OnSoldierDelete;
+	conn.Db.Entity.OnUpdate += OnEntityUpdate;
+	conn.Db.Targetable.OnUpdate += OnTargetableUpdate;
 	_handlersRegistered = true;
   }
 
@@ -39,83 +44,94 @@ public partial class SquadManager : Node
   {
 	if (!_handlersRegistered) return;
 	conn.Db.Soldier.OnInsert -= OnSoldierInsert;
-	conn.Db.Soldier.OnUpdate -= OnSoldierUpdate;
 	conn.Db.Soldier.OnDelete -= OnSoldierDelete;
+	conn.Db.Entity.OnUpdate -= OnEntityUpdate;
+	conn.Db.Targetable.OnUpdate -= OnTargetableUpdate;
 	_handlersRegistered = false;
   }
 
-  private void SpawnSoldier(SpacetimeDB.Types.Soldier soldierData)
+  private void SpawnSoldier(Entity entity, SpacetimeDB.Types.Soldier soldierData)
   {
-	if (_soldiers.ContainsKey(soldierData.Id)) return;
+	if (_soldiers.ContainsKey(entity.EntityId)) return;
 
 	var soldier = SoldierScene.Instantiate<Soldier>();
-	soldier.Name = $"Soldier_{soldierData.Id}";
-	soldier.SoldierId = soldierData.Id;
+	soldier.Name = $"Soldier_{entity.EntityId}";
+	soldier.EntityId = entity.EntityId;
 	soldier.OwnerPlayerId = soldierData.OwnerPlayerId;
-	soldier.Position = new Vector3(soldierData.Position.X, soldierData.Position.Y, soldierData.Position.Z);
-	soldier.Rotation = new Vector3(0, soldierData.RotationY, 0);
+	soldier.Position = new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
+	soldier.Rotation = new Vector3(0, entity.RotationY, 0);
 
 	var spawnParent = SoldierSpawnPath ?? GetParent();
 	spawnParent.AddChild(soldier);
-	_soldiers[soldierData.Id] = soldier;
+	_soldiers[entity.EntityId] = soldier;
   }
 
-  private void RemoveSoldier(ulong soldierId)
+  private void RemoveSoldier(ulong entityId)
   {
-	if (_soldiers.TryGetValue(soldierId, out var soldier))
+	if (_soldiers.TryGetValue(entityId, out var soldier))
 	{
 	  soldier.QueueFree();
-	  _soldiers.Remove(soldierId);
+	  _soldiers.Remove(entityId);
 	}
   }
 
   private void OnSoldierInsert(EventContext ctx, SpacetimeDB.Types.Soldier soldierData)
   {
-	if (soldierData.GameSessionId != GameId) return;
-	SpawnSoldier(soldierData);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(soldierData.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	SpawnSoldier(entity, soldierData);
   }
 
-  private void OnSoldierUpdate(EventContext ctx, SpacetimeDB.Types.Soldier oldSoldier, SpacetimeDB.Types.Soldier newSoldier)
+  private void OnEntityUpdate(EventContext ctx, Entity oldEntity, Entity newEntity)
   {
-	if (newSoldier.GameSessionId != GameId) return;
+	if (newEntity.GameSessionId != GameId) return;
+	if (newEntity.Type != EntityType.Soldier) return;
 
-	if (!oldSoldier.Dead && newSoldier.Dead)
+	if (_soldiers.TryGetValue(newEntity.EntityId, out var soldier))
 	{
-	  if (_soldiers.TryGetValue(newSoldier.Id, out var soldier))
+	  soldier.OnStateUpdated(
+		new Vector3(newEntity.Position.X, newEntity.Position.Y, newEntity.Position.Z),
+		newEntity.RotationY
+	  );
+	}
+  }
+
+  private void OnTargetableUpdate(EventContext ctx, SpacetimeDB.Types.Targetable oldT, SpacetimeDB.Types.Targetable newT)
+  {
+	var conn = SpacetimeNetworkManager.Instance.Conn;
+	var entity = conn.Db.Entity.EntityId.Find(newT.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	if (entity.Type != EntityType.Soldier) return;
+
+	if (!oldT.Dead && newT.Dead)
+	{
+	  if (_soldiers.TryGetValue(newT.EntityId, out var soldier))
 	  {
 		soldier.PlayDeath();
-		var id = newSoldier.Id;
+		var id = newT.EntityId;
 		GetTree().CreateTimer(3.0).Timeout += () => RemoveSoldier(id);
 	  }
-	  return;
 	}
-
-	if (oldSoldier.Dead && !newSoldier.Dead)
+	else if (oldT.Dead && !newT.Dead)
 	{
-	  if (_soldiers.TryGetValue(newSoldier.Id, out var soldier))
+	  if (_soldiers.TryGetValue(newT.EntityId, out var soldier))
 	  {
-		soldier.Revive(new Vector3(newSoldier.Position.X, newSoldier.Position.Y, newSoldier.Position.Z));
+		soldier.Revive(new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z));
 	  }
 	  else
 	  {
-		SpawnSoldier(newSoldier);
+		var soldierData = conn.Db.Soldier.EntityId.Find(newT.EntityId);
+		if (soldierData != null)
+		  SpawnSoldier(entity, soldierData);
 	  }
-	  return;
-	}
-
-	if (_soldiers.TryGetValue(newSoldier.Id, out var existingSoldier))
-	{
-	  existingSoldier.OnStateUpdated(
-		new Vector3(newSoldier.Position.X, newSoldier.Position.Y, newSoldier.Position.Z),
-		newSoldier.RotationY
-	  );
 	}
   }
 
   private void OnSoldierDelete(EventContext ctx, SpacetimeDB.Types.Soldier soldierData)
   {
-	if (soldierData.GameSessionId != GameId) return;
-	RemoveSoldier(soldierData.Id);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(soldierData.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
+	RemoveSoldier(soldierData.EntityId);
   }
 
   public override void _Process(double delta)
@@ -131,12 +147,12 @@ public partial class SquadManager : Node
 	var activePlayerId = SpacetimeNetworkManager.Instance.ActivePlayerId;
 	if (activePlayerId == 0) return;
 
-	var gp = conn.Db.GamePlayer.GameSessionId.Filter(GameId)
-	  .FirstOrDefault(g => g.PlayerId == activePlayerId && g.Active);
+	var gp = conn.Db.GamePlayer.PlayerId.Filter(activePlayerId.Value)
+	  .FirstOrDefault(g => g.Active);
 	if (gp == null) return;
 
 	SpacetimeDB.Types.Squad playerLeaf = null;
-	foreach (var sq in conn.Db.Squad.GamePlayerId.Filter(gp.Id))
+	foreach (var sq in conn.Db.Squad.EntityId.Filter(gp.EntityId))
 	{
 	  playerLeaf = sq;
 	  break;
@@ -161,11 +177,15 @@ public partial class SquadManager : Node
 	}
 
 	var center = current.CenterPosition;
+	var targetable = conn.Db.Targetable.EntityId.Find(gp.EntityId);
+	bool playerDead = targetable?.Dead ?? false;
 	bool allDead = center.X == 0 && center.Y == 0 && center.Z == 0;
 
-	if (depth == 0 && !gp.Dead)
+	if (depth == 0 && !playerDead)
 	{
-	  center = gp.Position;
+	  var playerEntity = conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (playerEntity != null)
+		center = playerEntity.Position;
 	  allDead = false;
 	}
 

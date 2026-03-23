@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void UseAbilityHandler(ReducerEventContext ctx, ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetSoldierId, ulong? targetTerrainFeatureId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY);
+        public delegate void UseAbilityHandler(ReducerEventContext ctx, ulong gameId, ulong abilityId, ulong? targetEntityId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY, SpacetimeDB.Types.DbVector3? spawnPosition);
         public event UseAbilityHandler? OnUseAbility;
 
-        public void UseAbility(ulong gameId, ulong abilityId, ulong? targetGamePlayerId, ulong? targetSoldierId, ulong? targetTerrainFeatureId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY)
+        public void UseAbility(ulong gameId, ulong abilityId, ulong? targetEntityId, SpacetimeDB.Types.DbVector3? targetPosition, float? targetRotationY, SpacetimeDB.Types.DbVector3? spawnPosition)
         {
-            conn.InternalCallReducer(new Reducer.UseAbility(gameId, abilityId, targetGamePlayerId, targetSoldierId, targetTerrainFeatureId, targetPosition, targetRotationY));
+            conn.InternalCallReducer(new Reducer.UseAbility(gameId, abilityId, targetEntityId, targetPosition, targetRotationY, spawnPosition));
         }
 
         public bool InvokeUseAbility(ReducerEventContext ctx, Reducer.UseAbility args)
@@ -38,11 +38,10 @@ namespace SpacetimeDB.Types
                 ctx,
                 args.GameId,
                 args.AbilityId,
-                args.TargetGamePlayerId,
-                args.TargetSoldierId,
-                args.TargetTerrainFeatureId,
+                args.TargetEntityId,
                 args.TargetPosition,
-                args.TargetRotationY
+                args.TargetRotationY,
+                args.SpawnPosition
             );
             return true;
         }
@@ -58,34 +57,30 @@ namespace SpacetimeDB.Types
             public ulong GameId;
             [DataMember(Name = "ability_id")]
             public ulong AbilityId;
-            [DataMember(Name = "target_game_player_id")]
-            public ulong? TargetGamePlayerId;
-            [DataMember(Name = "target_soldier_id")]
-            public ulong? TargetSoldierId;
-            [DataMember(Name = "target_terrain_feature_id")]
-            public ulong? TargetTerrainFeatureId;
+            [DataMember(Name = "target_entity_id")]
+            public ulong? TargetEntityId;
             [DataMember(Name = "target_position")]
             public DbVector3? TargetPosition;
             [DataMember(Name = "target_rotation_y")]
             public float? TargetRotationY;
+            [DataMember(Name = "spawn_position")]
+            public DbVector3? SpawnPosition;
 
             public UseAbility(
                 ulong GameId,
                 ulong AbilityId,
-                ulong? TargetGamePlayerId,
-                ulong? TargetSoldierId,
-                ulong? TargetTerrainFeatureId,
+                ulong? TargetEntityId,
                 DbVector3? TargetPosition,
-                float? TargetRotationY
+                float? TargetRotationY,
+                DbVector3? SpawnPosition
             )
             {
                 this.GameId = GameId;
                 this.AbilityId = AbilityId;
-                this.TargetGamePlayerId = TargetGamePlayerId;
-                this.TargetSoldierId = TargetSoldierId;
-                this.TargetTerrainFeatureId = TargetTerrainFeatureId;
+                this.TargetEntityId = TargetEntityId;
                 this.TargetPosition = TargetPosition;
                 this.TargetRotationY = TargetRotationY;
+                this.SpawnPosition = SpawnPosition;
             }
 
             public UseAbility()

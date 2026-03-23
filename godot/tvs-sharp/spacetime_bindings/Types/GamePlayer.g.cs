@@ -13,67 +13,30 @@ namespace SpacetimeDB.Types
     [DataContract]
     public sealed partial class GamePlayer
     {
-        [DataMember(Name = "id")]
-        public ulong Id;
-        [DataMember(Name = "game_session_id")]
-        public ulong GameSessionId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "player_id")]
         public ulong PlayerId;
-        [DataMember(Name = "team_slot")]
-        public byte TeamSlot;
         [DataMember(Name = "active")]
         public bool Active;
-        [DataMember(Name = "health")]
-        public int Health;
-        [DataMember(Name = "max_health")]
-        public int MaxHealth;
-        [DataMember(Name = "armor")]
-        public int Armor;
-        [DataMember(Name = "position")]
-        public DbVector3 Position;
-        [DataMember(Name = "rotation_y")]
-        public float RotationY;
-        [DataMember(Name = "target_game_player_id")]
-        public ulong? TargetGamePlayerId;
-        [DataMember(Name = "dead")]
-        public bool Dead;
-        [DataMember(Name = "died_at")]
-        public SpacetimeDB.Timestamp? DiedAt;
+        [DataMember(Name = "target_entity_id")]
+        public ulong? TargetEntityId;
 
         public GamePlayer(
-            ulong Id,
-            ulong GameSessionId,
+            ulong EntityId,
             ulong PlayerId,
-            byte TeamSlot,
             bool Active,
-            int Health,
-            int MaxHealth,
-            int Armor,
-            DbVector3 Position,
-            float RotationY,
-            ulong? TargetGamePlayerId,
-            bool Dead,
-            SpacetimeDB.Timestamp? DiedAt
+            ulong? TargetEntityId
         )
         {
-            this.Id = Id;
-            this.GameSessionId = GameSessionId;
+            this.EntityId = EntityId;
             this.PlayerId = PlayerId;
-            this.TeamSlot = TeamSlot;
             this.Active = Active;
-            this.Health = Health;
-            this.MaxHealth = MaxHealth;
-            this.Armor = Armor;
-            this.Position = Position;
-            this.RotationY = RotationY;
-            this.TargetGamePlayerId = TargetGamePlayerId;
-            this.Dead = Dead;
-            this.DiedAt = DiedAt;
+            this.TargetEntityId = TargetEntityId;
         }
 
         public GamePlayer()
         {
-            this.Position = new();
         }
     }
 }

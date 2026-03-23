@@ -17,14 +17,14 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "battle_log";
 
-            public sealed class ActorGamePlayerIdIndex : BTreeIndexBase<ulong>
+            public sealed class ActorEntityIdIndex : BTreeIndexBase<ulong>
             {
-                protected override ulong GetKey(BattleLogEntry row) => row.ActorGamePlayerId;
+                protected override ulong GetKey(BattleLogEntry row) => row.ActorEntityId;
 
-                public ActorGamePlayerIdIndex(BattleLogHandle table) : base(table) { }
+                public ActorEntityIdIndex(BattleLogHandle table) : base(table) { }
             }
 
-            public readonly ActorGamePlayerIdIndex ActorGamePlayerId;
+            public readonly ActorEntityIdIndex ActorEntityId;
 
             public sealed class GameSessionIdIndex : BTreeIndexBase<ulong>
             {
@@ -46,7 +46,7 @@ namespace SpacetimeDB.Types
 
             internal BattleLogHandle(DbConnection conn) : base(conn)
             {
-                ActorGamePlayerId = new(this);
+                ActorEntityId = new(this);
                 GameSessionId = new(this);
                 Id = new(this);
             }
@@ -63,9 +63,9 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<BattleLogEntry, ulong> GameSessionId { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, SpacetimeDB.Timestamp> OccurredAt { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, BattleLogEventType> EventType { get; }
-        public global::SpacetimeDB.Col<BattleLogEntry, ulong> ActorGamePlayerId { get; }
+        public global::SpacetimeDB.Col<BattleLogEntry, ulong> ActorEntityId { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, ulong> AbilityId { get; }
-        public global::SpacetimeDB.Col<BattleLogEntry, System.Collections.Generic.List<ulong>> TargetGamePlayerIds { get; }
+        public global::SpacetimeDB.Col<BattleLogEntry, System.Collections.Generic.List<ulong>> TargetEntityIds { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, int> ResolvedPower { get; }
 
         public BattleLogCols(string tableName)
@@ -74,9 +74,9 @@ namespace SpacetimeDB.Types
             GameSessionId = new global::SpacetimeDB.Col<BattleLogEntry, ulong>(tableName, "game_session_id");
             OccurredAt = new global::SpacetimeDB.Col<BattleLogEntry, SpacetimeDB.Timestamp>(tableName, "occurred_at");
             EventType = new global::SpacetimeDB.Col<BattleLogEntry, BattleLogEventType>(tableName, "event_type");
-            ActorGamePlayerId = new global::SpacetimeDB.Col<BattleLogEntry, ulong>(tableName, "actor_game_player_id");
+            ActorEntityId = new global::SpacetimeDB.Col<BattleLogEntry, ulong>(tableName, "actor_entity_id");
             AbilityId = new global::SpacetimeDB.Col<BattleLogEntry, ulong>(tableName, "ability_id");
-            TargetGamePlayerIds = new global::SpacetimeDB.Col<BattleLogEntry, System.Collections.Generic.List<ulong>>(tableName, "target_game_player_ids");
+            TargetEntityIds = new global::SpacetimeDB.Col<BattleLogEntry, System.Collections.Generic.List<ulong>>(tableName, "target_entity_ids");
             ResolvedPower = new global::SpacetimeDB.Col<BattleLogEntry, int>(tableName, "resolved_power");
         }
     }
@@ -85,13 +85,13 @@ namespace SpacetimeDB.Types
     {
         public global::SpacetimeDB.IxCol<BattleLogEntry, ulong> Id { get; }
         public global::SpacetimeDB.IxCol<BattleLogEntry, ulong> GameSessionId { get; }
-        public global::SpacetimeDB.IxCol<BattleLogEntry, ulong> ActorGamePlayerId { get; }
+        public global::SpacetimeDB.IxCol<BattleLogEntry, ulong> ActorEntityId { get; }
 
         public BattleLogIxCols(string tableName)
         {
             Id = new global::SpacetimeDB.IxCol<BattleLogEntry, ulong>(tableName, "id");
             GameSessionId = new global::SpacetimeDB.IxCol<BattleLogEntry, ulong>(tableName, "game_session_id");
-            ActorGamePlayerId = new global::SpacetimeDB.IxCol<BattleLogEntry, ulong>(tableName, "actor_game_player_id");
+            ActorEntityId = new global::SpacetimeDB.IxCol<BattleLogEntry, ulong>(tableName, "actor_entity_id");
         }
     }
 }

@@ -4033,7 +4033,7 @@ _data = {
 
 [node name="Nurse" unique_id=58088262 instance=ExtResource("1_pef1d")]
 
-[node name="Skeleton3D" parent="Armature" parent_id_path=PackedInt32Array(1811842149) index="0" unique_id=800754618]
+[node name="Skeleton3D" parent="Armature" parent_id_path=PackedInt32Array(1035608794) index="0" unique_id=598050111]
 bones/0/position = Vector3(0.13507245, -0.5398302, -80.12712)
 bones/0/rotation = Quaternion(-0.7398433, -0.19158393, 0.20527461, 0.6113835)
 bones/1/rotation = Quaternion(0.106289424, -0.04520651, 0.039034404, 0.9925398)
@@ -4112,8 +4112,12 @@ bone_name = "mixamorig_RightHand"
 bone_idx = 26
 
 [node name="bolt_action" parent="Armature/Skeleton3D/BoneAttachment3D" index="0" unique_id=1163924825 instance=ExtResource("2_awnqs")]
-transform = Transform3D(3.3941212, 83.745995, -54.54435, -31.813114, 52.642353, 78.8461, 94.74392, 14.676169, 28.428982, 1.6654053, 10.574455, -1.7218885)
+transform = Transform3D(-11.986081, 94.10581, -31.629951, -10.76843, 30.43935, 94.644104, 98.69341, 14.750211, 6.4851985, 4.1318054, 11.157875, 4.6746426)
 
-[node name="AnimationPlayer" parent="." index="1" unique_id=870673490]
+[node name="EndOfBarrel" type="Marker3D" parent="Armature/Skeleton3D/BoneAttachment3D/bolt_action" index="1" unique_id=1799434980]
+unique_name_in_owner = true
+transform = Transform3D(0.0012524871, -0.004193324, 0.008991514, 0.008661703, 0.004881597, 0.0010700532, -0.0048380136, 0.007654166, 0.0042435355, -0.0014224052, 0.050160885, 0.81809807)
+
+[node name="AnimationPlayer" parent="." index="1" unique_id=559407327]
 unique_name_in_owner = true
 libraries/ = SubResource("AnimationLibrary_hbthk")

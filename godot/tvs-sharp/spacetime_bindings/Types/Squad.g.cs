@@ -25,10 +25,8 @@ namespace SpacetimeDB.Types
         public float CohesionRadius;
         [DataMember(Name = "center_position")]
         public DbVector3 CenterPosition;
-        [DataMember(Name = "game_player_id")]
-        public ulong GamePlayerId;
-        [DataMember(Name = "soldier_id")]
-        public ulong SoldierId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
 
         public Squad(
             ulong Id,
@@ -37,8 +35,7 @@ namespace SpacetimeDB.Types
             ulong? OwnerPlayerId,
             float CohesionRadius,
             DbVector3 CenterPosition,
-            ulong GamePlayerId,
-            ulong SoldierId
+            ulong EntityId
         )
         {
             this.Id = Id;
@@ -47,8 +44,7 @@ namespace SpacetimeDB.Types
             this.OwnerPlayerId = OwnerPlayerId;
             this.CohesionRadius = CohesionRadius;
             this.CenterPosition = CenterPosition;
-            this.GamePlayerId = GamePlayerId;
-            this.SoldierId = SoldierId;
+            this.EntityId = EntityId;
         }
 
         public Squad()

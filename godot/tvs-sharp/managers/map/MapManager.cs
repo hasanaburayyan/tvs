@@ -20,11 +20,15 @@ public partial class MapManager : Node
   { TerrainType.CommandCenter, GD.Load<PackedScene>("res://scenes/terrain/CommandCenter.tscn") },
   { TerrainType.Outpost, GD.Load<PackedScene>("res://scenes/terrain/Outpost.tscn") },
   { TerrainType.Fortification, GD.Load<PackedScene>("res://scenes/terrain/Fortification.tscn") },
+  { TerrainType.Road, GD.Load<PackedScene>("res://scenes/terrain/road.tscn") },
   };
 
   private static readonly PackedScene CaptureFlagScene = GD.Load<PackedScene>("res://scenes/terrain/CaptureFlag.tscn");
 
   private CsgBox3D _floor;
+  private readonly Dictionary<ulong, Label3D> _resourceIndicators = new();
+  private const float IndicatorVisibleRange = 30f;
+  private const float IndicatorVisibleRangeSq = IndicatorVisibleRange * IndicatorVisibleRange;
 
   public ulong GameId { get; set; } = 0;
 
@@ -34,14 +38,20 @@ public partial class MapManager : Node
 
 	var conn = SpacetimeNetworkManager.Instance.Conn;
 
-	foreach (var feature in conn.Db.TerrainFeature.GameSessionId.Filter(GameId))
+	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(GameId))
 	{
-	  SpawnFeature(feature);
-	}
-
-	foreach (var cp in conn.Db.CapturePoint.GameSessionId.Filter(GameId))
-	{
-	  SpawnCaptureFlag(cp);
+	  if (entity.Type == EntityType.Terrain)
+	  {
+		var feature = conn.Db.TerrainFeature.EntityId.Find(entity.EntityId);
+		if (feature != null)
+		  SpawnFeature(entity, feature);
+	  }
+	  else if (entity.Type == EntityType.CapturePoint)
+	  {
+		var cp = conn.Db.CapturePoint.EntityId.Find(entity.EntityId);
+		if (cp != null)
+		  SpawnCaptureFlag(entity, cp);
+	  }
 	}
 
 	conn.Db.TerrainFeature.OnInsert += OnTerrainFeatureInsert;
@@ -51,9 +61,52 @@ public partial class MapManager : Node
 	conn.Db.CapturePoint.OnInsert += OnCapturePointInsert;
 	conn.Db.CapturePoint.OnUpdate += OnCapturePointUpdate;
 	conn.Db.CapturePoint.OnDelete += OnCapturePointDelete;
+
+	foreach (var store in conn.Db.BaseResourceStore.GameSessionId.Filter(GameId))
+	  CreateOrUpdateResourceIndicator(store);
+
+	conn.Db.BaseResourceStore.OnInsert += OnBaseResourceStoreInsert;
+	conn.Db.BaseResourceStore.OnUpdate += OnBaseResourceStoreUpdate;
+	conn.Db.BaseResourceStore.OnDelete += OnBaseResourceStoreDelete;
   }
 
-  private void SpawnFeature(TerrainFeature feature)
+  public override void _Process(double delta)
+  {
+	if (_resourceIndicators.Count == 0) return;
+
+	var playerPos = GetLocalPlayerPosition();
+	if (playerPos == null)
+	{
+	  foreach (var label in _resourceIndicators.Values)
+		label.Visible = false;
+	  return;
+	}
+
+	var pp = playerPos.Value;
+	foreach (var kv in _resourceIndicators)
+	{
+	  float dx = kv.Value.Position.X - pp.X;
+	  float dz = kv.Value.Position.Z - pp.Z;
+	  kv.Value.Visible = dx * dx + dz * dz <= IndicatorVisibleRangeSq;
+	}
+  }
+
+  private Vector3? GetLocalPlayerPosition()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return null;
+
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (!gp.Active) continue;
+	  var entity = mgr.Conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null)
+		return new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
+	}
+	return null;
+  }
+
+  private void SpawnFeature(Entity entity, TerrainFeature feature)
   {
 	if (!TerrainScenes.TryGetValue(feature.Type, out var scene))
 	{
@@ -62,9 +115,9 @@ public partial class MapManager : Node
 	}
 
 	var node = scene.Instantiate<Node3D>();
-	node.Name = feature.Id.ToString();
-	node.Position = new Vector3(feature.PosX, 1f + (feature.SizeY / 2f) + feature.PosY, feature.PosZ);
-	node.RotationDegrees = new Vector3(0, feature.RotationY, 0);
+	node.Name = entity.EntityId.ToString();
+	node.Position = new Vector3(entity.Position.X, 1f + (feature.SizeY / 2f) + entity.Position.Y, entity.Position.Z);
+	node.RotationDegrees = new Vector3(0, entity.RotationY, 0);
 
 	if (feature.Type == TerrainType.Trench && node is CsgBox3D csgTrench)
 	{
@@ -78,9 +131,9 @@ public partial class MapManager : Node
 	}
   }
 
-  private Node3D FindFeatureNode(ulong featureId)
+  private Node3D FindFeatureNode(ulong entityId)
   {
-	var name = featureId.ToString();
+	var name = entityId.ToString();
 	var node = GetNodeOrNull<Node3D>(name);
 	if (node != null) return node;
 	if (_floor != null)
@@ -90,66 +143,164 @@ public partial class MapManager : Node
 
   private void OnTerrainFeatureInsert(EventContext ctx, TerrainFeature feature)
   {
-	if (feature.GameSessionId != GameId) return;
-	SpawnFeature(feature);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(feature.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	SpawnFeature(entity, feature);
   }
 
   private void OnTerrainFeatureUpdate(EventContext ctx, TerrainFeature oldFeature, TerrainFeature newFeature)
   {
-	if (newFeature.GameSessionId != GameId) return;
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(newFeature.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+
 	if (!oldFeature.Expired && newFeature.Expired)
 	{
-	  FindFeatureNode(oldFeature.Id)?.QueueFree();
+	  FindFeatureNode(newFeature.EntityId)?.QueueFree();
 	}
 	else if (oldFeature.Expired && !newFeature.Expired)
 	{
-	  SpawnFeature(newFeature);
+	  SpawnFeature(entity, newFeature);
 	}
   }
 
   private void OnTerrainFeatureDelete(EventContext ctx, TerrainFeature feature)
   {
-	if (feature.GameSessionId != GameId) return;
-	FindFeatureNode(feature.Id)?.QueueFree();
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(feature.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
+	FindFeatureNode(feature.EntityId)?.QueueFree();
   }
 
-  private void SpawnCaptureFlag(SpacetimeDB.Types.CapturePoint cp)
+  private void SpawnCaptureFlag(Entity entity, SpacetimeDB.Types.CapturePoint cp)
   {
 	var node = CaptureFlagScene.Instantiate<CaptureFlag>();
-	node.Name = $"CP_{cp.Id}";
-	node.PointId = cp.Id;
-	node.Position = new Vector3(cp.PosX, 1f, cp.PosZ);
+	node.Name = $"CP_{entity.EntityId}";
+	node.EntityId = entity.EntityId;
+	node.Position = new Vector3(entity.Position.X, 1f, entity.Position.Z);
 	AddChild(node);
 	node.SetOwningTeam(cp.OwningTeam);
 	node.SetInfluence(cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence);
-	EmitSignal(SignalName.CapturePointUpdated, (long)cp.Id, cp.PosX, cp.PosZ, cp.Radius, cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence, (int)cp.OwningTeam);
+	EmitSignal(SignalName.CapturePointUpdated, (long)entity.EntityId, entity.Position.X, entity.Position.Z, cp.Radius, cp.InfluenceTeam1, cp.InfluenceTeam2, cp.MaxInfluence, (int)cp.OwningTeam);
   }
 
   private void OnCapturePointInsert(EventContext ctx, SpacetimeDB.Types.CapturePoint cp)
   {
-	if (cp.GameSessionId != GameId) return;
-	SpawnCaptureFlag(cp);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(cp.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	SpawnCaptureFlag(entity, cp);
   }
 
   private void OnCapturePointUpdate(EventContext ctx, SpacetimeDB.Types.CapturePoint oldCp, SpacetimeDB.Types.CapturePoint newCp)
   {
-	if (newCp.GameSessionId != GameId) return;
-	var node = GetNodeOrNull<CaptureFlag>($"CP_{newCp.Id}");
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(newCp.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+
+	var node = GetNodeOrNull<CaptureFlag>($"CP_{newCp.EntityId}");
 	if (node == null) return;
 	node.SetOwningTeam(newCp.OwningTeam);
 	node.SetInfluence(newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence);
-	EmitSignal(SignalName.CapturePointUpdated, (long)newCp.Id, newCp.PosX, newCp.PosZ, newCp.Radius, newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence, (int)newCp.OwningTeam);
+	EmitSignal(SignalName.CapturePointUpdated, (long)newCp.EntityId, entity.Position.X, entity.Position.Z, newCp.Radius, newCp.InfluenceTeam1, newCp.InfluenceTeam2, newCp.MaxInfluence, (int)newCp.OwningTeam);
   }
 
   private void OnCapturePointDelete(EventContext ctx, SpacetimeDB.Types.CapturePoint cp)
   {
-	if (cp.GameSessionId != GameId) return;
-	GetNodeOrNull<CaptureFlag>($"CP_{cp.Id}")?.QueueFree();
-	EmitSignal(SignalName.CapturePointRemoved, (long)cp.Id);
+	var entity = SpacetimeNetworkManager.Instance.Conn.Db.Entity.EntityId.Find(cp.EntityId);
+	if (entity != null && entity.GameSessionId != GameId) return;
+	GetNodeOrNull<CaptureFlag>($"CP_{cp.EntityId}")?.QueueFree();
+	EmitSignal(SignalName.CapturePointRemoved, (long)cp.EntityId);
+  }
+
+  private void OnBaseResourceStoreInsert(EventContext ctx, BaseResourceStore store)
+  {
+	if (store.GameSessionId != GameId) return;
+	CreateOrUpdateResourceIndicator(store);
+  }
+
+  private void OnBaseResourceStoreUpdate(EventContext ctx, BaseResourceStore oldStore, BaseResourceStore newStore)
+  {
+	if (newStore.GameSessionId != GameId) return;
+	CreateOrUpdateResourceIndicator(newStore);
+  }
+
+  private void OnBaseResourceStoreDelete(EventContext ctx, BaseResourceStore store)
+  {
+	if (_resourceIndicators.Remove(store.EntityId, out var label))
+	  label.QueueFree();
+  }
+
+  private byte GetLocalTeamSlot()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return 0;
+
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (!gp.Active) continue;
+	  var entity = mgr.Conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null) return entity.TeamSlot;
+	}
+	return 0;
+  }
+
+  private void CreateOrUpdateResourceIndicator(BaseResourceStore store)
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	byte myTeam = GetLocalTeamSlot();
+	if (myTeam != 0 && store.TeamSlot != 0 && store.TeamSlot != myTeam)
+	{
+	  if (_resourceIndicators.Remove(store.EntityId, out var old))
+		old.QueueFree();
+	  return;
+	}
+
+	var entity = conn.Db.Entity.EntityId.Find(store.EntityId);
+	if (entity == null) return;
+
+	var feature = conn.Db.TerrainFeature.EntityId.Find(store.EntityId);
+
+	if (!_resourceIndicators.TryGetValue(store.EntityId, out var label))
+	{
+	  label = new Label3D
+	  {
+		Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+		FixedSize = true,
+		PixelSize = 0.003f,
+		FontSize = 18,
+		OutlineSize = 4,
+		NoDepthTest = false,
+		HorizontalAlignment = HorizontalAlignment.Center,
+		VerticalAlignment = VerticalAlignment.Bottom,
+		Visible = false,
+	  };
+
+	  float topY = 1f + (feature?.SizeY ?? 4f) + 1.5f;
+	  label.Position = new Vector3(entity.Position.X, topY, entity.Position.Z);
+
+	  AddChild(label);
+	  _resourceIndicators[store.EntityId] = label;
+	}
+
+	const int barLen = 10;
+	float ratio = store.SuppliesMax > 0 ? Mathf.Clamp((float)store.Supplies / store.SuppliesMax, 0f, 1f) : 0f;
+	int filled = (int)(ratio * barLen);
+	string bar = new string('\u2588', filled) + new string('\u2591', barLen - filled);
+
+	string typeName = store.GenerationPerSecond > 0 ? "HQ" : "FOB";
+	string genText = store.GenerationPerSecond > 0 ? $" +{store.GenerationPerSecond:F0}/s" : "";
+	label.Text = $"{typeName} Lv{store.Level}{genText}\n{bar} {store.Supplies}/{store.SuppliesMax}";
+
+	label.Modulate = store.TeamSlot switch
+	{
+	  1 => new Color(0.5f, 0.7f, 1.0f),
+	  2 => new Color(1.0f, 0.5f, 0.5f),
+	  _ => Colors.White,
+	};
   }
 
   public void DestroyMap()
   {
+	_resourceIndicators.Clear();
 	foreach (var child in GetChildren())
 	{
 	  child.QueueFree();

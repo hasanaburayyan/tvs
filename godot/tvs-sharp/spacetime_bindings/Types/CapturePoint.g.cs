@@ -13,14 +13,8 @@ namespace SpacetimeDB.Types
     [DataContract]
     public sealed partial class CapturePoint
     {
-        [DataMember(Name = "id")]
-        public ulong Id;
-        [DataMember(Name = "game_session_id")]
-        public ulong GameSessionId;
-        [DataMember(Name = "pos_x")]
-        public float PosX;
-        [DataMember(Name = "pos_z")]
-        public float PosZ;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
         [DataMember(Name = "radius")]
         public float Radius;
         [DataMember(Name = "owning_team")]
@@ -33,10 +27,7 @@ namespace SpacetimeDB.Types
         public int MaxInfluence;
 
         public CapturePoint(
-            ulong Id,
-            ulong GameSessionId,
-            float PosX,
-            float PosZ,
+            ulong EntityId,
             float Radius,
             byte OwningTeam,
             int InfluenceTeam1,
@@ -44,10 +35,7 @@ namespace SpacetimeDB.Types
             int MaxInfluence
         )
         {
-            this.Id = Id;
-            this.GameSessionId = GameSessionId;
-            this.PosX = PosX;
-            this.PosZ = PosZ;
+            this.EntityId = EntityId;
             this.Radius = Radius;
             this.OwningTeam = OwningTeam;
             this.InfluenceTeam1 = InfluenceTeam1;

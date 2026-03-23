@@ -15,10 +15,10 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "id")]
         public ulong Id;
-        [DataMember(Name = "game_player_id")]
-        public ulong GamePlayerId;
-        [DataMember(Name = "caster_game_player_id")]
-        public ulong CasterGamePlayerId;
+        [DataMember(Name = "entity_id")]
+        public ulong EntityId;
+        [DataMember(Name = "caster_entity_id")]
+        public ulong CasterEntityId;
         [DataMember(Name = "source_ability_id")]
         public ulong SourceAbilityId;
         [DataMember(Name = "mods")]
@@ -30,8 +30,8 @@ namespace SpacetimeDB.Types
 
         public ActiveEffect(
             ulong Id,
-            ulong GamePlayerId,
-            ulong CasterGamePlayerId,
+            ulong EntityId,
+            ulong CasterEntityId,
             ulong SourceAbilityId,
             System.Collections.Generic.List<AbilityMod> Mods,
             System.Collections.Generic.List<ulong> AffectedAbilityIds,
@@ -39,8 +39,8 @@ namespace SpacetimeDB.Types
         )
         {
             this.Id = Id;
-            this.GamePlayerId = GamePlayerId;
-            this.CasterGamePlayerId = CasterGamePlayerId;
+            this.EntityId = EntityId;
+            this.CasterEntityId = CasterEntityId;
             this.SourceAbilityId = SourceAbilityId;
             this.Mods = Mods;
             this.AffectedAbilityIds = AffectedAbilityIds;
