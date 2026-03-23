@@ -51,6 +51,7 @@ public partial class Targeting : Control
   {
 	if (@event is not InputEventMouseButton mb || !mb.Pressed) return;
 	if (PlacementMode.Instance?.IsActive == true) return;
+	if (UpgradeMode.Instance?.IsActive == true) return;
 
 	var cam = GetActiveCamera();
 	if (cam == null) return;
@@ -102,10 +103,35 @@ public partial class Targeting : Control
   {
 	var mgr = SpacetimeNetworkManager.Instance;
 	if (mgr?.ActivePlayerId == null) return null;
-	var playerNode = GetTree().Root.FindChild(mgr.ActivePlayerId.Value.ToString(), true, false) as Player;
-	if (playerNode?.BarrelMarker == null) return null;
-	var pos = playerNode.BarrelMarker.GlobalPosition;
-	return new DbVector3 { X = pos.X, Y = pos.Y, Z = pos.Z };
+
+	var idStr = mgr.ActivePlayerId.Value.ToString();
+	Player playerNode = null;
+
+	var scene = GetTree().CurrentScene;
+	if (scene != null)
+	  playerNode = scene.GetNodeOrNull<Player>(idStr);
+
+	if (playerNode == null)
+	  playerNode = GetTree().Root.FindChild(idStr, true, false) as Player;
+
+	if (playerNode == null) return null;
+
+	if (playerNode.BarrelMarker != null)
+	{
+	  var pos = playerNode.BarrelMarker.GlobalPosition;
+	  return new DbVector3 { X = pos.X, Y = pos.Y, Z = pos.Z };
+	}
+
+	var gp = playerNode.GlobalPosition;
+	float yaw = playerNode.Rotation.Y;
+	float forwardX = -Mathf.Sin(yaw);
+	float forwardZ = -Mathf.Cos(yaw);
+	return new DbVector3
+	{
+	  X = gp.X + forwardX * 0.3f,
+	  Y = gp.Y + 1.4f,
+	  Z = gp.Z + forwardZ * 0.3f,
+	};
   }
 
   public Vector3? RaycastAimPoint(Camera3D cam = null)

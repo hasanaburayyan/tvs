@@ -14,5 +14,6 @@ namespace SpacetimeDB.Types
         GroundTarget,
         AllyTarget,
         SelfCast,
+        UpgradeTarget,
     }
 }

@@ -252,6 +252,12 @@ public static partial class Module
 
     if (killed)
     {
+      if (e.Type == EntityType.Terrain)
+      {
+        if (ctx.Db.terrain_feature.EntityId.Find(entityId) is TerrainFeature tf && tf.Type == TerrainType.Road)
+          OnRoadDestroyed(ctx, entityId);
+      }
+
       var leafSquad = FindLeafSquadForEntity(ctx, entityId);
       if (leafSquad is Squad ls)
         UpdateSquadCenters(ctx, ls.Id);
@@ -389,8 +395,15 @@ public static partial class Module
           float bx = barrel.x - gpEnt.Position.x;
           float by = barrel.y - gpEnt.Position.y;
           float bz = barrel.z - gpEnt.Position.z;
-          if (bx * bx + by * by + bz * bz <= MAX_BARREL_OFFSET * MAX_BARREL_OFFSET)
+          float distSq = bx * bx + by * by + bz * bz;
+          if (distSq <= MAX_BARREL_OFFSET * MAX_BARREL_OFFSET)
             origin = barrel;
+          else
+            Log.Warn($"Barrel rejected: dist={Math.Sqrt(distSq):F2} > {MAX_BARREL_OFFSET}, barrel=({barrel.x:F2},{barrel.y:F2},{barrel.z:F2}) entity=({gpEnt.Position.x:F2},{gpEnt.Position.y:F2},{gpEnt.Position.z:F2})");
+        }
+        else
+        {
+          Log.Warn($"No barrel position received, using entity pos=({gpEnt.Position.x:F2},{gpEnt.Position.y:F2},{gpEnt.Position.z:F2})");
         }
 
         float dx = aimPoint.x - origin.x;
@@ -446,35 +459,42 @@ public static partial class Module
 
         if (ability.Type == AbilityType.Terrain && ability.SpawnedTerrainType is TerrainType terrainType)
         {
-          Timestamp? expiresAt = ability.EffectDurationMs > 0
-            ? ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs)
-            : null;
-
-          var terrainEnt = CreateEntity(ctx, gameId, EntityType.Terrain, new DbVector3(pos.x, 0f, pos.z), targetRotationY ?? gpEnt.RotationY, gpEnt.TeamSlot);
-          CreateTargetable(ctx, terrainEnt.EntityId, ability.TerrainMaxHealth, ability.TerrainMaxHealth, 0);
-          ctx.Db.terrain_feature.Insert(new TerrainFeature
+          if (terrainType == TerrainType.Road)
           {
-            EntityId = terrainEnt.EntityId,
-            Type = terrainType,
-            SizeX = ability.TerrainSizeX,
-            SizeY = ability.TerrainSizeY,
-            SizeZ = ability.TerrainSizeZ,
-            CasterEntityId = gp.EntityId,
-            ExpiresAt = expiresAt,
-          });
-
-          if (expiresAt is Timestamp expiry)
-          {
-            ctx.Db.terrain_expiry_check.Insert(new TerrainExpiryCheck
-            {
-              Id = 0,
-              EntityId = terrainEnt.EntityId,
-              ScheduledAt = new ScheduleAt.Time(expiry),
-            });
+            PlaceRoad(ctx, gameId, gp.EntityId, gpEnt.TeamSlot, pos, targetRotationY ?? gpEnt.RotationY, ability);
           }
+          else
+          {
+            Timestamp? expiresAt = ability.EffectDurationMs > 0
+              ? ctx.Timestamp + TimeSpan.FromMilliseconds(ability.EffectDurationMs)
+              : null;
 
-          if (terrainType == TerrainType.Outpost || terrainType == TerrainType.CommandCenter)
-            ScheduleOutpostRegen(ctx, terrainEnt.EntityId);
+            var terrainEnt = CreateEntity(ctx, gameId, EntityType.Terrain, new DbVector3(pos.x, 0f, pos.z), targetRotationY ?? gpEnt.RotationY, gpEnt.TeamSlot);
+            CreateTargetable(ctx, terrainEnt.EntityId, ability.TerrainMaxHealth, ability.TerrainMaxHealth, 0);
+            ctx.Db.terrain_feature.Insert(new TerrainFeature
+            {
+              EntityId = terrainEnt.EntityId,
+              Type = terrainType,
+              SizeX = ability.TerrainSizeX,
+              SizeY = ability.TerrainSizeY,
+              SizeZ = ability.TerrainSizeZ,
+              CasterEntityId = gp.EntityId,
+              ExpiresAt = expiresAt,
+            });
+
+            if (expiresAt is Timestamp expiry)
+            {
+              ctx.Db.terrain_expiry_check.Insert(new TerrainExpiryCheck
+              {
+                Id = 0,
+                EntityId = terrainEnt.EntityId,
+                ScheduledAt = new ScheduleAt.Time(expiry),
+              });
+            }
+
+            if (terrainType == TerrainType.Outpost || terrainType == TerrainType.CommandCenter)
+              ScheduleOutpostRegen(ctx, terrainEnt.EntityId);
+          }
         }
 
         if (ability.GrantedMods.Count > 0 && ability.EffectDurationMs > 0)
@@ -548,6 +568,25 @@ public static partial class Module
         });
 
         Log.Info($"Player {player.Name} used {ability.Name} at ground ({pos.x:F1}, {pos.z:F1})");
+        break;
+      }
+
+      case TargetingMode.UpgradeTarget:
+      {
+        if (targetPosition is not DbVector3 upgradePos)
+          throw new Exception("Upgrade target requires a position");
+
+        float udx = upgradePos.x - gpEnt.Position.x;
+        float udz = upgradePos.z - gpEnt.Position.z;
+        float udist = (float)Math.Sqrt(udx * udx + udz * udz);
+        if (resolved.Range > 0 && udist > resolved.Range)
+          throw new Exception("Target position is out of range");
+
+        PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
+        SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
+        HandleUpgradeFeature(ctx, gameId, gp.EntityId, upgradePos);
+
+        Log.Info($"Player {player.Name} used {ability.Name} at ({upgradePos.x:F1}, {upgradePos.z:F1})");
         break;
       }
 

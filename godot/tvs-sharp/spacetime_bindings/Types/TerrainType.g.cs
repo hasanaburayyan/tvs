@@ -19,5 +19,6 @@ namespace SpacetimeDB.Types
         Trap,
         Fortification,
         MountedWeapon,
+        Road,
     }
 }

@@ -1,5 +1,6 @@
 using Godot;
 using SpacetimeDB.Types;
+using System.Collections.Generic;
 
 public partial class PlacementMode : Node3D
 {
@@ -16,6 +17,13 @@ public partial class PlacementMode : Node3D
   private float _range;
   private Vector3 _size;
   private float _rotationDeg;
+  private bool _isSnapping;
+
+  private struct SnapPoint
+  {
+	public Vector3 Position;
+	public float RotationDeg;
+  }
 
   public static PlacementMode EnsureExists()
   {
@@ -34,12 +42,13 @@ public partial class PlacementMode : Node3D
 	Visible = false;
   }
 
-  public void Activate(ulong abilityId, ulong gameSessionId, float range, float sizeX, float sizeY, float sizeZ)
+  public void Activate(ulong abilityId, ulong gameSessionId, float range, float sizeX, float sizeY, float sizeZ, bool snap = false)
   {
 	_abilityId = abilityId;
 	_gameSessionId = gameSessionId;
 	_range = range;
 	_size = new Vector3(sizeX, sizeY, sizeZ);
+	_isSnapping = snap;
 
 	if (_ghost != null && IsInstanceValid(_ghost))
 	  _ghost.QueueFree();
@@ -95,6 +104,19 @@ public partial class PlacementMode : Node3D
 	if (casterPos == null) return;
 
 	var caster = casterPos.Value;
+
+	if (_isSnapping)
+	{
+	  ProcessSnapping(hitPoint, caster);
+	}
+	else
+	{
+	  ProcessFreePlace(hitPoint, caster);
+	}
+  }
+
+  private void ProcessFreePlace(Vector3 hitPoint, Vector3 caster)
+  {
 	var toHit = hitPoint - caster;
 	toHit.Y = 0;
 	float dist = toHit.Length();
@@ -115,6 +137,118 @@ public partial class PlacementMode : Node3D
 	_ghost.Rotation = new Vector3(0f, Mathf.DegToRad(_rotationDeg), 0f);
   }
 
+  private void ProcessSnapping(Vector3 hitPoint, Vector3 caster)
+  {
+	var snaps = ComputeSnapPoints();
+	if (snaps.Count == 0)
+	{
+	  _ghost.Visible = false;
+	  return;
+	}
+
+	_ghost.Visible = true;
+	float bestDistSq = float.MaxValue;
+	SnapPoint best = snaps[0];
+
+	foreach (var snap in snaps)
+	{
+	  float dx = snap.Position.X - hitPoint.X;
+	  float dz = snap.Position.Z - hitPoint.Z;
+	  float dSq = dx * dx + dz * dz;
+	  if (dSq < bestDistSq)
+	  {
+		bestDistSq = dSq;
+		best = snap;
+	  }
+	}
+
+	_rotationDeg = best.RotationDeg;
+	var toSnap = best.Position - caster;
+	toSnap.Y = 0;
+	float dist = toSnap.Length();
+
+	var mat = _ghost.MaterialOverride as StandardMaterial3D;
+	if (dist > _range)
+	{
+	  if (mat != null) mat.AlbedoColor = new Color(0.8f, 0.2f, 0.2f, 0.4f);
+	}
+	else
+	{
+	  if (mat != null) mat.AlbedoColor = new Color(0.2f, 0.8f, 0.2f, 0.4f);
+	}
+
+	_ghost.GlobalPosition = best.Position + Vector3.Up * (_size.Y * 0.5f);
+	_ghost.Rotation = new Vector3(0f, Mathf.DegToRad(_rotationDeg), 0f);
+  }
+
+  private List<SnapPoint> ComputeSnapPoints()
+  {
+	var points = new List<SnapPoint>();
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null) return points;
+
+	var conn = mgr.Conn;
+	byte myTeam = GetCasterTeamSlot();
+	float roadLongHalf = _size.Z / 2f;
+
+	foreach (var rs in conn.Db.RoadSegment.Iter())
+	{
+	  if (rs.GameSessionId != _gameSessionId) continue;
+	  AddSnapPointsForEntity(conn, rs.EntityId, myTeam, roadLongHalf, points);
+	}
+
+	foreach (var brs in conn.Db.BaseResourceStore.Iter())
+	{
+	  if (brs.GameSessionId != _gameSessionId) continue;
+
+	  var tgt = conn.Db.Targetable.EntityId.Find(brs.EntityId);
+	  if (tgt != null && (tgt.Dead || tgt.Health <= 0)) continue;
+
+	  AddSnapPointsForEntity(conn, brs.EntityId, myTeam, roadLongHalf, points);
+	}
+
+	return points;
+  }
+
+  private void AddSnapPointsForEntity(DbConnection conn, ulong entityId, byte myTeam, float roadLongHalf, List<SnapPoint> points)
+  {
+	var ent = conn.Db.Entity.EntityId.Find(entityId);
+	if (ent == null) return;
+	if (ent.TeamSlot != myTeam && ent.TeamSlot != 0) return;
+
+	var tf = conn.Db.TerrainFeature.EntityId.Find(entityId);
+	if (tf == null) return;
+
+	float px = ent.Position.X;
+	float pz = ent.Position.Z;
+	float rotRad = ent.RotationY * Mathf.Pi / 180f;
+	float cos = Mathf.Abs(Mathf.Cos(rotRad));
+	float sin = Mathf.Abs(Mathf.Sin(rotRad));
+	float parentHalfW = tf.SizeX / 2f * cos + tf.SizeZ / 2f * sin;
+	float parentHalfD = tf.SizeX / 2f * sin + tf.SizeZ / 2f * cos;
+
+	const float floorY = 1f;
+	points.Add(new SnapPoint { Position = new Vector3(px, floorY, pz - parentHalfD - roadLongHalf), RotationDeg = 0 });
+	points.Add(new SnapPoint { Position = new Vector3(px, floorY, pz + parentHalfD + roadLongHalf), RotationDeg = 0 });
+	points.Add(new SnapPoint { Position = new Vector3(px + parentHalfW + roadLongHalf, floorY, pz), RotationDeg = 90 });
+	points.Add(new SnapPoint { Position = new Vector3(px - parentHalfW - roadLongHalf, floorY, pz), RotationDeg = 90 });
+  }
+
+  private byte GetCasterTeamSlot()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return 0;
+
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (!gp.Active) continue;
+	  var entity = mgr.Conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null)
+		return entity.TeamSlot;
+	}
+	return 0;
+  }
+
   public override void _UnhandledInput(InputEvent @event)
   {
 	if (!IsActive) return;
@@ -131,12 +265,12 @@ public partial class PlacementMode : Node3D
 		Deactivate();
 		GetViewport().SetInputAsHandled();
 	  }
-	  else if (mb.ButtonIndex == MouseButton.WheelUp)
+	  else if (!_isSnapping && mb.ButtonIndex == MouseButton.WheelUp)
 	  {
 		_rotationDeg = (_rotationDeg + RotateStep) % 360f;
 		GetViewport().SetInputAsHandled();
 	  }
-	  else if (mb.ButtonIndex == MouseButton.WheelDown)
+	  else if (!_isSnapping && mb.ButtonIndex == MouseButton.WheelDown)
 	  {
 		_rotationDeg = (_rotationDeg - RotateStep + 360f) % 360f;
 		GetViewport().SetInputAsHandled();

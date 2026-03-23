@@ -35,6 +35,7 @@ namespace SpacetimeDB.Types
 			AddTable(AbilityDef = new(conn));
 			AddTable(ActiveEffect = new(conn));
 			AddTable(ArchetypeDef = new(conn));
+			AddTable(BaseResourceStore = new(conn));
 			AddTable(BattleLog = new(conn));
 			AddTable(CapturePoint = new(conn));
 			AddTable(Corpse = new(conn));
@@ -48,6 +49,8 @@ namespace SpacetimeDB.Types
 			AddTable(Player = new(conn));
 			AddTable(Projectile = new(conn));
 			AddTable(ResourcePool = new(conn));
+			AddTable(ResupplySession = new(conn));
+			AddTable(RoadSegment = new(conn));
 			AddTable(SkillDef = new(conn));
 			AddTable(Soldier = new(conn));
 			AddTable(Squad = new(conn));
@@ -558,6 +561,7 @@ namespace SpacetimeDB.Types
 			new QueryBuilder().From.AbilityDef().ToSql(),
 			new QueryBuilder().From.ActiveEffect().ToSql(),
 			new QueryBuilder().From.ArchetypeDef().ToSql(),
+			new QueryBuilder().From.BaseResourceStore().ToSql(),
 			new QueryBuilder().From.BattleLog().ToSql(),
 			new QueryBuilder().From.CapturePoint().ToSql(),
 			new QueryBuilder().From.Corpse().ToSql(),
@@ -571,6 +575,8 @@ namespace SpacetimeDB.Types
 			new QueryBuilder().From.Player().ToSql(),
 			new QueryBuilder().From.Projectile().ToSql(),
 			new QueryBuilder().From.ResourcePool().ToSql(),
+			new QueryBuilder().From.ResupplySession().ToSql(),
+			new QueryBuilder().From.RoadSegment().ToSql(),
 			new QueryBuilder().From.SkillDef().ToSql(),
 			new QueryBuilder().From.Soldier().ToSql(),
 			new QueryBuilder().From.Squad().ToSql(),
@@ -591,6 +597,7 @@ namespace SpacetimeDB.Types
 		public global::SpacetimeDB.Table<AbilityDef, AbilityDefCols, AbilityDefIxCols> AbilityDef() => new("ability_def", new AbilityDefCols("ability_def"), new AbilityDefIxCols("ability_def"));
 		public global::SpacetimeDB.Table<ActiveEffect, ActiveEffectCols, ActiveEffectIxCols> ActiveEffect() => new("active_effect", new ActiveEffectCols("active_effect"), new ActiveEffectIxCols("active_effect"));
 		public global::SpacetimeDB.Table<ArchetypeDef, ArchetypeDefCols, ArchetypeDefIxCols> ArchetypeDef() => new("archetype_def", new ArchetypeDefCols("archetype_def"), new ArchetypeDefIxCols("archetype_def"));
+		public global::SpacetimeDB.Table<BaseResourceStore, BaseResourceStoreCols, BaseResourceStoreIxCols> BaseResourceStore() => new("base_resource_store", new BaseResourceStoreCols("base_resource_store"), new BaseResourceStoreIxCols("base_resource_store"));
 		public global::SpacetimeDB.Table<BattleLogEntry, BattleLogCols, BattleLogIxCols> BattleLog() => new("battle_log", new BattleLogCols("battle_log"), new BattleLogIxCols("battle_log"));
 		public global::SpacetimeDB.Table<CapturePoint, CapturePointCols, CapturePointIxCols> CapturePoint() => new("capture_point", new CapturePointCols("capture_point"), new CapturePointIxCols("capture_point"));
 		public global::SpacetimeDB.Table<Corpse, CorpseCols, CorpseIxCols> Corpse() => new("corpse", new CorpseCols("corpse"), new CorpseIxCols("corpse"));
@@ -604,6 +611,8 @@ namespace SpacetimeDB.Types
 		public global::SpacetimeDB.Table<Player, PlayerCols, PlayerIxCols> Player() => new("player", new PlayerCols("player"), new PlayerIxCols("player"));
 		public global::SpacetimeDB.Table<Projectile, ProjectileCols, ProjectileIxCols> Projectile() => new("projectile", new ProjectileCols("projectile"), new ProjectileIxCols("projectile"));
 		public global::SpacetimeDB.Table<ResourcePool, ResourcePoolCols, ResourcePoolIxCols> ResourcePool() => new("resource_pool", new ResourcePoolCols("resource_pool"), new ResourcePoolIxCols("resource_pool"));
+		public global::SpacetimeDB.Table<ResupplySession, ResupplySessionCols, ResupplySessionIxCols> ResupplySession() => new("resupply_session", new ResupplySessionCols("resupply_session"), new ResupplySessionIxCols("resupply_session"));
+		public global::SpacetimeDB.Table<RoadSegment, RoadSegmentCols, RoadSegmentIxCols> RoadSegment() => new("road_segment", new RoadSegmentCols("road_segment"), new RoadSegmentIxCols("road_segment"));
 		public global::SpacetimeDB.Table<SkillDef, SkillDefCols, SkillDefIxCols> SkillDef() => new("skill_def", new SkillDefCols("skill_def"), new SkillDefIxCols("skill_def"));
 		public global::SpacetimeDB.Table<Soldier, SoldierCols, SoldierIxCols> Soldier() => new("soldier", new SoldierCols("soldier"), new SoldierIxCols("soldier"));
 		public global::SpacetimeDB.Table<Squad, SquadCols, SquadIxCols> Squad() => new("squad", new SquadCols("squad"), new SquadIxCols("squad"));
@@ -719,6 +728,8 @@ namespace SpacetimeDB.Types
 				Reducer.SoftDeleteMessage args => Reducers.InvokeSoftDeleteMessage(eventContext, args),
 				Reducer.SplitOwnedSquads args => Reducers.InvokeSplitOwnedSquads(eventContext, args),
 				Reducer.StartGame args => Reducers.InvokeStartGame(eventContext, args),
+				Reducer.StartResupply args => Reducers.InvokeStartResupply(eventContext, args),
+				Reducer.StopResupply args => Reducers.InvokeStopResupply(eventContext, args),
 				Reducer.TeleportPlayer args => Reducers.InvokeTeleportPlayer(eventContext, args),
 				Reducer.UseAbility args => Reducers.InvokeUseAbility(eventContext, args),
 				_ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")

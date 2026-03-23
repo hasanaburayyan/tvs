@@ -66,6 +66,7 @@ public static partial class Module
     Infantry,
     Support,
     Scout,
+    Engineer,
   }
 
   [SpacetimeDB.Type]
@@ -97,5 +98,6 @@ public static partial class Module
     GroundTarget,
     AllyTarget,
     SelfCast,
+    UpgradeTarget,
   }
 }

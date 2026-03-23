@@ -14,5 +14,6 @@ namespace SpacetimeDB.Types
         Infantry,
         Support,
         Scout,
+        Engineer,
     }
 }

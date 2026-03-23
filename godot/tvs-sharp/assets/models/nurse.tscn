@@ -4107,16 +4107,16 @@ bones/46/rotation = Quaternion(0.5940545, -0.07512361, 0.035506845, 0.80012196)
 bones/47/rotation = Quaternion(0.42193818, 0.007961513, -0.01244386, 0.9065042)
 
 [node name="BoneAttachment3D" type="BoneAttachment3D" parent="Armature/Skeleton3D" index="1" unique_id=576950002]
-transform = Transform3D(-0.023354374, -0.100349344, 0.99467784, -0.5804401, 0.8114391, 0.068234704, -0.813968, -0.5757578, -0.07719758, -22.47937, 23.492298, -121.224045)
+transform = Transform3D(-0.11709291, 0.02628094, 0.9927728, -0.35439393, 0.93272924, -0.066490464, -0.92773604, -0.35961875, -0.0999023, -26.31139, 23.492298, -121.22405)
 bone_name = "mixamorig_RightHand"
 bone_idx = 26
 
 [node name="bolt_action" parent="Armature/Skeleton3D/BoneAttachment3D" index="0" unique_id=1163924825 instance=ExtResource("2_awnqs")]
-transform = Transform3D(12.196, 86.60236, -48.49021, -41.5211, 48.826294, 76.75939, 90.15133, 10.772143, 41.913086, 2.1401443, 9.941406, -1.7746067)
+transform = Transform3D(-11.986081, 94.10581, -31.629951, -10.76843, 30.43935, 94.644104, 98.69341, 14.750211, 6.4851985, 4.1318054, 11.157875, 4.6746426)
 
-[node name="EndOfBarrel" type="Marker3D" parent="Armature/Skeleton3D/BoneAttachment3D" index="1" unique_id=1799434980]
+[node name="EndOfBarrel" type="Marker3D" parent="Armature/Skeleton3D/BoneAttachment3D/bolt_action" index="1" unique_id=1799434980]
 unique_name_in_owner = true
-transform = Transform3D(0.99999416, 0.00046381354, -0.003440272, -0.00044858456, 0.99998987, 0.0046403594, 0.0034423545, -0.0046386905, 0.9999834, -38.398148, 78.041794, 20.846275)
+transform = Transform3D(0.0012524871, -0.004193324, 0.008991514, 0.008661703, 0.004881597, 0.0010700532, -0.0048380136, 0.007654166, 0.0042435355, -0.0014224052, 0.050160885, 0.81809807)
 
 [node name="AnimationPlayer" parent="." index="1" unique_id=559407327]
 unique_name_in_owner = true

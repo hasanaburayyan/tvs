@@ -3,7 +3,6 @@ using SpacetimeDB;
 public static partial class Module {
   const float OutpostRegenRadius = 10f;
   const int OutpostHealthPerTick = 2;
-  const int OutpostSuppliesPerTick = 1;
   const ulong OutpostRegenIntervalMs = 3000;
 
   const int PassiveStaminaPerTick = 1;
@@ -91,12 +90,6 @@ public static partial class Module {
       {
         int newHealth = Math.Min(gpTarget.MaxHealth, gpTarget.Health + OutpostHealthPerTick);
         ctx.Db.targetable.EntityId.Update(gpTarget with { Health = newHealth });
-      }
-
-      if (FindResourcePool(ctx, ent.EntityId, ResourceKind.Supplies) is ResourcePool pool && pool.Current < pool.Max)
-      {
-        int newSupplies = Math.Min(pool.Max, pool.Current + OutpostSuppliesPerTick);
-        ctx.Db.resource_pool.Id.Update(pool with { Current = newSupplies });
       }
     }
 

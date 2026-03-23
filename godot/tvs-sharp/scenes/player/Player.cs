@@ -23,6 +23,7 @@ public partial class Player : CharacterBody3D
 
   public bool IsDead { get; private set; }
 
+  private bool _isResupplying = false;
   private float _syncTimer = 0.0f;
   private Vector3 _lastSyncedPosition = Vector3.Zero;
   private float _lastSyncedRotationY = 0.0f;
@@ -80,6 +81,11 @@ public partial class Player : CharacterBody3D
   public void PlayDeath()
   {
 	IsDead = true;
+	if (_isResupplying)
+	{
+	  _isResupplying = false;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.StopResupply(GameId);
+	}
 	_animPlayer.Play("Death");
   }
 
@@ -157,6 +163,17 @@ public partial class Player : CharacterBody3D
 	if (Input.IsActionJustPressed("squad_split"))
 	{
 	  SpacetimeNetworkManager.Instance.Conn.Reducers.SplitOwnedSquads(GameId);
+	}
+
+	if (Input.IsActionJustPressed("resupply") && !_isResupplying)
+	{
+	  _isResupplying = true;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.StartResupply(GameId);
+	}
+	else if (Input.IsActionJustReleased("resupply") && _isResupplying)
+	{
+	  _isResupplying = false;
+	  SpacetimeNetworkManager.Instance.Conn.Reducers.StopResupply(GameId);
 	}
 
 	_syncTimer += (float)delta;

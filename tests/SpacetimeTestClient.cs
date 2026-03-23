@@ -67,6 +67,8 @@ public class SpacetimeTestClient : IDisposable
         conn.Reducers.OnEndGame += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSplitOwnedSquads += (ctx, _) => HandleReducerEvent(ctx);
         conn.Reducers.OnSetTeam += (ctx, _, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnStartResupply += (ctx, _) => HandleReducerEvent(ctx);
+        conn.Reducers.OnStopResupply += (ctx, _) => HandleReducerEvent(ctx);
     }
 
     private void HandleReducerEvent(ReducerEventContext ctx)

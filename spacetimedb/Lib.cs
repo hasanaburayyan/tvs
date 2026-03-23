@@ -204,6 +204,8 @@ public static partial class Module
           if (regen.EntityId == ent.EntityId)
             ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
         }
+        ctx.Db.road_segment.EntityId.Delete(ent.EntityId);
+        ctx.Db.base_resource_store.EntityId.Delete(ent.EntityId);
         ctx.Db.terrain_feature.EntityId.Delete(ent.EntityId);
       }
       else if (ent.Type == EntityType.GamePlayer)
@@ -214,6 +216,7 @@ public static partial class Module
           ctx.Db.ability_cooldown.Id.Delete(cd.Id);
         foreach (var effect in ctx.Db.active_effect.EntityId.Filter(ent.EntityId))
           ctx.Db.active_effect.Id.Delete(effect.Id);
+        ctx.Db.resupply_session.EntityId.Delete(ent.EntityId);
         ctx.Db.game_player.EntityId.Delete(ent.EntityId);
       }
       else if (ent.Type == EntityType.Soldier)
@@ -255,6 +258,12 @@ public static partial class Module
     {
       if (ct.GameSessionId == gameId)
         ctx.Db.capture_tick.Id.Delete(ct.Id);
+    }
+
+    foreach (var lt in ctx.Db.logistics_tick.Iter())
+    {
+      if (lt.GameSessionId == gameId)
+        ctx.Db.logistics_tick.Id.Delete(lt.Id);
     }
 
     CleanupSquadsForGame(ctx, gameId);
@@ -585,6 +594,8 @@ public static partial class Module
               if (regen.EntityId == ent.EntityId)
                 ctx.Db.outpost_regen_tick.Id.Delete(regen.Id);
             }
+            ctx.Db.road_segment.EntityId.Delete(ent.EntityId);
+            ctx.Db.base_resource_store.EntityId.Delete(ent.EntityId);
             ctx.Db.terrain_feature.EntityId.Delete(ent.EntityId);
           }
           else if (ent.Type == EntityType.Soldier)
@@ -628,6 +639,11 @@ public static partial class Module
         {
           if (ct.GameSessionId == gameSession.Id)
             ctx.Db.capture_tick.Id.Delete(ct.Id);
+        }
+        foreach (var lt in ctx.Db.logistics_tick.Iter())
+        {
+          if (lt.GameSessionId == gameSession.Id)
+            ctx.Db.logistics_tick.Id.Delete(lt.Id);
         }
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }

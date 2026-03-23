@@ -39,6 +39,7 @@ public static partial class Module
     Trap,
     Fortification,
     MountedWeapon,
+    Road,
   }
 
   [SpacetimeDB.Table(Accessor = "game_session", Public = true)]

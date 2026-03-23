@@ -1375,6 +1375,158 @@ public static partial class Module
       GrantsMana = true,
     });
 
-    Log.Info("Combat data seeded: 4 weapons, 4 archetypes, 12 skillsets");
+    // ================================================================
+    // ENGINEER INNATE ABILITIES
+    // ================================================================
+
+    var buildRoad = ctx.Db.ability_def.Insert(new AbilityDef
+    {
+      Id = 0,
+      Name = "Build Road",
+      Description = "Construct a road segment connecting bases and outposts",
+      Type = AbilityType.Terrain,
+      ValidTargets = new List<TargetType> { TargetType.Ground },
+      BasePower = 0, BaseRange = 15f, BaseRadius = 0f,
+      CooldownMs = 0,
+      ResourceCosts = new List<ResourceCost>
+      {
+        new ResourceCost { Kind = ResourceKind.Supplies, Amount = 1 },
+      },
+      GrantedMods = new List<AbilityMod>(),
+      EffectDurationMs = 0,
+      AffectedAbilityIds = new List<ulong>(),
+      SpawnedTerrainType = TerrainType.Road,
+      TerrainSizeX = 4f, TerrainSizeY = 0.3f, TerrainSizeZ = 8f,
+      TerrainMaxHealth = 100,
+      Targeting = TargetingMode.GroundTarget,
+    });
+
+    var upgradeFeature = ctx.Db.ability_def.Insert(new AbilityDef
+    {
+      Id = 0,
+      Name = "Upgrade Feature",
+      Description = "Upgrade a road or base to improve logistics throughput",
+      Type = AbilityType.Utility,
+      ValidTargets = new List<TargetType> { TargetType.Ground },
+      BasePower = 0, BaseRange = 15f, BaseRadius = 0f,
+      CooldownMs = 5000,
+      ResourceCosts = new List<ResourceCost>
+      {
+        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 5 },
+      },
+      GrantedMods = new List<AbilityMod>(),
+      EffectDurationMs = 0,
+      AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.UpgradeTarget,
+    });
+
+    // ================================================================
+    // ENGINEER ARCHETYPE
+    // ================================================================
+
+    var engineerArchetype = ctx.Db.archetype_def.Insert(new ArchetypeDef
+    {
+      Id = 0,
+      Name = "Engineer",
+      Description = "Logistics specialist who builds roads and upgrades infrastructure",
+      Kind = ArchetypeKind.Engineer,
+      BonusHealth = 0,
+      BonusArmor = 0,
+      InnateAbilityIds = new List<ulong> { buildRoad.Id, upgradeFeature.Id },
+    });
+
+    // ================================================================
+    // ENGINEER SKILLSET ABILITIES
+    // ================================================================
+
+    var quickBuild = ctx.Db.ability_def.Insert(new AbilityDef
+    {
+      Id = 0,
+      Name = "Quick Build",
+      Description = "Temporarily reduce construction cooldowns",
+      Type = AbilityType.Buff,
+      ValidTargets = new List<TargetType> { TargetType.SelfOnly },
+      BasePower = 0, BaseRange = 0f, BaseRadius = 0f,
+      CooldownMs = 25000,
+      ResourceCosts = new List<ResourceCost>
+      {
+        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 20 },
+      },
+      GrantedMods = new List<AbilityMod>
+      {
+        new AbilityMod { Type = ModType.CooldownPercent, Value = -0.50f },
+      },
+      EffectDurationMs = 10000,
+      AffectedAbilityIds = new List<ulong> { buildRoad.Id },
+      Targeting = TargetingMode.SelfCast,
+    });
+
+    var fieldRepair = ctx.Db.ability_def.Insert(new AbilityDef
+    {
+      Id = 0,
+      Name = "Field Repair",
+      Description = "Repair a nearby friendly structure",
+      Type = AbilityType.Heal,
+      ValidTargets = new List<TargetType> { TargetType.Ground },
+      BasePower = 80,
+      BaseRange = 12f, BaseRadius = 6f,
+      CooldownMs = 15000,
+      ResourceCosts = new List<ResourceCost>
+      {
+        new ResourceCost { Kind = ResourceKind.Supplies, Amount = 3 },
+        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 10 },
+      },
+      GrantedMods = new List<AbilityMod>(),
+      EffectDurationMs = 0,
+      AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
+    });
+
+    var reinforceRoad = ctx.Db.ability_def.Insert(new AbilityDef
+    {
+      Id = 0,
+      Name = "Reinforce Road",
+      Description = "Temporarily boost a road's armor against destruction",
+      Type = AbilityType.Buff,
+      ValidTargets = new List<TargetType> { TargetType.Ground },
+      BasePower = 0, BaseRange = 15f, BaseRadius = 8f,
+      CooldownMs = 20000,
+      ResourceCosts = new List<ResourceCost>
+      {
+        new ResourceCost { Kind = ResourceKind.Supplies, Amount = 4 },
+        new ResourceCost { Kind = ResourceKind.Stamina, Amount = 15 },
+      },
+      GrantedMods = new List<AbilityMod>
+      {
+        new AbilityMod { Type = ModType.ArmorFlat, Value = 10 },
+      },
+      EffectDurationMs = 30000,
+      AffectedAbilityIds = new List<ulong>(),
+      Targeting = TargetingMode.GroundTarget,
+    });
+
+    // ================================================================
+    // ENGINEER SKILLSETS
+    // ================================================================
+
+    ctx.Db.skill_def.Insert(new SkillDef
+    {
+      Id = 0, Name = "Combat Engineer",
+      Description = "Field construction specialist with rapid building and repair",
+      AbilityIds = new List<ulong> { quickBuild.Id, fieldRepair.Id, reinforceRoad.Id },
+      ArchetypeDefId = engineerArchetype.Id,
+      GrantsMana = false,
+    });
+
+    ctx.Db.skill_def.Insert(new SkillDef
+    {
+      Id = 0, Name = "Sapper",
+      Description = "Demolitions expert who also builds fortifications and traps",
+      AbilityIds = new List<ulong> { buildFortification.Id, plantTrap.Id, disarm.Id },
+      ArchetypeDefId = engineerArchetype.Id,
+      GrantsMana = false,
+    });
+
+    Log.Info("Combat data seeded: 4 weapons, 5 archetypes, 14 skillsets");
   }
 }

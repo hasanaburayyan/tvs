@@ -20,11 +20,15 @@ public partial class MapManager : Node
   { TerrainType.CommandCenter, GD.Load<PackedScene>("res://scenes/terrain/CommandCenter.tscn") },
   { TerrainType.Outpost, GD.Load<PackedScene>("res://scenes/terrain/Outpost.tscn") },
   { TerrainType.Fortification, GD.Load<PackedScene>("res://scenes/terrain/Fortification.tscn") },
+  { TerrainType.Road, GD.Load<PackedScene>("res://scenes/terrain/road.tscn") },
   };
 
   private static readonly PackedScene CaptureFlagScene = GD.Load<PackedScene>("res://scenes/terrain/CaptureFlag.tscn");
 
   private CsgBox3D _floor;
+  private readonly Dictionary<ulong, Label3D> _resourceIndicators = new();
+  private const float IndicatorVisibleRange = 30f;
+  private const float IndicatorVisibleRangeSq = IndicatorVisibleRange * IndicatorVisibleRange;
 
   public ulong GameId { get; set; } = 0;
 
@@ -57,6 +61,49 @@ public partial class MapManager : Node
 	conn.Db.CapturePoint.OnInsert += OnCapturePointInsert;
 	conn.Db.CapturePoint.OnUpdate += OnCapturePointUpdate;
 	conn.Db.CapturePoint.OnDelete += OnCapturePointDelete;
+
+	foreach (var store in conn.Db.BaseResourceStore.GameSessionId.Filter(GameId))
+	  CreateOrUpdateResourceIndicator(store);
+
+	conn.Db.BaseResourceStore.OnInsert += OnBaseResourceStoreInsert;
+	conn.Db.BaseResourceStore.OnUpdate += OnBaseResourceStoreUpdate;
+	conn.Db.BaseResourceStore.OnDelete += OnBaseResourceStoreDelete;
+  }
+
+  public override void _Process(double delta)
+  {
+	if (_resourceIndicators.Count == 0) return;
+
+	var playerPos = GetLocalPlayerPosition();
+	if (playerPos == null)
+	{
+	  foreach (var label in _resourceIndicators.Values)
+		label.Visible = false;
+	  return;
+	}
+
+	var pp = playerPos.Value;
+	foreach (var kv in _resourceIndicators)
+	{
+	  float dx = kv.Value.Position.X - pp.X;
+	  float dz = kv.Value.Position.Z - pp.Z;
+	  kv.Value.Visible = dx * dx + dz * dz <= IndicatorVisibleRangeSq;
+	}
+  }
+
+  private Vector3? GetLocalPlayerPosition()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return null;
+
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (!gp.Active) continue;
+	  var entity = mgr.Conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null)
+		return new Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
+	}
+	return null;
   }
 
   private void SpawnFeature(Entity entity, TerrainFeature feature)
@@ -162,8 +209,98 @@ public partial class MapManager : Node
 	EmitSignal(SignalName.CapturePointRemoved, (long)cp.EntityId);
   }
 
+  private void OnBaseResourceStoreInsert(EventContext ctx, BaseResourceStore store)
+  {
+	if (store.GameSessionId != GameId) return;
+	CreateOrUpdateResourceIndicator(store);
+  }
+
+  private void OnBaseResourceStoreUpdate(EventContext ctx, BaseResourceStore oldStore, BaseResourceStore newStore)
+  {
+	if (newStore.GameSessionId != GameId) return;
+	CreateOrUpdateResourceIndicator(newStore);
+  }
+
+  private void OnBaseResourceStoreDelete(EventContext ctx, BaseResourceStore store)
+  {
+	if (_resourceIndicators.Remove(store.EntityId, out var label))
+	  label.QueueFree();
+  }
+
+  private byte GetLocalTeamSlot()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return 0;
+
+	foreach (var gp in mgr.Conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (!gp.Active) continue;
+	  var entity = mgr.Conn.Db.Entity.EntityId.Find(gp.EntityId);
+	  if (entity != null) return entity.TeamSlot;
+	}
+	return 0;
+  }
+
+  private void CreateOrUpdateResourceIndicator(BaseResourceStore store)
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	byte myTeam = GetLocalTeamSlot();
+	if (myTeam != 0 && store.TeamSlot != 0 && store.TeamSlot != myTeam)
+	{
+	  if (_resourceIndicators.Remove(store.EntityId, out var old))
+		old.QueueFree();
+	  return;
+	}
+
+	var entity = conn.Db.Entity.EntityId.Find(store.EntityId);
+	if (entity == null) return;
+
+	var feature = conn.Db.TerrainFeature.EntityId.Find(store.EntityId);
+
+	if (!_resourceIndicators.TryGetValue(store.EntityId, out var label))
+	{
+	  label = new Label3D
+	  {
+		Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+		FixedSize = true,
+		PixelSize = 0.003f,
+		FontSize = 18,
+		OutlineSize = 4,
+		NoDepthTest = false,
+		HorizontalAlignment = HorizontalAlignment.Center,
+		VerticalAlignment = VerticalAlignment.Bottom,
+		Visible = false,
+	  };
+
+	  float topY = 1f + (feature?.SizeY ?? 4f) + 1.5f;
+	  label.Position = new Vector3(entity.Position.X, topY, entity.Position.Z);
+
+	  AddChild(label);
+	  _resourceIndicators[store.EntityId] = label;
+	}
+
+	const int barLen = 10;
+	float ratio = store.SuppliesMax > 0 ? Mathf.Clamp((float)store.Supplies / store.SuppliesMax, 0f, 1f) : 0f;
+	int filled = (int)(ratio * barLen);
+	string bar = new string('\u2588', filled) + new string('\u2591', barLen - filled);
+
+	string typeName = store.GenerationPerSecond > 0 ? "HQ" : "FOB";
+	string genText = store.GenerationPerSecond > 0 ? $" +{store.GenerationPerSecond:F0}/s" : "";
+	label.Text = $"{typeName} Lv{store.Level}{genText}\n{bar} {store.Supplies}/{store.SuppliesMax}";
+
+	label.Modulate = store.TeamSlot switch
+	{
+	  1 => new Color(0.5f, 0.7f, 1.0f),
+	  2 => new Color(1.0f, 0.5f, 0.5f),
+	  _ => Colors.White,
+	};
+  }
+
   public void DestroyMap()
   {
+	_resourceIndicators.Clear();
 	foreach (var child in GetChildren())
 	{
 	  child.QueueFree();

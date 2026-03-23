@@ -26,6 +26,7 @@ public partial class HotbarSlot : VBoxContainer
   private float _terrainSizeY;
   private float _terrainSizeZ;
   private float _baseRange;
+  private TerrainType? _spawnedTerrainType;
   public ulong _entityId;
   public ulong _gameSessionId;
 
@@ -78,6 +79,7 @@ public partial class HotbarSlot : VBoxContainer
 	_terrainSizeX = ability.TerrainSizeX;
 	_terrainSizeY = ability.TerrainSizeY;
 	_terrainSizeZ = ability.TerrainSizeZ;
+	_spawnedTerrainType = ability.SpawnedTerrainType;
 	_cooldownDurationSec = ability.CooldownMs / 1000.0;
 
 	_label.Text = keybindLabel;
@@ -195,7 +197,8 @@ public partial class HotbarSlot : VBoxContainer
 	  {
 		if (_terrainSizeX > 0)
 		{
-		  PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ);
+		  bool snap = _spawnedTerrainType == TerrainType.Road;
+		  PlacementMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange, _terrainSizeX, _terrainSizeY, _terrainSizeZ, snap);
 		  GD.Print($"[Hotbar] Entering placement mode for {_abilityName}");
 		  return;
 		}
@@ -205,6 +208,13 @@ public partial class HotbarSlot : VBoxContainer
 		conn.Reducers.UseAbility(_gameSessionId, _abilityId, null, targetPos, null, null);
 		GD.Print($"[Hotbar] Casting {_abilityName} at ground");
 		break;
+	  }
+
+	  case TargetingMode.UpgradeTarget:
+	  {
+		UpgradeMode.EnsureExists().Activate(_abilityId, _gameSessionId, _baseRange);
+		GD.Print($"[Hotbar] Entering upgrade targeting for {_abilityName}");
+		return;
 	  }
 
 	  case TargetingMode.AllyTarget:
