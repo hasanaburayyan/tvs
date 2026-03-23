@@ -68,7 +68,14 @@ public static partial class Module
       0f, 1f);
   }
 
-  static bool SegmentBlockedByTerrain(ReducerContext ctx, DbVector3 from, DbVector3 to, ulong gameSessionId)
+  static bool IsDamageableTerrain(ReducerContext ctx, ulong entityId)
+  {
+    if (ctx.Db.targetable.EntityId.Find(entityId) is Targetable t && !t.Dead && t.MaxHealth > 0)
+      return true;
+    return false;
+  }
+
+  static bool SegmentBlockedByTerrain(ReducerContext ctx, DbVector3 from, DbVector3 to, ulong gameSessionId, byte casterTeamSlot)
   {
     float dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
     float len = (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
@@ -86,7 +93,11 @@ public static partial class Module
       var boxHalfExtents = new DbVector3(terrain.SizeX * 0.5f, terrain.SizeY * 0.5f, terrain.SizeZ * 0.5f);
 
       if (RayIntersectsOBB(from, dir, len, boxCenter, boxHalfExtents, ent.RotationY))
+      {
+        if (ent.TeamSlot != casterTeamSlot && IsDamageableTerrain(ctx, ent.EntityId))
+          continue;
         return true;
+      }
     }
     return false;
   }
@@ -103,14 +114,16 @@ public static partial class Module
       foreach (var ent in ctx.Db.entity.GameSessionId.Filter(proj.GameSessionId))
       {
         if (ent.TeamSlot != 0 && ent.TeamSlot == proj.CasterTeamSlot) continue;
-        if (ent.Type != EntityType.GamePlayer && ent.Type != EntityType.Soldier) continue;
+        bool isUnit = ent.Type == EntityType.GamePlayer || ent.Type == EntityType.Soldier;
+        bool isDamageableTerr = ent.Type == EntityType.Terrain && IsDamageableTerrain(ctx, ent.EntityId);
+        if (!isUnit && !isDamageableTerr) continue;
         var tgt = ctx.Db.targetable.EntityId.Find(ent.EntityId);
         if (tgt is not Targetable t || t.Dead) continue;
         float dx = ent.Position.x - impactPos.x;
         float dz = ent.Position.z - impactPos.z;
         if (dx * dx + dz * dz <= radiusSq)
         {
-          bool entityDied = ApplyDamageToEntity(ctx, ent.EntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds);
+          bool entityDied = ApplyDamageToEntity(ctx, ent.EntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
           if (entityDied) killed = true;
         }
       }
@@ -143,7 +156,7 @@ public static partial class Module
               for (int i = 0; i < aliveEntityIds.Count; i++)
               {
                 if (shares[i] <= 0) continue;
-                bool entityDied = ApplyDamageToEntity(ctx, aliveEntityIds[i], shares[i], proj.GameSessionId, affectedTargetIds);
+                bool entityDied = ApplyDamageToEntity(ctx, aliveEntityIds[i], shares[i], proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
                 if (entityDied && aliveEntityIds[i] == hitEntityId)
                   killed = true;
               }
@@ -151,12 +164,12 @@ public static partial class Module
           }
           else
           {
-            killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds);
+            killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
           }
         }
         else
         {
-          killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds);
+          killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
         }
       }
     }
@@ -209,6 +222,25 @@ public static partial class Module
         ResolvedPower = proj.ResolvedPower,
       });
     }
+
+    if (affectedTargetIds.Count > 0)
+    {
+      var casterGp = ctx.Db.game_player.EntityId.Find(proj.CasterEntityId);
+      if (casterGp is GamePlayer cgp)
+      {
+        ulong soldierTarget = hitEntityId;
+        if (hitEntityId == 0)
+        {
+          foreach (var tid in affectedTargetIds)
+          {
+            var t2 = ctx.Db.targetable.EntityId.Find(tid);
+            if (t2 is Targetable tt2 && !tt2.Dead) { soldierTarget = tid; break; }
+          }
+        }
+        if (soldierTarget != 0)
+          SoldierFireAtTarget(ctx, cgp.PlayerId, soldierTarget, proj.ResolvedPower, proj.GameSessionId);
+      }
+    }
   }
 
   [SpacetimeDB.Reducer]
@@ -228,7 +260,7 @@ public static partial class Module
     );
     float newDistTraveled = proj.DistanceTraveled + moveDistance;
 
-    if (SegmentBlockedByTerrain(ctx, oldPos, newPos, proj.GameSessionId))
+    if (SegmentBlockedByTerrain(ctx, oldPos, newPos, proj.GameSessionId, proj.CasterTeamSlot))
     {
       ctx.Db.projectile.Id.Delete(proj.Id);
       return;
@@ -240,12 +272,19 @@ public static partial class Module
     foreach (var ent in ctx.Db.entity.GameSessionId.Filter(proj.GameSessionId))
     {
       if (ent.TeamSlot != 0 && ent.TeamSlot == proj.CasterTeamSlot) continue;
-      if (ent.Type != EntityType.GamePlayer && ent.Type != EntityType.Soldier) continue;
       if (ent.EntityId == proj.CasterEntityId) continue;
+
+      bool isUnit = ent.Type == EntityType.GamePlayer || ent.Type == EntityType.Soldier;
+      bool isDamageableTerr = ent.Type == EntityType.Terrain && IsDamageableTerrain(ctx, ent.EntityId);
+      if (!isUnit && !isDamageableTerr) continue;
+
       var tgt = ctx.Db.targetable.EntityId.Find(ent.EntityId);
       if (tgt is not Targetable t || t.Dead) continue;
 
       float hitRadius = ENTITY_HIT_RADIUS;
+      if (isDamageableTerr && ctx.Db.terrain_feature.EntityId.Find(ent.EntityId) is TerrainFeature tf)
+        hitRadius = Math.Max(tf.SizeX, tf.SizeZ) * 0.5f;
+
       float distSq = PointToSegmentDistanceSq(ent.Position, oldPos, newPos);
       if (distSq <= (hitRadius * hitRadius))
       {

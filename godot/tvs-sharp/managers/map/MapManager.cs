@@ -27,6 +27,7 @@ public partial class MapManager : Node
 
   private CsgBox3D _floor;
   private readonly Dictionary<ulong, Label3D> _resourceIndicators = new();
+  private readonly Dictionary<ulong, Label3D> _hpIndicators = new();
   private const float IndicatorVisibleRange = 30f;
   private const float IndicatorVisibleRangeSq = IndicatorVisibleRange * IndicatorVisibleRange;
 
@@ -68,16 +69,31 @@ public partial class MapManager : Node
 	conn.Db.BaseResourceStore.OnInsert += OnBaseResourceStoreInsert;
 	conn.Db.BaseResourceStore.OnUpdate += OnBaseResourceStoreUpdate;
 	conn.Db.BaseResourceStore.OnDelete += OnBaseResourceStoreDelete;
+
+	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(GameId))
+	{
+	  if (entity.Type != EntityType.Terrain) continue;
+	  var feature = conn.Db.TerrainFeature.EntityId.Find(entity.EntityId);
+	  if (feature == null || feature.Type != TerrainType.CommandCenter) continue;
+	  var targetable = conn.Db.Targetable.EntityId.Find(entity.EntityId);
+	  if (targetable != null)
+		CreateOrUpdateHpIndicator(entity.EntityId);
+	}
+
+	conn.Db.Targetable.OnInsert += OnTargetableInsertForHp;
+	conn.Db.Targetable.OnUpdate += OnTargetableUpdateForHp;
   }
 
   public override void _Process(double delta)
   {
-	if (_resourceIndicators.Count == 0) return;
+	if (_resourceIndicators.Count == 0 && _hpIndicators.Count == 0) return;
 
 	var playerPos = GetLocalPlayerPosition();
 	if (playerPos == null)
 	{
 	  foreach (var label in _resourceIndicators.Values)
+		label.Visible = false;
+	  foreach (var label in _hpIndicators.Values)
 		label.Visible = false;
 	  return;
 	}
@@ -88,6 +104,31 @@ public partial class MapManager : Node
 	  float dx = kv.Value.Position.X - pp.X;
 	  float dz = kv.Value.Position.Z - pp.Z;
 	  kv.Value.Visible = dx * dx + dz * dz <= IndicatorVisibleRangeSq;
+	}
+
+	byte myTeam = GetLocalTeamSlot();
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	foreach (var kv in _hpIndicators)
+	{
+	  float dx = kv.Value.Position.X - pp.X;
+	  float dz = kv.Value.Position.Z - pp.Z;
+	  bool inRange = dx * dx + dz * dz <= IndicatorVisibleRangeSq;
+
+	  if (!inRange) { kv.Value.Visible = false; continue; }
+
+	  var entity = conn?.Db.Entity.EntityId.Find(kv.Key);
+	  if (entity == null) { kv.Value.Visible = false; continue; }
+
+	  bool isFriendly = myTeam != 0 && entity.TeamSlot == myTeam;
+	  if (isFriendly)
+	  {
+		kv.Value.Visible = true;
+	  }
+	  else
+	  {
+		var t = conn?.Db.Targetable.EntityId.Find(kv.Key);
+		kv.Value.Visible = t != null && t.Health < t.MaxHealth;
+	  }
 	}
   }
 
@@ -298,9 +339,80 @@ public partial class MapManager : Node
 	};
   }
 
+  private void CreateOrUpdateHpIndicator(ulong entityId)
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	var entity = conn.Db.Entity.EntityId.Find(entityId);
+	if (entity == null) return;
+
+	var feature = conn.Db.TerrainFeature.EntityId.Find(entityId);
+	if (feature == null || feature.Type != TerrainType.CommandCenter) return;
+
+	var targetable = conn.Db.Targetable.EntityId.Find(entityId);
+	if (targetable == null) return;
+
+	if (!_hpIndicators.TryGetValue(entityId, out var label))
+	{
+	  label = new Label3D
+	  {
+		Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+		FixedSize = true,
+		PixelSize = 0.003f,
+		FontSize = 18,
+		OutlineSize = 4,
+		NoDepthTest = false,
+		HorizontalAlignment = HorizontalAlignment.Center,
+		VerticalAlignment = VerticalAlignment.Bottom,
+		Visible = false,
+	  };
+
+	  float topY = 1f + (feature.SizeY) + 3.5f;
+	  label.Position = new Vector3(entity.Position.X, topY, entity.Position.Z);
+
+	  AddChild(label);
+	  _hpIndicators[entityId] = label;
+	}
+
+	const int barLen = 10;
+	float ratio = targetable.MaxHealth > 0 ? Mathf.Clamp((float)targetable.Health / targetable.MaxHealth, 0f, 1f) : 0f;
+	int filled = (int)(ratio * barLen);
+	string bar = new string('\u2588', filled) + new string('\u2591', barLen - filled);
+
+	string status = targetable.Dead ? "DESTROYED" : $"{targetable.Health}/{targetable.MaxHealth}";
+	label.Text = $"BASE HP\n{bar} {status}";
+
+	if (targetable.Dead)
+	  label.Modulate = new Color(0.5f, 0.5f, 0.5f);
+	else if (ratio > 0.6f)
+	  label.Modulate = new Color(0.3f, 1.0f, 0.3f);
+	else if (ratio > 0.3f)
+	  label.Modulate = new Color(1.0f, 0.9f, 0.2f);
+	else
+	  label.Modulate = new Color(1.0f, 0.3f, 0.3f);
+  }
+
+  private void OnTargetableInsertForHp(EventContext ctx, SpacetimeDB.Types.Targetable targetable)
+  {
+	var entity = SpacetimeNetworkManager.Instance?.Conn?.Db.Entity.EntityId.Find(targetable.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	if (entity.Type != EntityType.Terrain) return;
+	CreateOrUpdateHpIndicator(targetable.EntityId);
+  }
+
+  private void OnTargetableUpdateForHp(EventContext ctx, SpacetimeDB.Types.Targetable oldT, SpacetimeDB.Types.Targetable newT)
+  {
+	var entity = SpacetimeNetworkManager.Instance?.Conn?.Db.Entity.EntityId.Find(newT.EntityId);
+	if (entity == null || entity.GameSessionId != GameId) return;
+	if (entity.Type != EntityType.Terrain) return;
+	CreateOrUpdateHpIndicator(newT.EntityId);
+  }
+
   public void DestroyMap()
   {
 	_resourceIndicators.Clear();
+	_hpIndicators.Clear();
 	foreach (var child in GetChildren())
 	{
 	  child.QueueFree();

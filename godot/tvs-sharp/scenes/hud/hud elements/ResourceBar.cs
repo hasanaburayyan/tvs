@@ -35,11 +35,11 @@ public partial class ResourceBar : HBoxContainer
     _bar.AddThemeStyleboxOverride("fill", stylebox);
   }
 
-  public void SetValues(int current, int max)
+  public void SetValues(float current, float max)
   {
     if (_bar == null || _valueLabel == null) return;
     _bar.MaxValue = max;
     _bar.Value = current;
-    _valueLabel.Text = $"{current}/{max}";
+    _valueLabel.Text = $"{(int)Mathf.Ceil(current)}/{(int)max}";
   }
 }

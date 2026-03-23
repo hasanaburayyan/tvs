@@ -24,7 +24,7 @@ public static partial class Module
     // TEAM 1 HOME BASE (Z = -160)
     // ============================================================
     InsertMapTerrain(ctx, id, TerrainType.CommandCenter, 0f, 0f, -160f, 0f, 1,
-      12f, 6f, 8f, 500, 0, true);
+      12f, 6f, 8f, 750, 0, true);
     InsertMapTerrain(ctx, id, TerrainType.Trench, -15f, -1f, -148f, 0f, 1,
       20f, 2f, 3f, 0, 0, false);
     InsertMapTerrain(ctx, id, TerrainType.Trench, 15f, -1f, -148f, 0f, 1,
@@ -92,7 +92,7 @@ public static partial class Module
     // TEAM 2 HOME BASE (Z = 160)
     // ============================================================
     InsertMapTerrain(ctx, id, TerrainType.CommandCenter, 0f, 0f, 160f, 180f, 2,
-      12f, 6f, 8f, 500, 0, true);
+      12f, 6f, 8f, 750, 0, true);
     InsertMapTerrain(ctx, id, TerrainType.Trench, -15f, -1f, 148f, 0f, 2,
       20f, 2f, 3f, 0, 0, false);
     InsertMapTerrain(ctx, id, TerrainType.Trench, 15f, -1f, 148f, 0f, 2,

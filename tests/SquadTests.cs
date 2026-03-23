@@ -143,7 +143,7 @@ public class SquadMovementTests : IDisposable
     var gpEntity = _client.GetEntity(gp.EntityId);
 
     var newPos = new DbVector3(10f, gpEntity.Position.Y, 10f);
-    _client.Call(r => r.MovePlayer(gameId, newPos, 0.5f));
+    _client.Call(r => r.MovePlayer(gameId, newPos, 0.5f, false));
 
     var soldiersAfter = _client.SoldiersInSession(gameId).ToList();
     foreach (var soldier in soldiersAfter)
@@ -165,7 +165,7 @@ public class SquadMovementTests : IDisposable
     var gpEntity = _client.GetEntity(gp.EntityId);
 
     var newPos = new DbVector3(20f, gpEntity.Position.Y, 20f);
-    _client.Call(r => r.MovePlayer(gameId, newPos, 0f));
+    _client.Call(r => r.MovePlayer(gameId, newPos, 0f, false));
 
     var composites = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.EntityId == 0)
@@ -209,16 +209,16 @@ public class SquadCohesionTests : IDisposable
     var gpB = client2.GetGamePlayer(gameId);
     var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(2, rootsBefore);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootSquads = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -245,8 +245,8 @@ public class SquadCohesionTests : IDisposable
     var gpB = client2.GetGamePlayer(gameId);
     var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootSquads = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -273,18 +273,18 @@ public class SquadCohesionTests : IDisposable
     var gpB = client2.GetGamePlayer(gameId);
     var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(1, rootsBefore);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsAfter = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -316,24 +316,24 @@ public class SquadCohesionTests : IDisposable
     var gpC = client3.GetGamePlayer(gameId);
     var gpCEntity = client3.GetEntity(gpC.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
-    client3.Call(r => r.MovePlayer(gameId, new DbVector3(80f, gpCEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
+    client3.Call(r => r.MovePlayer(gameId, new DbVector3(80f, gpCEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsInitial = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(3, rootsInitial);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(0f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(2f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(0f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(2f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsAfterAB = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(2, rootsAfterAB);
 
-    client3.Call(r => r.MovePlayer(gameId, new DbVector3(1f, gpCEntity.Position.Y, 0f), 0f));
+    client3.Call(r => r.MovePlayer(gameId, new DbVector3(1f, gpCEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsAfterABC = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -360,11 +360,11 @@ public class SquadCohesionTests : IDisposable
     var gpB = client2.GetGamePlayer(gameId);
     var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -400,16 +400,16 @@ public class SquadCohesionTests : IDisposable
     var gpB = client2.GetGamePlayer(gameId);
     var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsBefore = _client.Db.Squad.GameSessionId.Filter(gameId)
       .Where(s => s.ParentSquadId == 0).Count();
     Assert.Equal(2, rootsBefore);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootsAfter = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -438,11 +438,11 @@ public class SquadCohesionTests : IDisposable
     var gpB = client2.GetGamePlayer(gameId);
     var gpBEntity = client2.GetEntity(gpB.EntityId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(50f, gpBEntity.Position.Y, 0f), 0f, false));
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f));
-    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(5f, gpAEntity.Position.Y, 0f), 0f, false));
+    client2.Call(r => r.MovePlayer(gameId, new DbVector3(7f, gpBEntity.Position.Y, 0f), 0f, false));
 
     _client.Sync();
     var rootSquads = _client.Db.Squad.GameSessionId.Filter(gameId)
@@ -572,8 +572,8 @@ public class SquadCombatDistributionTests : IDisposable
       .Where(s => s.OwnerPlayerId == targetPlayer.Id).ToList();
     var soldierHealthBefore = soldiersBefore.Sum(s => _client.GetTargetable(s.EntityId).Health);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, 3f, 0f), 0f));
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 3f, 0f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(-50f, 3f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 3f, 0f), 0f, false));
 
     _client.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, targetGp.EntityId, null, null, null));
 
@@ -739,7 +739,7 @@ public class SquadSoldierDeathTests : IDisposable
     var targetGpEntity = target.GetEntity(targetGp.EntityId);
     _client.Sync();
 
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(20f, targetGpEntity.Position.Y, 20f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(20f, targetGpEntity.Position.Y, 20f), 0f, false));
     _client.Sync();
 
     var soldiers = _client.SoldiersInSession(gameId)
@@ -1030,8 +1030,8 @@ public class SquadSplitResilienceTests : IDisposable
       .Where(s => s.OwnerPlayerId == targetGp.PlayerId && _client.GetTargetable(s.EntityId).Dead).Count();
     Assert.Equal(2, deadSoldiers);
 
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, targetGpEntity.Position.Y, 50f), 0f));
-    target.Call(r => r.MovePlayer(gameId, new DbVector3(80f, targetGpEntity.Position.Y, 80f), 0f));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(50f, targetGpEntity.Position.Y, 50f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(80f, targetGpEntity.Position.Y, 80f), 0f, false));
 
     _client.Sync();
 
@@ -1061,7 +1061,7 @@ public class SquadSplitResilienceTests : IDisposable
     var composite = _client.Db.Squad.GameSessionId.Filter(gameId)
       .First(s => s.EntityId == 0 && s.OwnerPlayerId == gp.PlayerId);
 
-    _client.Call(r => r.MovePlayer(gameId, new DbVector3(30f, gpEntity.Position.Y, 30f), 0f));
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(30f, gpEntity.Position.Y, 30f), 0f, false));
 
     var compositeAfter = _client.Db.Squad.Id.Find(composite.Id)!;
     var centerAfter = compositeAfter.CenterPosition;
@@ -1111,6 +1111,470 @@ public class SquadSplitResilienceTests : IDisposable
     Assert.NotNull(playerLeaf);
     Assert.True(playerLeaf.ParentSquadId != 0,
       "Player leaf should have a parent after respawn rebuild");
+
+    target.ClearData();
+  }
+}
+
+public class SoldierAutoFireTests : IDisposable
+{
+  private readonly SpacetimeTestClient _client;
+
+  public SoldierAutoFireTests()
+  {
+    _client = SpacetimeTestClient.Create();
+  }
+
+  public void Dispose()
+  {
+    _client.ClearData();
+    _client.Dispose();
+  }
+
+  private (ulong gameId, GamePlayer attackerGp, ulong rifleAbilityId, WeaponDef weapon) SetupRifleAttacker(string name)
+  {
+    _client.CreatePlayerAndGetId(name);
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+
+    var gp = _client.GetGamePlayer(gameId);
+    return (gameId, gp, weapon.PrimaryAbilityId, weapon);
+  }
+
+  [Fact]
+  public void FollowUpFire_SoldiersFireWhenPlayerHitsEnemy()
+  {
+    var (gameId, attackerGp, rifleId, weapon) = SetupRifleAttacker("FollowUpAttacker");
+
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("FollowUpVictim");
+    target.Call(r => r.JoinGame(gameId));
+    var targetGp = target.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    int healthBefore = _client.GetTargetable(targetGp.EntityId).Health;
+
+    var aimPoint = new DbVector3(100f, 1f, 10f);
+    _client.Call(r => r.UseAbility(gameId, rifleId, null, aimPoint, null, null));
+    _client.Sync(1000);
+
+    int healthAfter = _client.GetTargetable(targetGp.EntityId).Health;
+
+    var rifleDef = _client.Db.AbilityDef.Id.Find(rifleId);
+    int riflePower = rifleDef!.BasePower;
+    int soldierDmg = Math.Max(1, (int)(riflePower * 0.15f));
+
+    var soldierAttackLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack && l.ActorEntityId != attackerGp.EntityId)
+      .ToList();
+
+    var attackerSoldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == attackerGp.PlayerId).ToList();
+    var soldierEntityIds = attackerSoldiers.Select(s => s.EntityId).ToHashSet();
+
+    var soldierFireLogs = soldierAttackLogs.Where(l => soldierEntityIds.Contains(l.ActorEntityId)).ToList();
+    Assert.True(soldierFireLogs.Count > 0, "At least one soldier should have fired");
+
+    foreach (var log in soldierFireLogs)
+    {
+      Assert.Equal(soldierDmg, log.ResolvedPower);
+      Assert.Contains(targetGp.EntityId, log.TargetEntityIds);
+    }
+
+    int expectedMinDamage = riflePower + soldierFireLogs.Count * soldierDmg;
+    Assert.True(healthBefore - healthAfter >= expectedMinDamage,
+      $"Expected at least {expectedMinDamage} total damage, got {healthBefore - healthAfter}");
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void FollowUpFire_DeadSoldiersDoNotFire()
+  {
+    var (gameId, attackerGp, rifleId, weapon) = SetupRifleAttacker("DeadSoldierAttacker");
+
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("DeadSoldierVictim");
+    target.Call(r => r.JoinGame(gameId));
+    var targetGp = target.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    var attackerSoldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == attackerGp.PlayerId).ToList();
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var targetRifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evokerSkill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    target.Call(r => r.SetLoadout(gameId, archetype.Id, targetRifle.Id, evokerSkill.Id));
+
+    foreach (var soldier in attackerSoldiers)
+    {
+      var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
+      var soldierPos = _client.GetEntity(soldier.EntityId).Position;
+      target.Call(r => r.UseAbility(gameId, fireball.Id, null, new DbVector3(soldierPos.X, soldierPos.Y, soldierPos.Z), null, null));
+    }
+    _client.Sync(1000);
+
+    var allDead = attackerSoldiers.All(s => _client.GetTargetable(s.EntityId).Dead);
+    Assert.True(allDead, "All attacker soldiers should be dead");
+
+    var logsBefore = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
+    var soldierEntityIds = attackerSoldiers.Select(s => s.EntityId).ToHashSet();
+    var soldierLogsBefore = logsBefore.Where(l => l.EventType == BattleLogEventType.Attack && soldierEntityIds.Contains(l.ActorEntityId)).Count();
+
+    int healthBefore = _client.GetTargetable(targetGp.EntityId).Health;
+
+    var aimPoint = new DbVector3(100f, 1f, 10f);
+    _client.Call(r => r.UseAbility(gameId, rifleId, null, aimPoint, null, null));
+    _client.Sync(1000);
+
+    int healthAfter = _client.GetTargetable(targetGp.EntityId).Health;
+
+    var logsAfter = _client.Db.BattleLog.GameSessionId.Filter(gameId).ToList();
+    var soldierLogsAfter = logsAfter.Where(l => l.EventType == BattleLogEventType.Attack && soldierEntityIds.Contains(l.ActorEntityId)).Count();
+
+    Assert.Equal(soldierLogsBefore, soldierLogsAfter);
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void FollowUpFire_TargetKilledByMainHit_SoldiersDontFire()
+  {
+    var (gameId, attackerGp, rifleId, weapon) = SetupRifleAttacker("OverkillAttacker");
+
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("OverkillVictim");
+    target.Call(r => r.JoinGame(gameId));
+    var targetGp = target.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    var targetSoldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == targetGp.PlayerId).ToList();
+    var targetSoldier = targetSoldiers.First();
+
+    var aimPoint = _client.GetEntity(targetSoldier.EntityId).Position;
+    _client.Call(r => r.UseAbility(gameId, rifleId, null, new DbVector3(aimPoint.X, aimPoint.Y, aimPoint.Z), null, null));
+    _client.Sync(1000);
+
+    Assert.True(_client.GetTargetable(targetSoldier.EntityId).Dead,
+      "Target soldier should be dead (15 HP vs 30 rifle damage)");
+
+    var attackerSoldierIds = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == attackerGp.PlayerId)
+      .Select(s => s.EntityId).ToHashSet();
+
+    var soldierFireAtDeadLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack
+        && attackerSoldierIds.Contains(l.ActorEntityId)
+        && l.TargetEntityIds.Contains(targetSoldier.EntityId))
+      .ToList();
+
+    Assert.Empty(soldierFireAtDeadLogs);
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void ReturnFire_SoldiersFireBackWhenDamaged()
+  {
+    _client.CreatePlayerAndGetId("ReturnFireOwner");
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
+    var defenderGp = _client.GetGamePlayer(gameId);
+
+    using var attacker = SpacetimeTestClient.Create();
+    attacker.CreatePlayerAndGetId("ReturnFireEnemy");
+    attacker.Call(r => r.JoinGame(gameId));
+    attacker.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
+    var attackerGp = attacker.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    attacker.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    var defenderSoldiers = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == defenderGp.PlayerId).ToList();
+    Assert.True(defenderSoldiers.Count > 0, "Defender should have soldiers");
+
+    var soldierTarget = defenderSoldiers.First();
+    var soldierPos = _client.GetEntity(soldierTarget.EntityId).Position;
+
+    int attackerHealthBefore = _client.GetTargetable(attackerGp.EntityId).Health;
+
+    var aimPoint = new DbVector3(soldierPos.X, soldierPos.Y, soldierPos.Z);
+    attacker.Call(r => r.UseAbility(gameId, rifle.PrimaryAbilityId, null, aimPoint, null, null));
+    _client.Sync(1000);
+    attacker.Sync(500);
+
+    var defenderSoldierIds = defenderSoldiers.Select(s => s.EntityId).ToHashSet();
+    var returnFireLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack
+        && defenderSoldierIds.Contains(l.ActorEntityId)
+        && l.TargetEntityIds.Contains(attackerGp.EntityId))
+      .ToList();
+
+    Assert.True(returnFireLogs.Count > 0, "Defender soldiers should return fire at attacker");
+
+    int attackerHealthAfter = _client.GetTargetable(attackerGp.EntityId).Health;
+    Assert.True(attackerHealthAfter < attackerHealthBefore,
+      $"Attacker should take return fire damage: before={attackerHealthBefore} after={attackerHealthAfter}");
+
+    attacker.ClearData();
+  }
+
+  [Fact]
+  public void ProximityAutoEngage_SoldiersFireAtNearbyEnemies()
+  {
+    _client.CreatePlayerAndGetId("ProxOwner");
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
+    var ownerGp = _client.GetGamePlayer(gameId);
+
+    using var enemy = SpacetimeTestClient.Create();
+    enemy.CreatePlayerAndGetId("ProxEnemy");
+    enemy.Call(r => r.JoinGame(gameId));
+    enemy.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
+    var enemyGp = enemy.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 1f, 0f), 0f, false));
+    enemy.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    int enemyHealthBefore = _client.GetTargetable(enemyGp.EntityId).Health;
+
+    _client.Sync(2000);
+
+    int enemyHealthAfter = _client.GetTargetable(enemyGp.EntityId).Health;
+
+    var ownerSoldierIds = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == ownerGp.PlayerId)
+      .Select(s => s.EntityId).ToHashSet();
+
+    var proxFireLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack && ownerSoldierIds.Contains(l.ActorEntityId))
+      .ToList();
+
+    Assert.True(proxFireLogs.Count > 0,
+      "Soldiers should auto-engage nearby enemies via proximity tick");
+    Assert.True(enemyHealthAfter < enemyHealthBefore,
+      $"Enemy should take proximity damage: before={enemyHealthBefore} after={enemyHealthAfter}");
+
+    enemy.ClearData();
+  }
+
+  [Fact]
+  public void ProximityAutoEngage_EnemyOutOfRange_NoFire()
+  {
+    _client.CreatePlayerAndGetId("FarOwner");
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var rifle = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var evoker = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
+    var ownerGp = _client.GetGamePlayer(gameId);
+
+    using var enemy = SpacetimeTestClient.Create();
+    enemy.CreatePlayerAndGetId("FarEnemy");
+    enemy.Call(r => r.JoinGame(gameId));
+    enemy.Call(r => r.SetLoadout(gameId, archetype.Id, rifle.Id, evoker.Id));
+    var enemyGp = enemy.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 1f, 0f), 0f, false));
+    enemy.Call(r => r.MovePlayer(gameId, new DbVector3(50f, 1f, 50f), 0f, false));
+    _client.Sync();
+
+    int enemyHealthBefore = _client.GetTargetable(enemyGp.EntityId).Health;
+
+    _client.Sync(2000);
+
+    int enemyHealthAfter = _client.GetTargetable(enemyGp.EntityId).Health;
+
+    var ownerSoldierIds = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == ownerGp.PlayerId)
+      .Select(s => s.EntityId).ToHashSet();
+
+    var proxFireLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack && ownerSoldierIds.Contains(l.ActorEntityId)
+        && l.TargetEntityIds.Contains(enemyGp.EntityId))
+      .ToList();
+
+    Assert.Empty(proxFireLogs);
+    Assert.Equal(enemyHealthBefore, enemyHealthAfter);
+
+    enemy.ClearData();
+  }
+
+  [Fact]
+  public void SoldierDamage_MinimumIsOne()
+  {
+    _client.CreatePlayerAndGetId("MinDmgAttacker");
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var pistol = _client.Db.WeaponDef.Iter().First(w => w.Name == "Pistol");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.ArchetypeDefId == archetype.Id);
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, pistol.Id, skill.Id));
+    var attackerGp = _client.GetGamePlayer(gameId);
+
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("MinDmgVictim");
+    target.Call(r => r.JoinGame(gameId));
+    var targetGp = target.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    var aimPoint = new DbVector3(100f, 1f, 10f);
+    _client.Call(r => r.UseAbility(gameId, pistol.PrimaryAbilityId, null, aimPoint, null, null));
+    _client.Sync(1000);
+
+    var attackerSoldierIds = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == attackerGp.PlayerId)
+      .Select(s => s.EntityId).ToHashSet();
+
+    var soldierFireLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack && attackerSoldierIds.Contains(l.ActorEntityId))
+      .ToList();
+
+    foreach (var log in soldierFireLogs)
+    {
+      Assert.True(log.ResolvedPower >= 1, $"Soldier damage should be at least 1, got {log.ResolvedPower}");
+    }
+
+    var pistolDef = _client.Db.AbilityDef.Id.Find(pistol.PrimaryAbilityId);
+    int expectedSoldierDmg = Math.Max(1, (int)(pistolDef!.BasePower * 0.15f));
+    Assert.Equal(1, expectedSoldierDmg);
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void SoldierFire_DeductsOwnerSupplies()
+  {
+    var (gameId, attackerGp, rifleId, weapon) = SetupRifleAttacker("SupplyDrainAttacker");
+
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("SupplyDrainVictim");
+    target.Call(r => r.JoinGame(gameId));
+    var targetGp = target.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    float suppliesBefore = _client.Db.ResourcePool.EntityId.Filter(attackerGp.EntityId)
+      .First(p => p.Kind == ResourceKind.Supplies).Current;
+
+    var aimPoint = new DbVector3(100f, 1f, 10f);
+    _client.Call(r => r.UseAbility(gameId, rifleId, null, aimPoint, null, null));
+    _client.Sync(1000);
+
+    float suppliesAfter = _client.Db.ResourcePool.EntityId.Filter(attackerGp.EntityId)
+      .First(p => p.Kind == ResourceKind.Supplies).Current;
+
+    var attackerSoldierIds = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == attackerGp.PlayerId)
+      .Select(s => s.EntityId).ToHashSet();
+    var soldierFireLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack && attackerSoldierIds.Contains(l.ActorEntityId))
+      .ToList();
+
+    float rifleSupplyCost = _client.Db.AbilityDef.Id.Find(rifleId)!
+      .ResourceCosts.First(c => c.Kind == ResourceKind.Supplies).Amount;
+    float perSoldierCost = rifleSupplyCost * 0.15f;
+    float expectedPlayerCost = rifleSupplyCost;
+    float expectedSoldierCost = soldierFireLogs.Count * perSoldierCost;
+
+    Assert.True(suppliesBefore - suppliesAfter >= expectedPlayerCost + expectedSoldierCost - 0.01f,
+      $"Supplies should decrease by player shot + soldier shots: before={suppliesBefore} after={suppliesAfter} " +
+      $"playerCost={expectedPlayerCost} soldierCost={expectedSoldierCost} soldierShots={soldierFireLogs.Count}");
+
+    target.ClearData();
+  }
+
+  [Fact]
+  public void SoldierFire_PistolNoSupplyCost()
+  {
+    _client.CreatePlayerAndGetId("FreePistolOwner");
+    var gameId = _client.CreateGame(4, 0);
+    _client.Call(r => r.JoinGame(gameId));
+
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var pistol = _client.Db.WeaponDef.Iter().First(w => w.Name == "Pistol");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.ArchetypeDefId == archetype.Id);
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, pistol.Id, skill.Id));
+    var attackerGp = _client.GetGamePlayer(gameId);
+
+    using var target = SpacetimeTestClient.Create();
+    target.CreatePlayerAndGetId("FreePistolVictim");
+    target.Call(r => r.JoinGame(gameId));
+    var targetGp = target.GetGamePlayer(gameId);
+    _client.Sync();
+
+    _client.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 0f), 0f, false));
+    target.Call(r => r.MovePlayer(gameId, new DbVector3(100f, 1f, 10f), 0f, false));
+    _client.Sync();
+
+    var supplyPool = _client.Db.ResourcePool.EntityId.Filter(attackerGp.EntityId)
+      .FirstOrDefault(p => p.Kind == ResourceKind.Supplies);
+    float? suppliesBefore = supplyPool.Kind == ResourceKind.Supplies ? supplyPool.Current : null;
+
+    var aimPoint = new DbVector3(100f, 1f, 10f);
+    _client.Call(r => r.UseAbility(gameId, pistol.PrimaryAbilityId, null, aimPoint, null, null));
+    _client.Sync(1000);
+
+    var attackerSoldierIds = _client.SoldiersInSession(gameId)
+      .Where(s => s.OwnerPlayerId == attackerGp.PlayerId)
+      .Select(s => s.EntityId).ToHashSet();
+    var soldierFireLogs = _client.Db.BattleLog.GameSessionId.Filter(gameId)
+      .Where(l => l.EventType == BattleLogEventType.Attack && attackerSoldierIds.Contains(l.ActorEntityId))
+      .ToList();
+
+    Assert.True(soldierFireLogs.Count > 0, "Pistol soldiers should still fire (free ammo)");
+
+    if (suppliesBefore.HasValue)
+    {
+      var supplyPoolAfter = _client.Db.ResourcePool.EntityId.Filter(attackerGp.EntityId)
+        .First(p => p.Kind == ResourceKind.Supplies);
+      Assert.Equal(suppliesBefore.Value, supplyPoolAfter.Current);
+    }
 
     target.ClearData();
   }

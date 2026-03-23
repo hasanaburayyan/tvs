@@ -10,6 +10,7 @@ public partial class Player : CharacterBody3D
 
   public const float SYNC_INTERVAL = 0.05f;
   public const float Speed = 5.0f;
+  public const float SprintMultiplier = 10.0f;
   public const float JumpVelocity = 4.5f;
   public const float LERP_DURATION = 0.1f;
   public const float ROTATION_SYNC_THRESHOLD = 0.01f;
@@ -141,17 +142,20 @@ public partial class Player : CharacterBody3D
 	  velocity.Y = JumpVelocity;
 	}
 
+	bool isSprinting = Input.IsKeyPressed(Key.Shift);
+	float currentSpeed = isSprinting ? Speed * SprintMultiplier : Speed;
+
 	Vector2 inputDir = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
 	Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
 	if (direction != Vector3.Zero)
 	{
-	  velocity.X = direction.X * Speed;
-	  velocity.Z = direction.Z * Speed;
+	  velocity.X = direction.X * currentSpeed;
+	  velocity.Z = direction.Z * currentSpeed;
 	}
 	else
 	{
-	  velocity.X = Mathf.MoveToward(Velocity.X, 0, Speed);
-	  velocity.Z = Mathf.MoveToward(Velocity.Z, 0, Speed);
+	  velocity.X = Mathf.MoveToward(Velocity.X, 0, currentSpeed);
+	  velocity.Z = Mathf.MoveToward(Velocity.Z, 0, currentSpeed);
 	}
 
 	Velocity = velocity;
@@ -187,7 +191,8 @@ public partial class Player : CharacterBody3D
 	  SpacetimeNetworkManager.Instance.Conn.Reducers.MovePlayer(
 	  GameId,
 	  new SpacetimeDB.Types.DbVector3(Position.X, Position.Y, Position.Z),
-	  Rotation.Y
+	  Rotation.Y,
+	  isSprinting
 	  );
 	}
   }

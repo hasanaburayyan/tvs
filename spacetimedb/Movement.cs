@@ -16,8 +16,12 @@ public static partial class Module
     public DbVector3 Position;
   }
 
+  const float BASE_SPEED = 5.0f;
+  const float SPRINT_MULTIPLIER = 10.0f;
+  const float MAX_MOVE_INTERVAL = 0.5f;
+
   [SpacetimeDB.Reducer]
-  public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition, float rotationY)
+  public static void MovePlayer(ReducerContext ctx, ulong gameId, DbVector3 newPosition, float rotationY, bool isSprinting)
   {
     var player = GetPlayerForSender(ctx);
     var gamePlayer = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("Game player not found!");
@@ -26,6 +30,14 @@ public static partial class Module
     var target = ctx.Db.targetable.EntityId.Find(gamePlayer.EntityId);
     if (target is Targetable t && t.Dead)
       throw new Exception("Cannot move while dead");
+
+    float maxSpeed = isSprinting ? BASE_SPEED * SPRINT_MULTIPLIER : BASE_SPEED;
+    float maxDist = maxSpeed * MAX_MOVE_INTERVAL;
+    float dx = newPosition.x - ent.Position.x;
+    float dz = newPosition.z - ent.Position.z;
+    float distSq = dx * dx + dz * dz;
+    if (distSq > maxDist * maxDist)
+      throw new Exception("Move distance exceeds allowed speed");
 
     ctx.Db.entity.EntityId.Update(ent with { Position = newPosition, RotationY = rotationY });
 
