@@ -132,8 +132,8 @@ public static partial class Module
     [SpacetimeDB.Index.BTree]
     public ulong EntityId;
     public ResourceKind Kind;
-    public int Current;
-    public int Max;
+    public float Current;
+    public float Max;
   }
 
   [SpacetimeDB.Table(Accessor = "battle_log", Public = true)]

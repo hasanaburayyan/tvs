@@ -257,7 +257,7 @@ public class JoinGameTests : IDisposable
     _client.Call(r => r.JoinGame(gameId));
 
     var movedPos = new DbVector3(10, 5, 10);
-    _client.Call(r => r.MovePlayer(gameId, movedPos, 0f));
+    _client.Call(r => r.MovePlayer(gameId, movedPos, 0f, false));
 
     var gpBeforeLeave = _client.GamePlayersInSession(gameId).First();
     var posBeforeLeave = _client.GetEntity(gpBeforeLeave.EntityId).Position;
@@ -304,7 +304,7 @@ public class JoinGameTests : IDisposable
     _client.Call(r => r.JoinGame(gameId));
 
     var movedPos = new DbVector3(7, 3, 7);
-    _client.Call(r => r.MovePlayer(gameId, movedPos, 0f));
+    _client.Call(r => r.MovePlayer(gameId, movedPos, 0f, false));
 
     var gpBeforeKick = _client.GamePlayersInSession(gameId).First();
     var posBeforeKick = _client.GetEntity(gpBeforeKick.EntityId).Position;

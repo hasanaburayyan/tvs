@@ -411,14 +411,15 @@ public static partial class Module
       var supplyPool = FindResourcePool(ctx, rs.EntityId, ResourceKind.Supplies);
       if (supplyPool is not ResourcePool pool || pool.Current >= pool.Max) continue;
 
-      int transferRate = Math.Max(1, pool.Max / 10);
-      int transfer = Math.Min(transferRate, pool.Max - pool.Current);
-      transfer = Math.Min(transfer, bs.Supplies);
+      float transferRate = MathF.Max(1f, pool.Max / 10f);
+      float transfer = MathF.Min(transferRate, pool.Max - pool.Current);
+      transfer = MathF.Min(transfer, bs.Supplies);
 
-      if (transfer > 0)
+      if (transfer > 0f)
       {
-        ctx.Db.resource_pool.Id.Update(pool with { Current = pool.Current + transfer });
-        ctx.Db.base_resource_store.EntityId.Update(bs with { Supplies = bs.Supplies - transfer });
+        int intTransfer = (int)MathF.Ceiling(transfer);
+        ctx.Db.resource_pool.Id.Update(pool with { Current = MathF.Min(pool.Current + intTransfer, pool.Max) });
+        ctx.Db.base_resource_store.EntityId.Update(bs with { Supplies = bs.Supplies - intTransfer });
       }
     }
 

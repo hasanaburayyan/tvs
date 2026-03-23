@@ -58,6 +58,8 @@ public static partial class Module
 
     [SpacetimeDB.Default(15u)]
     public uint RespawnTimerSeconds;
+
+    public byte? WinnerTeamSlot;
   }
 
   [SpacetimeDB.Table(Accessor = "game_player", Public = true)]

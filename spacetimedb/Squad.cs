@@ -242,29 +242,31 @@ public static partial class Module
     float sin = (float)Math.Sin(leaderRotationY);
     float cos = (float)Math.Cos(leaderRotationY);
 
+    // Local-space offsets: +X = right, +Z = behind (Godot forward is -Z)
     float localX, localZ;
     switch (formationIndex)
     {
       case 0:
         localX = -FORMATION_DISTANCE;
-        localZ = -FORMATION_DISTANCE;
+        localZ = FORMATION_DISTANCE;
         break;
       case 1:
         localX = FORMATION_DISTANCE;
-        localZ = -FORMATION_DISTANCE;
+        localZ = FORMATION_DISTANCE;
         break;
       case 2:
         localX = 0;
-        localZ = -FORMATION_DISTANCE * 2;
+        localZ = FORMATION_DISTANCE * 2;
         break;
       default:
         localX = FORMATION_DISTANCE * ((formationIndex % 2 == 0) ? -1 : 1);
-        localZ = -FORMATION_DISTANCE * (1 + formationIndex / 2);
+        localZ = FORMATION_DISTANCE * (1 + formationIndex / 2);
         break;
     }
 
-    float worldX = localX * cos - localZ * sin;
-    float worldZ = localX * sin + localZ * cos;
+    // Y-axis rotation in Godot's right-handed coordinate system
+    float worldX = localX * cos + localZ * sin;
+    float worldZ = -localX * sin + localZ * cos;
 
     return new DbVector3(worldX, 0, worldZ);
   }

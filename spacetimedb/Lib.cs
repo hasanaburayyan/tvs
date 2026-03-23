@@ -131,6 +131,7 @@ public static partial class Module
     GenerateMap(ctx, session.Id, mapDefId);
     SchedulePassiveRegen(ctx, session.Id);
     ScheduleLosCheck(ctx, session.Id);
+    ScheduleSoldierCombatTick(ctx, session.Id);
   }
 
   [SpacetimeDB.Reducer]
@@ -151,6 +152,7 @@ public static partial class Module
     GenerateMap(ctx, session.Id, mapDefId);
     SchedulePassiveRegen(ctx, session.Id);
     ScheduleLosCheck(ctx, session.Id);
+    ScheduleSoldierCombatTick(ctx, session.Id);
     JoinGame(ctx, session.Id);
   }
 
@@ -272,6 +274,12 @@ public static partial class Module
     {
       if (tick.GameSessionId == gameId)
         ctx.Db.ai_squad_tick.Id.Delete(tick.Id);
+    }
+
+    foreach (var tick in ctx.Db.soldier_combat_tick.Iter())
+    {
+      if (tick.GameSessionId == gameId)
+        ctx.Db.soldier_combat_tick.Id.Delete(tick.Id);
     }
 
     ctx.Db.game_session.Id.Delete(gameId);
@@ -644,6 +652,11 @@ public static partial class Module
         {
           if (lt.GameSessionId == gameSession.Id)
             ctx.Db.logistics_tick.Id.Delete(lt.Id);
+        }
+        foreach (var sct in ctx.Db.soldier_combat_tick.Iter())
+        {
+          if (sct.GameSessionId == gameSession.Id)
+            ctx.Db.soldier_combat_tick.Id.Delete(sct.Id);
         }
         ctx.Db.game_session.Id.Delete(gameSession.Id);
       }

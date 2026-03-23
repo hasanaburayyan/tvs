@@ -146,13 +146,13 @@ public static partial class Module {
 
       if (FindResourcePool(ctx, ent.EntityId, ResourceKind.Stamina) is ResourcePool stamina && stamina.Current < stamina.Max)
       {
-        int newVal = Math.Min(stamina.Max, stamina.Current + PassiveStaminaPerTick);
+        float newVal = MathF.Min(stamina.Max, stamina.Current + PassiveStaminaPerTick);
         ctx.Db.resource_pool.Id.Update(stamina with { Current = newVal });
       }
 
       if (FindResourcePool(ctx, ent.EntityId, ResourceKind.Mana) is ResourcePool mana && mana.Current < mana.Max)
       {
-        int newVal = Math.Min(mana.Max, mana.Current + PassiveManaPerTick);
+        float newVal = MathF.Min(mana.Max, mana.Current + PassiveManaPerTick);
         ctx.Db.resource_pool.Id.Update(mana with { Current = newVal });
       }
     }

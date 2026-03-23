@@ -129,18 +129,18 @@ public static partial class Module
     return kinds;
   }
 
-  static int GetMaxForResource(ResourceKind kind, SkillDef skill)
+  static float GetMaxForResource(ResourceKind kind, SkillDef skill)
   {
     switch (kind)
     {
       case ResourceKind.Supplies:
-        if (skill.Name == "Commando") return 15;
-        if (skill.Name == "Fire Support") return 50;
-        return 30;
-      case ResourceKind.Stamina: return 100;
-      case ResourceKind.Mana: return 100;
-      case ResourceKind.Command: return 100;
-      default: return 100;
+        if (skill.Name == "Commando") return 15f;
+        if (skill.Name == "Fire Support") return 50f;
+        return 30f;
+      case ResourceKind.Stamina: return 100f;
+      case ResourceKind.Mana: return 100f;
+      case ResourceKind.Command: return 100f;
+      default: return 100f;
     }
   }
 
@@ -149,7 +149,7 @@ public static partial class Module
     var needed = CollectRequiredResources(ctx, archetype, weapon, skill);
     foreach (var kind in needed)
     {
-      int max = GetMaxForResource(kind, skill);
+      float max = GetMaxForResource(kind, skill);
       ctx.Db.resource_pool.Insert(new ResourcePool { Id = 0, EntityId = entityId, Kind = kind, Current = max, Max = max });
     }
   }
@@ -200,7 +200,7 @@ public static partial class Module
     return shares;
   }
 
-  static bool ApplyDamageToEntity(ReducerContext ctx, ulong entityId, int damage, ulong gameId, List<ulong> affectedTargetIds)
+  static bool ApplyDamageToEntity(ReducerContext ctx, ulong entityId, int damage, ulong gameId, List<ulong> affectedTargetIds, ulong? attackerEntityId = null)
   {
     bool killed = false;
 
@@ -211,6 +211,8 @@ public static partial class Module
     if (ent is not Entity e) return false;
 
     int effectiveDamage = Math.Max(0, damage - t.Armor);
+    if (effectiveDamage == 0 && damage > 0)
+      effectiveDamage = 1;
     int newHealth = Math.Max(0, t.Health - effectiveDamage);
     var updatedTarget = t with { Health = newHealth };
 
@@ -254,8 +256,13 @@ public static partial class Module
     {
       if (e.Type == EntityType.Terrain)
       {
-        if (ctx.Db.terrain_feature.EntityId.Find(entityId) is TerrainFeature tf && tf.Type == TerrainType.Road)
-          OnRoadDestroyed(ctx, entityId);
+        if (ctx.Db.terrain_feature.EntityId.Find(entityId) is TerrainFeature tf)
+        {
+          if (tf.Type == TerrainType.Road)
+            OnRoadDestroyed(ctx, entityId);
+          else if (tf.Type == TerrainType.CommandCenter)
+            CheckCommandCenterWin(ctx, e);
+        }
       }
 
       var leafSquad = FindLeafSquadForEntity(ctx, entityId);
@@ -264,7 +271,299 @@ public static partial class Module
     }
 
     affectedTargetIds.Add(entityId);
+
+    if (!killed && e.Type == EntityType.Soldier && attackerEntityId is ulong attackerId)
+      TriggerSoldierReturnFire(ctx, entityId, attackerId, gameId);
+
     return killed;
+  }
+
+  static void CheckCommandCenterWin(ReducerContext ctx, Entity destroyedEntity)
+  {
+    var session = ctx.Db.game_session.Id.Find(destroyedEntity.GameSessionId);
+    if (session is not GameSession gs || gs.State == SessionState.Ended) return;
+
+    byte winnerTeam = destroyedEntity.TeamSlot == 1 ? (byte)2 : (byte)1;
+    ctx.Db.game_session.Id.Update(gs with { State = SessionState.Ended, WinnerTeamSlot = winnerTeam });
+    Log.Info($"Game {gs.Id} ended — team {winnerTeam} wins (enemy command center destroyed)");
+  }
+
+  const float SOLDIER_DAMAGE_FRACTION = 0.15f;
+  const float SOLDIER_PROXIMITY_RANGE = 15f;
+
+  static int GetSoldierDamage(int basePower)
+  {
+    return Math.Max(1, (int)(basePower * SOLDIER_DAMAGE_FRACTION));
+  }
+
+  static int GetOwnerWeaponBasePower(ReducerContext ctx, ulong ownerPlayerId, ulong gameSessionId)
+  {
+    var loadout = FindLoadout(ctx, gameSessionId, ownerPlayerId);
+    if (loadout is not Loadout lo) return 0;
+    var weapon = ctx.Db.weapon_def.Id.Find(lo.WeaponDefId);
+    if (weapon is not WeaponDef w) return 0;
+    var ability = ctx.Db.ability_def.Id.Find(w.PrimaryAbilityId);
+    if (ability is not AbilityDef a) return 0;
+    return a.BasePower;
+  }
+
+  static float GetOwnerWeaponSupplyCost(ReducerContext ctx, ulong ownerPlayerId, ulong gameSessionId)
+  {
+    var loadout = FindLoadout(ctx, gameSessionId, ownerPlayerId);
+    if (loadout is not Loadout lo) return 0f;
+    var weapon = ctx.Db.weapon_def.Id.Find(lo.WeaponDefId);
+    if (weapon is not WeaponDef w) return 0f;
+    var ability = ctx.Db.ability_def.Id.Find(w.PrimaryAbilityId);
+    if (ability is not AbilityDef a) return 0f;
+    foreach (var cost in a.ResourceCosts)
+    {
+      if (cost.Kind == ResourceKind.Supplies) return cost.Amount;
+    }
+    return 0f;
+  }
+
+  static bool DeductSoldierSupplyCost(ReducerContext ctx, ulong ownerPlayerId, ulong gameSessionId, float weaponSupplyCost)
+  {
+    float soldierCost = weaponSupplyCost * SOLDIER_DAMAGE_FRACTION;
+    if (soldierCost <= 0f) return true;
+
+    var gp = FindGamePlayer(ctx, ownerPlayerId, gameSessionId);
+    if (gp is not GamePlayer ownerGp) return false;
+
+    var pool = FindResourcePool(ctx, ownerGp.EntityId, ResourceKind.Supplies);
+    if (pool is not ResourcePool p) return false;
+    if (p.Current < soldierCost) return false;
+
+    ctx.Db.resource_pool.Id.Update(p with { Current = p.Current - soldierCost });
+    return true;
+  }
+
+  static bool IsOwnedBySamePlayer(ReducerContext ctx, ulong entityId, ulong ownerPlayerId)
+  {
+    var gp = ctx.Db.game_player.EntityId.Find(entityId);
+    if (gp is GamePlayer g && g.PlayerId == ownerPlayerId) return true;
+
+    var sol = ctx.Db.soldier.EntityId.Find(entityId);
+    if (sol is Soldier s && s.OwnerPlayerId == ownerPlayerId) return true;
+
+    return false;
+  }
+
+  static void SoldierFireAtTarget(ReducerContext ctx, ulong ownerPlayerId, ulong targetEntityId, int basePower, ulong gameSessionId)
+  {
+    if (IsOwnedBySamePlayer(ctx, targetEntityId, ownerPlayerId)) return;
+
+    var targetT = ctx.Db.targetable.EntityId.Find(targetEntityId);
+    if (targetT is not Targetable tt || tt.Dead) return;
+
+    var targetEnt = ctx.Db.entity.EntityId.Find(targetEntityId);
+    if (targetEnt is not Entity te) return;
+
+    int soldierDamage = GetSoldierDamage(basePower);
+    float weaponSupplyCost = GetOwnerWeaponSupplyCost(ctx, ownerPlayerId, gameSessionId);
+
+    foreach (var soldier in ctx.Db.soldier.Iter())
+    {
+      if (soldier.OwnerPlayerId != ownerPlayerId) continue;
+
+      var soldierT = ctx.Db.targetable.EntityId.Find(soldier.EntityId);
+      if (soldierT is not Targetable st || st.Dead) continue;
+
+      var soldierEnt = ctx.Db.entity.EntityId.Find(soldier.EntityId);
+      if (soldierEnt is not Entity se) continue;
+      if (se.GameSessionId != gameSessionId) continue;
+
+      if (se.TeamSlot != 0 && te.TeamSlot != 0 && se.TeamSlot == te.TeamSlot) continue;
+
+      targetT = ctx.Db.targetable.EntityId.Find(targetEntityId);
+      if (targetT is not Targetable ttCheck || ttCheck.Dead) return;
+      targetEnt = ctx.Db.entity.EntityId.Find(targetEntityId);
+      if (targetEnt is not Entity teCheck) return;
+
+      if (!HasLineOfSight(ctx, se.Position, teCheck.Position, gameSessionId)) continue;
+
+      if (!DeductSoldierSupplyCost(ctx, ownerPlayerId, gameSessionId, weaponSupplyCost)) continue;
+
+      var soldierAffected = new List<ulong>();
+      bool killed = ApplyDamageToEntity(ctx, targetEntityId, soldierDamage, gameSessionId, soldierAffected);
+
+      ctx.Db.battle_log.Insert(new BattleLogEntry
+      {
+        Id = 0,
+        GameSessionId = gameSessionId,
+        OccurredAt = ctx.Timestamp,
+        EventType = BattleLogEventType.Attack,
+        ActorEntityId = soldier.EntityId,
+        AbilityId = null,
+        TargetEntityIds = soldierAffected.Count > 0 ? soldierAffected : new List<ulong> { targetEntityId },
+        ResolvedPower = soldierDamage,
+      });
+
+      if (killed)
+      {
+        ctx.Db.battle_log.Insert(new BattleLogEntry
+        {
+          Id = 0,
+          GameSessionId = gameSessionId,
+          OccurredAt = ctx.Timestamp,
+          EventType = BattleLogEventType.Kill,
+          ActorEntityId = soldier.EntityId,
+          AbilityId = null,
+          TargetEntityIds = new List<ulong> { targetEntityId },
+          ResolvedPower = soldierDamage,
+        });
+        return;
+      }
+    }
+  }
+
+  static void SingleSoldierFireAtTarget(ReducerContext ctx, ulong soldierEntityId, ulong targetEntityId, int basePower, ulong gameSessionId)
+  {
+    var targetT = ctx.Db.targetable.EntityId.Find(targetEntityId);
+    if (targetT is not Targetable tt || tt.Dead) return;
+
+    var targetEnt = ctx.Db.entity.EntityId.Find(targetEntityId);
+    if (targetEnt is not Entity te) return;
+
+    var soldierT = ctx.Db.targetable.EntityId.Find(soldierEntityId);
+    if (soldierT is not Targetable st || st.Dead) return;
+
+    var soldierEnt = ctx.Db.entity.EntityId.Find(soldierEntityId);
+    if (soldierEnt is not Entity se) return;
+
+    if (se.TeamSlot != 0 && te.TeamSlot != 0 && se.TeamSlot == te.TeamSlot) return;
+
+    if (!HasLineOfSight(ctx, se.Position, te.Position, gameSessionId)) return;
+
+    var soldier = ctx.Db.soldier.EntityId.Find(soldierEntityId);
+    if (soldier is Soldier sol && sol.OwnerPlayerId.HasValue)
+    {
+      float weaponSupplyCost = GetOwnerWeaponSupplyCost(ctx, sol.OwnerPlayerId.Value, gameSessionId);
+      if (!DeductSoldierSupplyCost(ctx, sol.OwnerPlayerId.Value, gameSessionId, weaponSupplyCost)) return;
+    }
+
+    int soldierDamage = GetSoldierDamage(basePower);
+    var soldierAffected = new List<ulong>();
+    bool killed = ApplyDamageToEntity(ctx, targetEntityId, soldierDamage, gameSessionId, soldierAffected);
+
+    ctx.Db.battle_log.Insert(new BattleLogEntry
+    {
+      Id = 0,
+      GameSessionId = gameSessionId,
+      OccurredAt = ctx.Timestamp,
+      EventType = BattleLogEventType.Attack,
+      ActorEntityId = soldierEntityId,
+      AbilityId = null,
+      TargetEntityIds = soldierAffected.Count > 0 ? soldierAffected : new List<ulong> { targetEntityId },
+      ResolvedPower = soldierDamage,
+    });
+
+    if (killed)
+    {
+      ctx.Db.battle_log.Insert(new BattleLogEntry
+      {
+        Id = 0,
+        GameSessionId = gameSessionId,
+        OccurredAt = ctx.Timestamp,
+        EventType = BattleLogEventType.Kill,
+        ActorEntityId = soldierEntityId,
+        AbilityId = null,
+        TargetEntityIds = new List<ulong> { targetEntityId },
+        ResolvedPower = soldierDamage,
+      });
+    }
+  }
+
+  static void TriggerSoldierReturnFire(ReducerContext ctx, ulong damagedSoldierEntityId, ulong attackerEntityId, ulong gameSessionId)
+  {
+    var soldier = ctx.Db.soldier.EntityId.Find(damagedSoldierEntityId);
+    if (soldier is not Soldier s || !s.OwnerPlayerId.HasValue) return;
+
+    int basePower = GetOwnerWeaponBasePower(ctx, s.OwnerPlayerId.Value, gameSessionId);
+    if (basePower <= 0) return;
+
+    SoldierFireAtTarget(ctx, s.OwnerPlayerId.Value, attackerEntityId, basePower, gameSessionId);
+  }
+
+  [SpacetimeDB.Table(Accessor = "soldier_combat_tick", Scheduled = nameof(SoldierCombatTick))]
+  public partial struct SoldierCombatTickSchedule
+  {
+    [SpacetimeDB.PrimaryKey]
+    [SpacetimeDB.AutoInc]
+    public ulong Id;
+    public ulong GameSessionId;
+    public ScheduleAt ScheduledAt;
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void SoldierCombatTick(ReducerContext ctx, SoldierCombatTickSchedule tick)
+  {
+    var session = ctx.Db.game_session.Id.Find(tick.GameSessionId);
+    if (session is not GameSession gs || gs.State == SessionState.Ended)
+      return;
+
+    float rangeSq = SOLDIER_PROXIMITY_RANGE * SOLDIER_PROXIMITY_RANGE;
+
+    foreach (var soldierEnt in ctx.Db.entity.GameSessionId.Filter(tick.GameSessionId))
+    {
+      if (soldierEnt.Type != EntityType.Soldier) continue;
+
+      var soldier = ctx.Db.soldier.EntityId.Find(soldierEnt.EntityId);
+      if (soldier is not Soldier s || !s.OwnerPlayerId.HasValue) continue;
+
+      var soldierT = ctx.Db.targetable.EntityId.Find(soldierEnt.EntityId);
+      if (soldierT is not Targetable st || st.Dead) continue;
+
+      ulong? closestEnemyId = null;
+      float closestDistSq = rangeSq;
+
+      foreach (var candidate in ctx.Db.entity.GameSessionId.Filter(tick.GameSessionId))
+      {
+        bool isUnit = candidate.Type == EntityType.GamePlayer || candidate.Type == EntityType.Soldier;
+        bool isDamageableTerr = candidate.Type == EntityType.Terrain
+          && ctx.Db.targetable.EntityId.Find(candidate.EntityId) is Targetable terrT && !terrT.Dead && terrT.MaxHealth > 0;
+        if (!isUnit && !isDamageableTerr) continue;
+        if (candidate.EntityId == soldierEnt.EntityId) continue;
+        if (candidate.TeamSlot != 0 && soldierEnt.TeamSlot != 0 && candidate.TeamSlot == soldierEnt.TeamSlot) continue;
+        if (isUnit && IsOwnedBySamePlayer(ctx, candidate.EntityId, s.OwnerPlayerId.Value)) continue;
+
+        var candidateT = ctx.Db.targetable.EntityId.Find(candidate.EntityId);
+        if (candidateT is not Targetable ct || ct.Dead) continue;
+
+        float dx = candidate.Position.x - soldierEnt.Position.x;
+        float dz = candidate.Position.z - soldierEnt.Position.z;
+        float distSq = dx * dx + dz * dz;
+        if (distSq < closestDistSq)
+        {
+          closestDistSq = distSq;
+          closestEnemyId = candidate.EntityId;
+        }
+      }
+
+      if (closestEnemyId is not ulong enemyId) continue;
+
+      int basePower = GetOwnerWeaponBasePower(ctx, s.OwnerPlayerId.Value, tick.GameSessionId);
+      if (basePower <= 0) continue;
+
+      SingleSoldierFireAtTarget(ctx, soldierEnt.EntityId, enemyId, basePower, tick.GameSessionId);
+    }
+
+    ctx.Db.soldier_combat_tick.Insert(new SoldierCombatTickSchedule
+    {
+      Id = 0,
+      GameSessionId = tick.GameSessionId,
+      ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(500)),
+    });
+  }
+
+  static void ScheduleSoldierCombatTick(ReducerContext ctx, ulong gameSessionId)
+  {
+    ctx.Db.soldier_combat_tick.Insert(new SoldierCombatTickSchedule
+    {
+      Id = 0,
+      GameSessionId = gameSessionId,
+      ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(500)),
+    });
   }
 
   static void PayResourceCosts(ReducerContext ctx, AbilityDef ability, ulong entityId, ref Targetable gpTarget)
@@ -273,7 +572,7 @@ public static partial class Module
     {
       if (cost.Kind == ResourceKind.Health)
       {
-        if (gpTarget.Health < cost.Amount)
+        if (gpTarget.Health < (int)cost.Amount)
           throw new Exception($"Insufficient Health (need {cost.Amount}, have {gpTarget.Health})");
       }
       else
@@ -290,7 +589,7 @@ public static partial class Module
       if (cost.Kind == ResourceKind.Health)
       {
         gpTarget = ctx.Db.targetable.EntityId.Find(entityId)!.Value;
-        ctx.Db.targetable.EntityId.Update(gpTarget with { Health = gpTarget.Health - cost.Amount });
+        ctx.Db.targetable.EntityId.Update(gpTarget with { Health = gpTarget.Health - (int)cost.Amount });
         gpTarget = ctx.Db.targetable.EntityId.Find(entityId)!.Value;
       }
       else

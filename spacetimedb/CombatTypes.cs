@@ -56,7 +56,7 @@ public static partial class Module
   public partial struct ResourceCost
   {
     public ResourceKind Kind;
-    public int Amount;
+    public float Amount;
   }
 
   [SpacetimeDB.Type]
