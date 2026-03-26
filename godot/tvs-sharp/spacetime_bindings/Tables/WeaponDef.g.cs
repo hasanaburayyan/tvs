@@ -44,6 +44,11 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<WeaponDef, string> Description { get; }
         public global::SpacetimeDB.Col<WeaponDef, ulong> PrimaryAbilityId { get; }
         public global::SpacetimeDB.Col<WeaponDef, bool> GrantsSupplies { get; }
+        public global::SpacetimeDB.Col<WeaponDef, FireMode> Mode { get; }
+        public global::SpacetimeDB.Col<WeaponDef, byte> PelletCount { get; }
+        public global::SpacetimeDB.Col<WeaponDef, float> SpreadAngleDeg { get; }
+        public global::SpacetimeDB.Col<WeaponDef, int> ClipSize { get; }
+        public global::SpacetimeDB.Col<WeaponDef, ulong> ReloadTimeMs { get; }
 
         public WeaponDefCols(string tableName)
         {
@@ -52,6 +57,11 @@ namespace SpacetimeDB.Types
             Description = new global::SpacetimeDB.Col<WeaponDef, string>(tableName, "description");
             PrimaryAbilityId = new global::SpacetimeDB.Col<WeaponDef, ulong>(tableName, "primary_ability_id");
             GrantsSupplies = new global::SpacetimeDB.Col<WeaponDef, bool>(tableName, "grants_supplies");
+            Mode = new global::SpacetimeDB.Col<WeaponDef, FireMode>(tableName, "mode");
+            PelletCount = new global::SpacetimeDB.Col<WeaponDef, byte>(tableName, "pellet_count");
+            SpreadAngleDeg = new global::SpacetimeDB.Col<WeaponDef, float>(tableName, "spread_angle_deg");
+            ClipSize = new global::SpacetimeDB.Col<WeaponDef, int>(tableName, "clip_size");
+            ReloadTimeMs = new global::SpacetimeDB.Col<WeaponDef, ulong>(tableName, "reload_time_ms");
         }
     }
 

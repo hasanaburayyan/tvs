@@ -100,4 +100,13 @@ public static partial class Module
     SelfCast,
     UpgradeTarget,
   }
+
+  [SpacetimeDB.Type]
+  public enum FireMode : byte
+  {
+    Single,
+    SemiAuto,
+    Auto,
+    Spread,
+  }
 }

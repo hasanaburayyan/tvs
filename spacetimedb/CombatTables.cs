@@ -37,6 +37,8 @@ public static partial class Module
     public TargetingMode Targeting;
     [SpacetimeDB.Default(0f)]
     public float ProjectileSpeed;
+    [SpacetimeDB.Default(0f)]
+    public float DropRate;
   }
 
   [SpacetimeDB.Table(Accessor = "archetype_def", Public = true)]
@@ -63,6 +65,16 @@ public static partial class Module
     public string Description;
     public ulong PrimaryAbilityId;
     public bool GrantsSupplies;
+    [SpacetimeDB.Default(0)]
+    public FireMode Mode;
+    [SpacetimeDB.Default(1)]
+    public byte PelletCount;
+    [SpacetimeDB.Default(0f)]
+    public float SpreadAngleDeg;
+    [SpacetimeDB.Default(0)]
+    public int ClipSize;
+    [SpacetimeDB.Default(0)]
+    public ulong ReloadTimeMs;
   }
 
   [SpacetimeDB.Table(Accessor = "skill_def", Public = true)]
@@ -134,6 +146,15 @@ public static partial class Module
     public ResourceKind Kind;
     public float Current;
     public float Max;
+  }
+
+  [SpacetimeDB.Table(Accessor = "weapon_state", Public = true)]
+  public partial struct WeaponState
+  {
+    [SpacetimeDB.PrimaryKey]
+    public ulong EntityId;
+    public int AmmoInClip;
+    public Timestamp? ReloadingUntil;
   }
 
   [SpacetimeDB.Table(Accessor = "battle_log", Public = true)]

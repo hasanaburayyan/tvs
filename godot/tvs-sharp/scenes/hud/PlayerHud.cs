@@ -1,4 +1,5 @@
 using Godot;
+using SpacetimeDB;
 using SpacetimeDB.Types;
 using System;
 using System.Collections.Generic;
@@ -39,6 +40,11 @@ public partial class PlayerHud : MarginContainer
   private readonly Dictionary<ulong, (float posX, float posZ, float radius, int inf1, int inf2, int max, byte owner)> _captureStates = new();
   private ulong? _activeCapturePointId;
 
+  private Label _ammoLabel;
+  private TextureProgressBar _reloadBar;
+  private Timestamp? _reloadingUntil;
+  private ulong _reloadDurationMs;
+
   public override void _Ready()
   {
 	_hotbar = GetNode<Control>("%Hotbar");
@@ -47,6 +53,7 @@ public partial class PlayerHud : MarginContainer
 	BuildDeathOverlay();
 	BuildKillFeed();
 	BuildCaptureBar();
+	BuildAmmoDisplay();
   }
 
   public override void _Process(double delta)
@@ -77,6 +84,7 @@ public partial class PlayerHud : MarginContainer
 	  }
 	}
 
+	UpdateReloadBar();
 	PositionKillFeed();
 	PositionCaptureBar();
 	for (int i = _killFeedEntries.Count - 1; i >= 0; i--)
@@ -431,6 +439,18 @@ public partial class PlayerHud : MarginContainer
 	SetupResourceBars();
 	LoadHotbarFromLoadout();
 	SubscribeToUpdates();
+	InitializeAmmoFromState();
+  }
+
+  private void InitializeAmmoFromState()
+  {
+	if (_entityId == 0) return;
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	var ws = conn.Db.WeaponState.EntityId.Find(_entityId);
+	if (ws != null)
+	  UpdateAmmoDisplay(ws);
   }
 
   public void Teardown()
@@ -569,6 +589,8 @@ public partial class PlayerHud : MarginContainer
 	conn.Db.Targetable.OnUpdate += OnTargetableUpdate;
 	conn.Db.Entity.OnUpdate += OnEntityUpdate;
 	conn.Db.ResourcePool.OnUpdate += OnResourcePoolUpdate;
+	conn.Db.WeaponState.OnInsert += OnWeaponStateInsert;
+	conn.Db.WeaponState.OnUpdate += OnWeaponStateUpdate;
   }
 
   private void UnsubscribeFromUpdates()
@@ -582,6 +604,8 @@ public partial class PlayerHud : MarginContainer
 	conn.Db.Targetable.OnUpdate -= OnTargetableUpdate;
 	conn.Db.Entity.OnUpdate -= OnEntityUpdate;
 	conn.Db.ResourcePool.OnUpdate -= OnResourcePoolUpdate;
+	conn.Db.WeaponState.OnInsert -= OnWeaponStateInsert;
+	conn.Db.WeaponState.OnUpdate -= OnWeaponStateUpdate;
   }
 
   private void OnTargetableUpdate(EventContext ctx, SpacetimeDB.Types.Targetable oldT, SpacetimeDB.Types.Targetable newT)
@@ -610,5 +634,114 @@ public partial class PlayerHud : MarginContainer
 
 	if (_poolBars.TryGetValue(newPool.Kind, out var bar))
 	  bar.SetValues(newPool.Current, newPool.Max);
+  }
+
+  private void BuildAmmoDisplay()
+  {
+	_ammoLabel = new Label
+	{
+	  TopLevel = true,
+	  HorizontalAlignment = HorizontalAlignment.Right,
+	  MouseFilter = MouseFilterEnum.Ignore,
+	};
+	_ammoLabel.AddThemeFontSizeOverride("font_size", 20);
+	_ammoLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f, 0.9f));
+	_ammoLabel.Visible = false;
+	AddChild(_ammoLabel);
+
+	var gradientTex = new GradientTexture2D();
+	var gradient = new Gradient();
+	gradient.SetColor(0, new Color(1f, 1f, 1f, 0.3f));
+	gradient.SetColor(1, new Color(1f, 1f, 1f, 0.3f));
+	gradientTex.Gradient = gradient;
+	gradientTex.Width = 64;
+	gradientTex.Height = 64;
+	gradientTex.FillFrom = new Vector2(0.5f, 0.5f);
+	gradientTex.FillTo = new Vector2(0.5f, 0f);
+	gradientTex.Fill = GradientTexture2D.FillEnum.Radial;
+
+	_reloadBar = new TextureProgressBar
+	{
+	  TopLevel = true,
+	  TextureProgress = gradientTex,
+	  FillMode = (int)TextureProgressBar.FillModeEnum.Clockwise,
+	  MinValue = 0,
+	  MaxValue = 100,
+	  Value = 0,
+	  CustomMinimumSize = new Vector2(48, 48),
+	  Size = new Vector2(48, 48),
+	  MouseFilter = MouseFilterEnum.Ignore,
+	  Visible = false,
+	};
+	AddChild(_reloadBar);
+  }
+
+  private void OnWeaponStateInsert(EventContext ctx, WeaponState state)
+  {
+	if (state.EntityId != _entityId) return;
+	UpdateAmmoDisplay(state);
+  }
+
+  private void OnWeaponStateUpdate(EventContext ctx, WeaponState oldState, WeaponState newState)
+  {
+	if (newState.EntityId != _entityId) return;
+	UpdateAmmoDisplay(newState);
+  }
+
+  private void UpdateAmmoDisplay(WeaponState state)
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return;
+
+	Loadout loadout = null;
+	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(_gameSessionId))
+	{
+	  if (lo.PlayerId == SpacetimeNetworkManager.Instance?.ActivePlayerId) { loadout = lo; break; }
+	}
+	if (loadout == null) return;
+
+	var weapon = conn.Db.WeaponDef.Id.Find(loadout.WeaponDefId);
+	if (weapon == null || weapon.ClipSize <= 0)
+	{
+	  _ammoLabel.Visible = false;
+	  return;
+	}
+
+	_ammoLabel.Text = $"{state.AmmoInClip} / {weapon.ClipSize}";
+	_ammoLabel.Visible = true;
+
+	var viewSize = GetViewport().GetVisibleRect().Size;
+	_ammoLabel.Position = new Vector2(viewSize.X - 150, viewSize.Y - 80);
+
+	_reloadingUntil = state.ReloadingUntil;
+	_reloadDurationMs = weapon.ReloadTimeMs;
+  }
+
+  private void UpdateReloadBar()
+  {
+	if (_reloadingUntil == null || _reloadDurationMs == 0)
+	{
+	  _reloadBar.Visible = false;
+	  return;
+	}
+
+	long nowMicros = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000;
+	long endMicros = _reloadingUntil.Value.MicrosecondsSinceUnixEpoch;
+
+	if (nowMicros >= endMicros)
+	{
+	  _reloadBar.Visible = false;
+	  _reloadingUntil = null;
+	  return;
+	}
+
+	long remainingUs = endMicros - nowMicros;
+	ulong durationUs = _reloadDurationMs * 1000;
+	double progress = 1.0 - (double)remainingUs / durationUs;
+	_reloadBar.Value = progress * 100.0;
+	_reloadBar.Visible = true;
+
+	var viewCenter = GetViewport().GetVisibleRect().Size / 2;
+	_reloadBar.Position = new Vector2(viewCenter.X - 24, viewCenter.Y + 30);
   }
 }

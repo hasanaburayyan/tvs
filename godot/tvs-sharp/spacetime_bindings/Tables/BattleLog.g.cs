@@ -64,7 +64,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<BattleLogEntry, SpacetimeDB.Timestamp> OccurredAt { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, BattleLogEventType> EventType { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, ulong> ActorEntityId { get; }
-        public global::SpacetimeDB.NullableCol<BattleLogEntry, ulong> AbilityId { get; }
+        public global::SpacetimeDB.Col<BattleLogEntry, ulong> AbilityId { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, System.Collections.Generic.List<ulong>> TargetEntityIds { get; }
         public global::SpacetimeDB.Col<BattleLogEntry, int> ResolvedPower { get; }
 
@@ -75,7 +75,7 @@ namespace SpacetimeDB.Types
             OccurredAt = new global::SpacetimeDB.Col<BattleLogEntry, SpacetimeDB.Timestamp>(tableName, "occurred_at");
             EventType = new global::SpacetimeDB.Col<BattleLogEntry, BattleLogEventType>(tableName, "event_type");
             ActorEntityId = new global::SpacetimeDB.Col<BattleLogEntry, ulong>(tableName, "actor_entity_id");
-            AbilityId = new global::SpacetimeDB.NullableCol<BattleLogEntry, ulong>(tableName, "ability_id");
+            AbilityId = new global::SpacetimeDB.Col<BattleLogEntry, ulong>(tableName, "ability_id");
             TargetEntityIds = new global::SpacetimeDB.Col<BattleLogEntry, System.Collections.Generic.List<ulong>>(tableName, "target_entity_ids");
             ResolvedPower = new global::SpacetimeDB.Col<BattleLogEntry, int>(tableName, "resolved_power");
         }

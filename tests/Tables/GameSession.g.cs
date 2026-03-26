@@ -56,7 +56,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GameSession, SpacetimeDB.Timestamp> CreatedAt { get; }
         public global::SpacetimeDB.Col<GameSession, ulong> MapDefId { get; }
         public global::SpacetimeDB.Col<GameSession, uint> RespawnTimerSeconds { get; }
-        public global::SpacetimeDB.NullableCol<GameSession, byte> WinnerTeamSlot { get; }
+        public global::SpacetimeDB.Col<GameSession, byte> WinnerTeamSlot { get; }
 
         public GameSessionCols(string tableName)
         {
@@ -67,7 +67,7 @@ namespace SpacetimeDB.Types
             CreatedAt = new global::SpacetimeDB.Col<GameSession, SpacetimeDB.Timestamp>(tableName, "created_at");
             MapDefId = new global::SpacetimeDB.Col<GameSession, ulong>(tableName, "map_def_id");
             RespawnTimerSeconds = new global::SpacetimeDB.Col<GameSession, uint>(tableName, "respawn_timer_seconds");
-            WinnerTeamSlot = new global::SpacetimeDB.NullableCol<GameSession, byte>(tableName, "winner_team_slot");
+            WinnerTeamSlot = new global::SpacetimeDB.Col<GameSession, byte>(tableName, "winner_team_slot");
         }
     }
 

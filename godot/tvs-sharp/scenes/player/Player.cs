@@ -55,6 +55,8 @@ public partial class Player : CharacterBody3D
 	}
 	_nametag.Text = username;
 
+	CollisionLayer |= 0b0000_0010;
+
 	var targetable = GetNode<Targetable>("%Targetable");
 	targetable.Type = SpacetimeDB.Types.EntityType.GamePlayer;
 	targetable.EntityId = EntityId;

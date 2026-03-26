@@ -23,13 +23,28 @@ namespace SpacetimeDB.Types
         public ulong PrimaryAbilityId;
         [DataMember(Name = "grants_supplies")]
         public bool GrantsSupplies;
+        [DataMember(Name = "mode")]
+        public FireMode Mode;
+        [DataMember(Name = "pellet_count")]
+        public byte PelletCount;
+        [DataMember(Name = "spread_angle_deg")]
+        public float SpreadAngleDeg;
+        [DataMember(Name = "clip_size")]
+        public int ClipSize;
+        [DataMember(Name = "reload_time_ms")]
+        public ulong ReloadTimeMs;
 
         public WeaponDef(
             ulong Id,
             string Name,
             string Description,
             ulong PrimaryAbilityId,
-            bool GrantsSupplies
+            bool GrantsSupplies,
+            FireMode Mode,
+            byte PelletCount,
+            float SpreadAngleDeg,
+            int ClipSize,
+            ulong ReloadTimeMs
         )
         {
             this.Id = Id;
@@ -37,6 +52,11 @@ namespace SpacetimeDB.Types
             this.Description = Description;
             this.PrimaryAbilityId = PrimaryAbilityId;
             this.GrantsSupplies = GrantsSupplies;
+            this.Mode = Mode;
+            this.PelletCount = PelletCount;
+            this.SpreadAngleDeg = SpreadAngleDeg;
+            this.ClipSize = ClipSize;
+            this.ReloadTimeMs = ReloadTimeMs;
         }
 
         public WeaponDef()

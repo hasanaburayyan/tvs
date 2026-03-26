@@ -24,6 +24,8 @@ public partial class Soldier : CharacterBody3D
 	_rotLerpTarget = Rotation.Y;
 	_animPlayer = FindAnimationPlayer();
 
+	CollisionLayer |= 0b0000_0010;
+
 	var targetable = new Targetable();
 	targetable.Name = "Targetable";
 	targetable.Type = SpacetimeDB.Types.EntityType.Soldier;

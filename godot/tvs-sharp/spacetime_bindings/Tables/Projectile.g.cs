@@ -65,6 +65,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Projectile, int> ResolvedPower { get; }
         public global::SpacetimeDB.Col<Projectile, bool> AllowSubSquadTargeting { get; }
         public global::SpacetimeDB.Col<Projectile, DamageDistribution> Distribution { get; }
+        public global::SpacetimeDB.Col<Projectile, float> DropRate { get; }
+        public global::SpacetimeDB.Col<Projectile, bool> DetonateAtMaxRange { get; }
 
         public ProjectileCols(string tableName)
         {
@@ -84,6 +86,8 @@ namespace SpacetimeDB.Types
             ResolvedPower = new global::SpacetimeDB.Col<Projectile, int>(tableName, "resolved_power");
             AllowSubSquadTargeting = new global::SpacetimeDB.Col<Projectile, bool>(tableName, "allow_sub_squad_targeting");
             Distribution = new global::SpacetimeDB.Col<Projectile, DamageDistribution>(tableName, "distribution");
+            DropRate = new global::SpacetimeDB.Col<Projectile, float>(tableName, "drop_rate");
+            DetonateAtMaxRange = new global::SpacetimeDB.Col<Projectile, bool>(tableName, "detonate_at_max_range");
         }
     }
 

@@ -45,6 +45,10 @@ namespace SpacetimeDB.Types
         public bool AllowSubSquadTargeting;
         [DataMember(Name = "distribution")]
         public DamageDistribution Distribution;
+        [DataMember(Name = "drop_rate")]
+        public float DropRate;
+        [DataMember(Name = "detonate_at_max_range")]
+        public bool DetonateAtMaxRange;
 
         public Projectile(
             ulong Id,
@@ -62,7 +66,9 @@ namespace SpacetimeDB.Types
             byte CasterTeamSlot,
             int ResolvedPower,
             bool AllowSubSquadTargeting,
-            DamageDistribution Distribution
+            DamageDistribution Distribution,
+            float DropRate,
+            bool DetonateAtMaxRange
         )
         {
             this.Id = Id;
@@ -81,6 +87,8 @@ namespace SpacetimeDB.Types
             this.ResolvedPower = ResolvedPower;
             this.AllowSubSquadTargeting = AllowSubSquadTargeting;
             this.Distribution = Distribution;
+            this.DropRate = DropRate;
+            this.DetonateAtMaxRange = DetonateAtMaxRange;
         }
 
         public Projectile()

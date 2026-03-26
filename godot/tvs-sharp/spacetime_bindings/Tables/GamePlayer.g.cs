@@ -52,14 +52,14 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GamePlayer, ulong> EntityId { get; }
         public global::SpacetimeDB.Col<GamePlayer, ulong> PlayerId { get; }
         public global::SpacetimeDB.Col<GamePlayer, bool> Active { get; }
-        public global::SpacetimeDB.NullableCol<GamePlayer, ulong> TargetEntityId { get; }
+        public global::SpacetimeDB.Col<GamePlayer, ulong> TargetEntityId { get; }
 
         public GamePlayerCols(string tableName)
         {
             EntityId = new global::SpacetimeDB.Col<GamePlayer, ulong>(tableName, "entity_id");
             PlayerId = new global::SpacetimeDB.Col<GamePlayer, ulong>(tableName, "player_id");
             Active = new global::SpacetimeDB.Col<GamePlayer, bool>(tableName, "active");
-            TargetEntityId = new global::SpacetimeDB.NullableCol<GamePlayer, ulong>(tableName, "target_entity_id");
+            TargetEntityId = new global::SpacetimeDB.Col<GamePlayer, ulong>(tableName, "target_entity_id");
         }
     }
 

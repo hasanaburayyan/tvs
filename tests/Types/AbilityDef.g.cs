@@ -57,6 +57,8 @@ namespace SpacetimeDB.Types
         public TargetingMode Targeting;
         [DataMember(Name = "projectile_speed")]
         public float ProjectileSpeed;
+        [DataMember(Name = "drop_rate")]
+        public float DropRate;
 
         public AbilityDef(
             ulong Id,
@@ -80,7 +82,8 @@ namespace SpacetimeDB.Types
             DamageDistribution Distribution,
             bool AllowSubSquadTargeting,
             TargetingMode Targeting,
-            float ProjectileSpeed
+            float ProjectileSpeed,
+            float DropRate
         )
         {
             this.Id = Id;
@@ -105,6 +108,7 @@ namespace SpacetimeDB.Types
             this.AllowSubSquadTargeting = AllowSubSquadTargeting;
             this.Targeting = Targeting;
             this.ProjectileSpeed = ProjectileSpeed;
+            this.DropRate = DropRate;
         }
 
         public AbilityDef()

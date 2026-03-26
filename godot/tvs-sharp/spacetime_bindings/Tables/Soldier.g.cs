@@ -40,13 +40,13 @@ namespace SpacetimeDB.Types
     public sealed class SoldierCols
     {
         public global::SpacetimeDB.Col<Soldier, ulong> EntityId { get; }
-        public global::SpacetimeDB.NullableCol<Soldier, ulong> OwnerPlayerId { get; }
+        public global::SpacetimeDB.Col<Soldier, ulong> OwnerPlayerId { get; }
         public global::SpacetimeDB.Col<Soldier, byte> FormationIndex { get; }
 
         public SoldierCols(string tableName)
         {
             EntityId = new global::SpacetimeDB.Col<Soldier, ulong>(tableName, "entity_id");
-            OwnerPlayerId = new global::SpacetimeDB.NullableCol<Soldier, ulong>(tableName, "owner_player_id");
+            OwnerPlayerId = new global::SpacetimeDB.Col<Soldier, ulong>(tableName, "owner_player_id");
             FormationIndex = new global::SpacetimeDB.Col<Soldier, byte>(tableName, "formation_index");
         }
     }

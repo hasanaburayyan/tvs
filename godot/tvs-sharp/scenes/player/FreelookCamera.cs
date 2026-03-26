@@ -62,7 +62,7 @@ public partial class FreelookCamera : Camera3D
     }
     else if (@event is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.IsEcho())
     {
-      if (keyEvent.Keycode == Key.R && _inGame && !MenuOpen)
+      if (keyEvent.Keycode == Key.V && _inGame && !MenuOpen)
         SetCameraLocked(!CameraLocked);
     }
   }

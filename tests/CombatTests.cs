@@ -35,6 +35,21 @@ public class CombatDefinitionTests : IDisposable
     Assert.Equal(45f, fireRifle.BaseRange);
     Assert.Equal(0f, fireRifle.BaseRadius);
     Assert.Contains(TargetType.Enemy, fireRifle.ValidTargets);
+    Assert.Equal(0.06f, fireRifle.DropRate);
+    Assert.Equal(1800UL, fireRifle.CooldownMs);
+  }
+
+  [Fact]
+  public void AbilityDef_WeaponAbilities_HaveDropRates()
+  {
+    var pistol = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Pistol");
+    Assert.Equal(0.3f, pistol.DropRate);
+
+    var smg = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire SMG");
+    Assert.Equal(0.25f, smg.DropRate);
+
+    var trenchGun = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Trench Gun");
+    Assert.Equal(0.4f, trenchGun.DropRate);
   }
 
   [Fact]
@@ -75,6 +90,31 @@ public class CombatDefinitionTests : IDisposable
     Assert.NotNull(rifle);
     Assert.True(rifle.GrantsSupplies);
     Assert.NotNull(_client.Db.AbilityDef.Id.Find(rifle.PrimaryAbilityId));
+    Assert.Equal(FireMode.Single, rifle.Mode);
+    Assert.Equal(1, rifle.PelletCount);
+    Assert.Equal(5, rifle.ClipSize);
+    Assert.Equal(3000UL, rifle.ReloadTimeMs);
+  }
+
+  [Fact]
+  public void WeaponDef_AllWeapons_HaveFireModeAndClip()
+  {
+    var pistol = _client.Db.WeaponDef.Iter().First(w => w.Name == "Pistol");
+    Assert.Equal(FireMode.SemiAuto, pistol.Mode);
+    Assert.Equal(12, pistol.ClipSize);
+    Assert.Equal(1500UL, pistol.ReloadTimeMs);
+
+    var smg = _client.Db.WeaponDef.Iter().First(w => w.Name == "SMG");
+    Assert.Equal(FireMode.Auto, smg.Mode);
+    Assert.Equal(30, smg.ClipSize);
+    Assert.Equal(2500UL, smg.ReloadTimeMs);
+
+    var trenchGun = _client.Db.WeaponDef.Iter().First(w => w.Name == "Trench Gun");
+    Assert.Equal(FireMode.Spread, trenchGun.Mode);
+    Assert.Equal(8, trenchGun.PelletCount);
+    Assert.Equal(15f, trenchGun.SpreadAngleDeg);
+    Assert.Equal(6, trenchGun.ClipSize);
+    Assert.Equal(3500UL, trenchGun.ReloadTimeMs);
   }
 
   [Fact]
@@ -981,7 +1021,7 @@ public class ResourceTests : IDisposable
   }
 
   [Fact]
-  public void UseAbility_DeductsSupplies()
+  public void UseAbility_DoesNotDeductSuppliesOnFire()
   {
     using var target = SpacetimeTestClient.Create();
     target.CreatePlayerAndGetId("SupplyTarget");
@@ -996,9 +1036,6 @@ public class ResourceTests : IDisposable
     _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
 
     var gp = _client.GetGamePlayer(gameId);
-    var targetPlayer = _client.Db.Player.Iter().First(p => p.Name == "SupplyTarget");
-    var targetGp = _client.GamePlayersInSession(gameId)
-      .First(g => g.PlayerId == targetPlayer.Id);
 
     var suppliesBefore = _client.Db.ResourcePool.EntityId.Filter(gp.EntityId).First(p => p.Kind == ResourceKind.Supplies).Current;
 
@@ -1006,7 +1043,7 @@ public class ResourceTests : IDisposable
     _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
 
     var suppliesAfter = _client.Db.ResourcePool.EntityId.Filter(gp.EntityId).First(p => p.Kind == ResourceKind.Supplies).Current;
-    Assert.Equal(suppliesBefore - 1, suppliesAfter);
+    Assert.Equal(suppliesBefore, suppliesAfter);
 
     target.ClearData();
   }
@@ -1058,8 +1095,7 @@ public class ResourceTests : IDisposable
   public void ResourceCosts_AbilityDef_HasCorrectCosts()
   {
     var fireRifle = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fire Rifle");
-    Assert.Single(fireRifle.ResourceCosts);
-    Assert.Contains(fireRifle.ResourceCosts, c => c.Kind == ResourceKind.Supplies && c.Amount == 1f);
+    Assert.Empty(fireRifle.ResourceCosts);
 
     var fireball = _client.Db.AbilityDef.Iter().First(a => a.Name == "Fireball");
     Assert.Single(fireball.ResourceCosts);
@@ -1555,7 +1591,7 @@ public class ProjectileTests : IDisposable
   }
 
   [Fact]
-  public void Projectile_ResourcesConsumedOnFire()
+  public void Projectile_NoResourceCostOnFire()
   {
     _client.CreatePlayerAndGetId("ProjResource");
     var gameId = _client.CreateGameAndJoin(4);
@@ -1573,7 +1609,7 @@ public class ProjectileTests : IDisposable
 
     var suppliesAfter = _client.Db.ResourcePool.EntityId.Filter(gp.EntityId)
       .First(p => p.Kind == ResourceKind.Supplies).Current;
-    Assert.Equal(suppliesBefore - 1, suppliesAfter);
+    Assert.Equal(suppliesBefore, suppliesAfter);
 
     var projectiles = _client.SqlRows($"SELECT * FROM projectile WHERE game_session_id = {gameId}");
     Assert.NotEmpty(projectiles);
@@ -1713,5 +1749,203 @@ public class WinConditionTests : IDisposable
 
     int healthAfter = _client.GetTargetable(cc1.EntityId).Health;
     Assert.Equal(healthBefore, healthAfter);
+  }
+
+  [Fact]
+  public void Building_HasHealth()
+  {
+    _client.CreatePlayerAndGetId("BuildingHP");
+    var gameId = _client.CreateGameAndJoin(4);
+
+    var buildings = _client.Db.Entity.GameSessionId.Filter(gameId)
+      .Where(e => e.Type == EntityType.Terrain)
+      .Where(e =>
+      {
+        var tf = _client.Db.TerrainFeature.EntityId.Find(e.EntityId);
+        return tf != null && tf.Type == TerrainType.Building;
+      }).ToList();
+
+    Assert.NotEmpty(buildings);
+    foreach (var bldg in buildings)
+    {
+      var t = _client.GetTargetable(bldg.EntityId);
+      Assert.Equal(300, t.MaxHealth);
+      Assert.Equal(300, t.Health);
+      Assert.Equal(5, t.Armor);
+    }
+  }
+
+  [Fact]
+  public void Wall_HasHealth()
+  {
+    _client.CreatePlayerAndGetId("WallHP");
+    var gameId = _client.CreateGameAndJoin(4);
+
+    var walls = _client.Db.Entity.GameSessionId.Filter(gameId)
+      .Where(e => e.Type == EntityType.Terrain && e.TeamSlot != 0)
+      .Where(e =>
+      {
+        var tf = _client.Db.TerrainFeature.EntityId.Find(e.EntityId);
+        return tf != null && tf.Type == TerrainType.Wall;
+      }).ToList();
+
+    Assert.NotEmpty(walls);
+    foreach (var wall in walls)
+    {
+      var t = _client.GetTargetable(wall.EntityId);
+      Assert.Equal(100, t.MaxHealth);
+      Assert.Equal(2, t.Armor);
+    }
+  }
+}
+
+public class WeaponStateTests : IDisposable
+{
+  private readonly SpacetimeTestClient _client;
+
+  public WeaponStateTests()
+  {
+    _client = SpacetimeTestClient.Create();
+  }
+
+  public void Dispose()
+  {
+    _client.ClearData();
+    _client.Dispose();
+  }
+
+  private (ulong gameId, ulong gpEntityId, WeaponDef weapon) SetupWithRifle(string name = "ReloadPlayer")
+  {
+    _client.CreatePlayerAndGetId(name);
+    var gameId = _client.CreateGameAndJoin(4);
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Rifle");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+    var gp = _client.GetGamePlayer(gameId);
+    return (gameId, gp.EntityId, weapon);
+  }
+
+  [Fact]
+  public void SetLoadout_CreatesWeaponState()
+  {
+    var (gameId, gpEntityId, weapon) = SetupWithRifle();
+    var ws = _client.Db.WeaponState.EntityId.Find(gpEntityId);
+    Assert.NotNull(ws);
+    Assert.Equal(weapon.ClipSize, ws.AmmoInClip);
+    Assert.Null(ws.ReloadingUntil);
+  }
+
+  [Fact]
+  public void UseAbility_DecrementsAmmo()
+  {
+    var (gameId, gpEntityId, weapon) = SetupWithRifle("AmmoDecr");
+    var aimPoint = new DbVector3(0f, 1f, 50f);
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
+
+    var ws = _client.Db.WeaponState.EntityId.Find(gpEntityId);
+    Assert.NotNull(ws);
+    Assert.Equal(weapon.ClipSize - 1, ws.AmmoInClip);
+  }
+
+  [Fact]
+  public void UseAbility_EmptyClip_AutoReload()
+  {
+    var (gameId, gpEntityId, weapon) = SetupWithRifle("AutoReload");
+    var aimPoint = new DbVector3(0f, 1f, 50f);
+    for (int i = 0; i < weapon.ClipSize; i++)
+    {
+      _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
+    }
+
+    var ws = _client.Db.WeaponState.EntityId.Find(gpEntityId);
+    Assert.NotNull(ws);
+    Assert.Equal(weapon.ClipSize, ws.AmmoInClip);
+    Assert.NotNull(ws.ReloadingUntil);
+  }
+
+  [Fact]
+  public void UseAbility_DuringReload_Fails()
+  {
+    var (gameId, gpEntityId, weapon) = SetupWithRifle("ReloadBlock");
+    var aimPoint = new DbVector3(0f, 1f, 50f);
+    for (int i = 0; i < weapon.ClipSize; i++)
+    {
+      _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
+    }
+
+    _client.CallExpectFailure(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
+  }
+
+  [Fact]
+  public void Reload_ManualReload_SetsClipFullAndDrainsSupplies()
+  {
+    var (gameId, gpEntityId, weapon) = SetupWithRifle("ManualReload");
+    var aimPoint = new DbVector3(0f, 1f, 50f);
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
+
+    var wsBefore = _client.Db.WeaponState.EntityId.Find(gpEntityId);
+    Assert.Equal(weapon.ClipSize - 1, wsBefore!.AmmoInClip);
+
+    var suppliesBefore = _client.Db.ResourcePool.EntityId.Filter(gpEntityId)
+      .First(p => p.Kind == ResourceKind.Supplies).Current;
+
+    _client.Call(r => r.Reload(gameId));
+
+    var wsAfter = _client.Db.WeaponState.EntityId.Find(gpEntityId);
+    Assert.Equal(weapon.ClipSize, wsAfter!.AmmoInClip);
+    Assert.NotNull(wsAfter.ReloadingUntil);
+
+    var suppliesAfter = _client.Db.ResourcePool.EntityId.Filter(gpEntityId)
+      .First(p => p.Kind == ResourceKind.Supplies).Current;
+    Assert.Equal(suppliesBefore - 1, suppliesAfter);
+  }
+
+  [Fact]
+  public void Reload_FullClip_Fails()
+  {
+    var (gameId, _, _) = SetupWithRifle("FullClipReload");
+    _client.CallExpectFailure(r => r.Reload(gameId));
+  }
+
+  [Fact]
+  public void Reload_NoLoadout_Fails()
+  {
+    _client.CreatePlayerAndGetId("NoLoadoutReload");
+    var gameId = _client.CreateGameAndJoin(4);
+    _client.CallExpectFailure(r => r.Reload(gameId));
+  }
+}
+
+public class SpreadFireTests : IDisposable
+{
+  private readonly SpacetimeTestClient _client;
+
+  public SpreadFireTests()
+  {
+    _client = SpacetimeTestClient.Create();
+  }
+
+  public void Dispose()
+  {
+    _client.ClearData();
+    _client.Dispose();
+  }
+
+  [Fact]
+  public void TrenchGun_SpawnsMultipleProjectiles()
+  {
+    _client.CreatePlayerAndGetId("SpreadShooter");
+    var gameId = _client.CreateGameAndJoin(4);
+    var archetype = _client.Db.ArchetypeDef.Iter().First(a => a.Name == "Infantry");
+    var weapon = _client.Db.WeaponDef.Iter().First(w => w.Name == "Trench Gun");
+    var skill = _client.Db.SkillDef.Iter().First(s => s.Name == "Evoker");
+    _client.Call(r => r.SetLoadout(gameId, archetype.Id, weapon.Id, skill.Id));
+
+    var aimPoint = new DbVector3(0f, 1f, 10f);
+    _client.Call(r => r.UseAbility(gameId, weapon.PrimaryAbilityId, null, aimPoint, null, null));
+
+    var projectiles = _client.SqlRows($"SELECT * FROM projectile WHERE game_session_id = {gameId}");
+    Assert.Equal(8, projectiles.Length);
   }
 }
