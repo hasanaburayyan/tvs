@@ -413,6 +413,15 @@ public static partial class Module
 
     var spawnPos = GetTeamSpawn(ctx, teamSlot);
     ctx.Db.entity.EntityId.Update(ent with { TeamSlot = teamSlot, Position = spawnPos });
+
+    foreach (var soldier in ctx.Db.soldier.Iter())
+    {
+      if (soldier.OwnerPlayerId != player.Id) continue;
+      var soldierEnt = ctx.Db.entity.EntityId.Find(soldier.EntityId);
+      if (soldierEnt is Entity se && se.GameSessionId == ent.GameSessionId)
+        ctx.Db.entity.EntityId.Update(se with { TeamSlot = teamSlot });
+    }
+
     Log.Info($"Player {player.Name} joined team {teamSlot} in game {gameId}");
   }
 

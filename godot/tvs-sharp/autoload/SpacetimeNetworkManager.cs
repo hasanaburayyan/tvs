@@ -29,8 +29,8 @@ public partial class SpacetimeNetworkManager : Node
 	ActiveProfile = profile;
 	GD.Print($"Connecting with profile '{profile}' (token: {TokenPath})");
 	Conn = DbConnection.Builder()
-	  //.WithUri("https://maincloud.spacetimedb.com")
-	  .WithUri("http://127.0.0.1:3000")
+	  .WithUri("https://maincloud.spacetimedb.com")
+	  // .WithUri("http://127.0.0.1:3000")
 	  .WithDatabaseName("tvs")
 	  .WithToken(LoadToken())
 	  .OnConnect(OnConnected)

@@ -44,7 +44,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Targetable, int> MaxHealth { get; }
         public global::SpacetimeDB.Col<Targetable, int> Armor { get; }
         public global::SpacetimeDB.Col<Targetable, bool> Dead { get; }
-        public global::SpacetimeDB.NullableCol<Targetable, SpacetimeDB.Timestamp> DiedAt { get; }
+        public global::SpacetimeDB.Col<Targetable, SpacetimeDB.Timestamp> DiedAt { get; }
 
         public TargetableCols(string tableName)
         {
@@ -53,7 +53,7 @@ namespace SpacetimeDB.Types
             MaxHealth = new global::SpacetimeDB.Col<Targetable, int>(tableName, "max_health");
             Armor = new global::SpacetimeDB.Col<Targetable, int>(tableName, "armor");
             Dead = new global::SpacetimeDB.Col<Targetable, bool>(tableName, "dead");
-            DiedAt = new global::SpacetimeDB.NullableCol<Targetable, SpacetimeDB.Timestamp>(tableName, "died_at");
+            DiedAt = new global::SpacetimeDB.Col<Targetable, SpacetimeDB.Timestamp>(tableName, "died_at");
         }
     }
 

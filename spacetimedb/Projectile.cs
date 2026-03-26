@@ -28,6 +28,8 @@ public static partial class Module
     public int ResolvedPower;
     public bool AllowSubSquadTargeting;
     public DamageDistribution Distribution;
+    public float DropRate;
+    public bool DetonateAtMaxRange;
   }
 
   [SpacetimeDB.Table(Accessor = "projectile_tick", Scheduled = nameof(TickProjectile))]
@@ -104,6 +106,8 @@ public static partial class Module
 
   static void ApplyProjectileHit(ReducerContext ctx, Projectile proj, ulong hitEntityId, DbVector3 impactPos)
   {
+    Log.Info($"[PROJ-DEBUG] ApplyProjectileHit: projId={proj.Id} casterEntityId={proj.CasterEntityId} hitEntityId={hitEntityId} power={proj.ResolvedPower} radius={proj.Radius}");
+
     var ability = ctx.Db.ability_def.Id.Find(proj.AbilityId);
     bool killed = false;
     var affectedTargetIds = new List<ulong>();
@@ -123,7 +127,7 @@ public static partial class Module
         float dz = ent.Position.z - impactPos.z;
         if (dx * dx + dz * dz <= radiusSq)
         {
-          bool entityDied = ApplyDamageToEntity(ctx, ent.EntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
+          bool entityDied = ApplyDamageToEntity(ctx, ent.EntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds);
           if (entityDied) killed = true;
         }
       }
@@ -156,7 +160,7 @@ public static partial class Module
               for (int i = 0; i < aliveEntityIds.Count; i++)
               {
                 if (shares[i] <= 0) continue;
-                bool entityDied = ApplyDamageToEntity(ctx, aliveEntityIds[i], shares[i], proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
+                bool entityDied = ApplyDamageToEntity(ctx, aliveEntityIds[i], shares[i], proj.GameSessionId, affectedTargetIds);
                 if (entityDied && aliveEntityIds[i] == hitEntityId)
                   killed = true;
               }
@@ -164,12 +168,12 @@ public static partial class Module
           }
           else
           {
-            killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
+            killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds);
           }
         }
         else
         {
-          killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds, proj.CasterEntityId);
+          killed = ApplyDamageToEntity(ctx, hitEntityId, proj.ResolvedPower, proj.GameSessionId, affectedTargetIds);
         }
       }
     }
@@ -243,6 +247,17 @@ public static partial class Module
     }
   }
 
+  static bool IsOutOfMapBounds(ReducerContext ctx, DbVector3 pos, ulong gameSessionId)
+  {
+    var session = ctx.Db.game_session.Id.Find(gameSessionId);
+    if (session is not GameSession gs) return true;
+    var mapDef = ctx.Db.map_def.Id.Find(gs.MapDefId);
+    if (mapDef is not MapDef map) return true;
+    float halfX = map.SizeX * 0.5f;
+    float halfZ = map.SizeZ * 0.5f;
+    return pos.x < -halfX || pos.x > halfX || pos.z < -halfZ || pos.z > halfZ;
+  }
+
   [SpacetimeDB.Reducer]
   public static void TickProjectile(ReducerContext ctx, ProjectileTickSchedule tick)
   {
@@ -250,15 +265,43 @@ public static partial class Module
     if (projOpt is not Projectile proj) return;
 
     float deltaSec = PROJECTILE_TICK_MS / 1000f;
+
+    float dirX = proj.DirectionX;
+    float dirY = proj.DirectionY;
+    float dirZ = proj.DirectionZ;
+
+    if (proj.DropRate > 0)
+    {
+      dirY -= proj.DropRate * deltaSec;
+      float mag = (float)Math.Sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+      if (mag > 1e-6f)
+      {
+        float inv = 1f / mag;
+        dirX *= inv; dirY *= inv; dirZ *= inv;
+      }
+    }
+
     float moveDistance = proj.Speed * deltaSec;
 
     var oldPos = proj.Position;
     var newPos = new DbVector3(
-      oldPos.x + proj.DirectionX * moveDistance,
-      oldPos.y + proj.DirectionY * moveDistance,
-      oldPos.z + proj.DirectionZ * moveDistance
+      oldPos.x + dirX * moveDistance,
+      oldPos.y + dirY * moveDistance,
+      oldPos.z + dirZ * moveDistance
     );
     float newDistTraveled = proj.DistanceTraveled + moveDistance;
+
+    if (newPos.y < 0f)
+    {
+      ctx.Db.projectile.Id.Delete(proj.Id);
+      return;
+    }
+
+    if (IsOutOfMapBounds(ctx, newPos, proj.GameSessionId))
+    {
+      ctx.Db.projectile.Id.Delete(proj.Id);
+      return;
+    }
 
     if (SegmentBlockedByTerrain(ctx, oldPos, newPos, proj.GameSessionId, proj.CasterTeamSlot))
     {
@@ -266,50 +309,7 @@ public static partial class Module
       return;
     }
 
-    ulong? hitEntityId = null;
-    float closestT = float.MaxValue;
-
-    foreach (var ent in ctx.Db.entity.GameSessionId.Filter(proj.GameSessionId))
-    {
-      if (ent.TeamSlot != 0 && ent.TeamSlot == proj.CasterTeamSlot) continue;
-      if (ent.EntityId == proj.CasterEntityId) continue;
-
-      bool isUnit = ent.Type == EntityType.GamePlayer || ent.Type == EntityType.Soldier;
-      bool isDamageableTerr = ent.Type == EntityType.Terrain && IsDamageableTerrain(ctx, ent.EntityId);
-      if (!isUnit && !isDamageableTerr) continue;
-
-      var tgt = ctx.Db.targetable.EntityId.Find(ent.EntityId);
-      if (tgt is not Targetable t || t.Dead) continue;
-
-      float hitRadius = ENTITY_HIT_RADIUS;
-      if (isDamageableTerr && ctx.Db.terrain_feature.EntityId.Find(ent.EntityId) is TerrainFeature tf)
-        hitRadius = Math.Max(tf.SizeX, tf.SizeZ) * 0.5f;
-
-      float distSq = PointToSegmentDistanceSq(ent.Position, oldPos, newPos);
-      if (distSq <= (hitRadius * hitRadius))
-      {
-        float param = ParameterAlongSegment(ent.Position, oldPos, newPos);
-        if (param < closestT)
-        {
-          closestT = param;
-          hitEntityId = ent.EntityId;
-        }
-      }
-    }
-
-    if (hitEntityId is ulong hid)
-    {
-      var impactPos = new DbVector3(
-        oldPos.x + (newPos.x - oldPos.x) * closestT,
-        oldPos.y + (newPos.y - oldPos.y) * closestT,
-        oldPos.z + (newPos.z - oldPos.z) * closestT
-      );
-      ApplyProjectileHit(ctx, proj, hid, impactPos);
-      ctx.Db.projectile.Id.Delete(proj.Id);
-      return;
-    }
-
-    if (newDistTraveled >= proj.MaxRange)
+    if (proj.DetonateAtMaxRange && newDistTraveled >= proj.MaxRange)
     {
       if (proj.Radius > 0)
       {
@@ -322,6 +322,9 @@ public static partial class Module
     ctx.Db.projectile.Id.Update(proj with
     {
       Position = newPos,
+      DirectionX = dirX,
+      DirectionY = dirY,
+      DirectionZ = dirZ,
       DistanceTraveled = newDistTraveled,
     });
 
@@ -337,7 +340,8 @@ public static partial class Module
     DbVector3 origin, float dirX, float dirY, float dirZ,
     float speed, float radius, float maxRange,
     byte casterTeamSlot, int resolvedPower,
-    bool allowSubSquadTargeting, DamageDistribution distribution)
+    bool allowSubSquadTargeting, DamageDistribution distribution,
+    float dropRate = 0f, bool detonateAtMaxRange = false)
   {
     var proj = ctx.Db.projectile.Insert(new Projectile
     {
@@ -357,6 +361,8 @@ public static partial class Module
       ResolvedPower = resolvedPower,
       AllowSubSquadTargeting = allowSubSquadTargeting,
       Distribution = distribution,
+      DropRate = dropRate,
+      DetonateAtMaxRange = detonateAtMaxRange,
     });
 
     ctx.Db.projectile_tick.Insert(new ProjectileTickSchedule
@@ -365,5 +371,66 @@ public static partial class Module
       ProjectileId = proj.Id,
       ScheduledAt = new ScheduleAt.Time(ctx.Timestamp + TimeSpan.FromMilliseconds(PROJECTILE_TICK_MS)),
     });
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void ReportProjectileHit(ReducerContext ctx, ulong gameId, ulong projectileId, ulong hitEntityId, DbVector3 hitPosition)
+  {
+    var projOpt = ctx.Db.projectile.Id.Find(projectileId);
+    if (projOpt is not Projectile proj)
+      throw new Exception("Projectile not found");
+
+    if (proj.GameSessionId != gameId)
+      throw new Exception("Projectile game session mismatch");
+
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id)
+      ?? throw new Exception("No active game player");
+    if (gp.EntityId != proj.CasterEntityId)
+      throw new Exception("You do not own this projectile");
+
+    Log.Info($"[PROJ-DEBUG] ReportProjectileHit: player={player.Name} projId={projectileId} casterEntityId={proj.CasterEntityId} casterTeam={proj.CasterTeamSlot} hitEntityId={hitEntityId}");
+
+    float dx = hitPosition.x - proj.Position.x;
+    float dy = hitPosition.y - proj.Position.y;
+    float dz = hitPosition.z - proj.Position.z;
+    float distSq = dx * dx + dy * dy + dz * dz;
+    float tolerance = proj.Speed * (PROJECTILE_TICK_MS / 1000f) * 8f;
+    if (distSq > tolerance * tolerance)
+      throw new Exception("Hit position too far from projectile");
+
+    var hitEnt = ctx.Db.entity.EntityId.Find(hitEntityId);
+    if (hitEnt is not Entity he)
+      throw new Exception("Hit entity not found");
+    if (he.GameSessionId != gameId)
+      throw new Exception("Hit entity not in same game");
+
+    Log.Info($"[PROJ-DEBUG]   hitEntity: type={he.Type} teamSlot={he.TeamSlot} casterTeam={proj.CasterTeamSlot}");
+
+    if (he.TeamSlot != 0 && he.TeamSlot == proj.CasterTeamSlot)
+      throw new Exception("Cannot hit friendly entity");
+
+    if (hitEntityId == proj.CasterEntityId)
+      throw new Exception("Cannot hit own player entity");
+
+    var casterGp = ctx.Db.game_player.EntityId.Find(proj.CasterEntityId);
+    if (casterGp is GamePlayer cgp)
+    {
+      var hitSoldier = ctx.Db.soldier.EntityId.Find(hitEntityId);
+      if (hitSoldier is Soldier hs && hs.OwnerPlayerId == cgp.PlayerId)
+      {
+        Log.Warn($"[PROJ-DEBUG]   REJECTED: Own soldier hit (soldierEntityId={hitEntityId} ownerPlayerId={hs.OwnerPlayerId} casterPlayerId={cgp.PlayerId})");
+        throw new Exception("Cannot hit own soldier");
+      }
+    }
+
+    var tgt = ctx.Db.targetable.EntityId.Find(hitEntityId);
+    if (tgt is not Targetable t || t.Dead)
+      throw new Exception("Target is dead or not targetable");
+
+    Log.Info($"[PROJ-DEBUG]   APPLYING HIT: projId={projectileId} hitEntityId={hitEntityId} type={he.Type} power={proj.ResolvedPower}");
+
+    ApplyProjectileHit(ctx, proj, hitEntityId, hitPosition);
+    ctx.Db.projectile.Id.Delete(proj.Id);
   }
 }

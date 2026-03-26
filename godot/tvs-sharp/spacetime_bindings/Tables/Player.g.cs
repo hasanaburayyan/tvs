@@ -63,7 +63,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Player, SpacetimeDB.Identity> OwnerIdentity { get; }
         public global::SpacetimeDB.Col<Player, string> Name { get; }
         public global::SpacetimeDB.Col<Player, bool> Online { get; }
-        public global::SpacetimeDB.NullableCol<Player, SpacetimeDB.Identity> ControllerIdentity { get; }
+        public global::SpacetimeDB.Col<Player, SpacetimeDB.Identity> ControllerIdentity { get; }
 
         public PlayerCols(string tableName)
         {
@@ -71,7 +71,7 @@ namespace SpacetimeDB.Types
             OwnerIdentity = new global::SpacetimeDB.Col<Player, SpacetimeDB.Identity>(tableName, "owner_identity");
             Name = new global::SpacetimeDB.Col<Player, string>(tableName, "name");
             Online = new global::SpacetimeDB.Col<Player, bool>(tableName, "online");
-            ControllerIdentity = new global::SpacetimeDB.NullableCol<Player, SpacetimeDB.Identity>(tableName, "controller_identity");
+            ControllerIdentity = new global::SpacetimeDB.Col<Player, SpacetimeDB.Identity>(tableName, "controller_identity");
         }
     }
 

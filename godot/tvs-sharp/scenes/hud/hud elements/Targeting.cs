@@ -26,6 +26,8 @@ public partial class Targeting : Control
   private Node3D _currentTarget;
   private TargetableComponent _currentTargetable;
   private MeshInstance3D _ringIndicator;
+  private bool _autoFiring;
+  private double _autoFireTimer;
 
   public override void _Ready()
   {
@@ -49,7 +51,7 @@ public partial class Targeting : Control
 
   public override void _UnhandledInput(InputEvent @event)
   {
-	if (@event is not InputEventMouseButton mb || !mb.Pressed) return;
+	if (@event is not InputEventMouseButton mb) return;
 	if (PlacementMode.Instance?.IsActive == true) return;
 	if (UpgradeMode.Instance?.IsActive == true) return;
 
@@ -58,21 +60,61 @@ public partial class Targeting : Control
 
 	if (IsCameraLocked())
 	  HandleLockedInput(mb, cam);
-	else
+	else if (mb.Pressed)
 	  HandleUnlockedInput(mb, cam);
   }
 
   private void HandleLockedInput(InputEventMouseButton mb, Camera3D cam)
   {
-	if (mb.ButtonIndex == MouseButton.Right)
+	if (mb.ButtonIndex == MouseButton.Right && mb.Pressed)
 	{
 	  var (target, targetable) = RaycastFromScreenCenter(cam);
 	  SetTarget(target, targetable);
 	}
 	else if (mb.ButtonIndex == MouseButton.Left)
 	{
-	  FirePrimaryAbility(cam);
+	  if (mb.Pressed)
+	  {
+		FirePrimaryAbility(cam);
+		if (GetActiveWeaponFireMode() == FireMode.Auto)
+		{
+		  _autoFiring = true;
+		  _autoFireTimer = 0;
+		}
+	  }
+	  else
+	  {
+		_autoFiring = false;
+	  }
 	}
+  }
+
+  private FireMode GetActiveWeaponFireMode()
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return FireMode.SemiAuto;
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr.ActivePlayerId == null) return FireMode.SemiAuto;
+
+	GamePlayer localGp = null;
+	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (gp.Active) { localGp = gp; break; }
+	}
+	if (localGp == null) return FireMode.SemiAuto;
+
+	var localEntity = conn.Db.Entity.EntityId.Find(localGp.EntityId);
+	if (localEntity == null) return FireMode.SemiAuto;
+
+	Loadout loadout = null;
+	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localEntity.GameSessionId))
+	{
+	  if (lo.PlayerId == mgr.ActivePlayerId) { loadout = lo; break; }
+	}
+	if (loadout == null) return FireMode.SemiAuto;
+
+	var weapon = conn.Db.WeaponDef.Id.Find(loadout.WeaponDefId);
+	return weapon?.Mode ?? FireMode.SemiAuto;
   }
 
   private void HandleUnlockedInput(InputEventMouseButton mb, Camera3D cam)
@@ -203,6 +245,22 @@ public partial class Targeting : Control
 
   public override void _Process(double delta)
   {
+	if (Input.IsActionJustPressed("reload"))
+	  TryReload();
+
+	if (_autoFiring && IsCameraLocked())
+	{
+	  _autoFireTimer -= delta;
+	  if (_autoFireTimer <= 0)
+	  {
+		var cam = GetActiveCamera();
+		if (cam != null)
+		  FirePrimaryAbility(cam);
+		var cooldownSec = GetActiveWeaponCooldownSec();
+		_autoFireTimer = cooldownSec > 0 ? cooldownSec : 0.12;
+	  }
+	}
+
 	if (_currentTarget == null
 	  || !IsInstanceValid(_currentTarget)
 	  || !_currentTarget.IsInsideTree())
@@ -498,6 +556,58 @@ public partial class Targeting : Control
 	{
 	  CollectEntityPositions(conn, child.Id, positions);
 	}
+  }
+
+  private void TryReload()
+  {
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr?.Conn == null || mgr.ActivePlayerId == null) return;
+	var conn = mgr.Conn;
+
+	GamePlayer localGp = null;
+	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (gp.Active) { localGp = gp; break; }
+	}
+	if (localGp == null) return;
+
+	var localEntity = conn.Db.Entity.EntityId.Find(localGp.EntityId);
+	if (localEntity == null) return;
+
+	conn.Reducers.Reload(localEntity.GameSessionId);
+  }
+
+  private double GetActiveWeaponCooldownSec()
+  {
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	if (conn == null) return 0.12;
+	var mgr = SpacetimeNetworkManager.Instance;
+	if (mgr.ActivePlayerId == null) return 0.12;
+
+	GamePlayer localGp = null;
+	foreach (var gp in conn.Db.GamePlayer.PlayerId.Filter(mgr.ActivePlayerId.Value))
+	{
+	  if (gp.Active) { localGp = gp; break; }
+	}
+	if (localGp == null) return 0.12;
+
+	var localEntity = conn.Db.Entity.EntityId.Find(localGp.EntityId);
+	if (localEntity == null) return 0.12;
+
+	Loadout loadout = null;
+	foreach (var lo in conn.Db.Loadout.GameSessionId.Filter(localEntity.GameSessionId))
+	{
+	  if (lo.PlayerId == mgr.ActivePlayerId) { loadout = lo; break; }
+	}
+	if (loadout == null) return 0.12;
+
+	var weapon = conn.Db.WeaponDef.Id.Find(loadout.WeaponDefId);
+	if (weapon == null) return 0.12;
+
+	var ability = conn.Db.AbilityDef.Id.Find(weapon.PrimaryAbilityId);
+	if (ability == null) return 0.12;
+
+	return ability.CooldownMs / 1000.0;
   }
 
   private MeshInstance3D CreateUnitRing(Color color)

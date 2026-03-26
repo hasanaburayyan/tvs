@@ -44,8 +44,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeX { get; }
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeY { get; }
         public global::SpacetimeDB.Col<TerrainFeature, float> SizeZ { get; }
-        public global::SpacetimeDB.NullableCol<TerrainFeature, ulong> CasterEntityId { get; }
-        public global::SpacetimeDB.NullableCol<TerrainFeature, SpacetimeDB.Timestamp> ExpiresAt { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, ulong> CasterEntityId { get; }
+        public global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp> ExpiresAt { get; }
         public global::SpacetimeDB.Col<TerrainFeature, bool> Expired { get; }
 
         public TerrainFeatureCols(string tableName)
@@ -55,8 +55,8 @@ namespace SpacetimeDB.Types
             SizeX = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_x");
             SizeY = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_y");
             SizeZ = new global::SpacetimeDB.Col<TerrainFeature, float>(tableName, "size_z");
-            CasterEntityId = new global::SpacetimeDB.NullableCol<TerrainFeature, ulong>(tableName, "caster_entity_id");
-            ExpiresAt = new global::SpacetimeDB.NullableCol<TerrainFeature, SpacetimeDB.Timestamp>(tableName, "expires_at");
+            CasterEntityId = new global::SpacetimeDB.Col<TerrainFeature, ulong>(tableName, "caster_entity_id");
+            ExpiresAt = new global::SpacetimeDB.Col<TerrainFeature, SpacetimeDB.Timestamp>(tableName, "expires_at");
             Expired = new global::SpacetimeDB.Col<TerrainFeature, bool>(tableName, "expired");
         }
     }

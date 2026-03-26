@@ -30,11 +30,11 @@ public static partial class Module
     InsertMapTerrain(ctx, id, TerrainType.Trench, 15f, -1f, -148f, 0f, 1,
       20f, 2f, 3f, 0, 0, false);
     InsertMapTerrain(ctx, id, TerrainType.Wall, -10f, 0f, -144f, 0f, 1,
-      8f, 3f, 1f, 0, 0, false);
+      8f, 3f, 1f, 100, 2, false);
     InsertMapTerrain(ctx, id, TerrainType.Wall, 10f, 0f, -144f, 0f, 1,
-      8f, 3f, 1f, 0, 0, false);
+      8f, 3f, 1f, 100, 2, false);
     InsertMapTerrain(ctx, id, TerrainType.Building, 0f, 0f, -180f, 0f, 1,
-      8f, 5f, 6f, 0, 0, false);
+      8f, 5f, 6f, 300, 5, false);
 
     // ============================================================
     // TEAM 1 FORWARD BASE - LEFT (-40, -80)
@@ -98,11 +98,11 @@ public static partial class Module
     InsertMapTerrain(ctx, id, TerrainType.Trench, 15f, -1f, 148f, 0f, 2,
       20f, 2f, 3f, 0, 0, false);
     InsertMapTerrain(ctx, id, TerrainType.Wall, -10f, 0f, 144f, 0f, 2,
-      8f, 3f, 1f, 0, 0, false);
+      8f, 3f, 1f, 100, 2, false);
     InsertMapTerrain(ctx, id, TerrainType.Wall, 10f, 0f, 144f, 0f, 2,
-      8f, 3f, 1f, 0, 0, false);
+      8f, 3f, 1f, 100, 2, false);
     InsertMapTerrain(ctx, id, TerrainType.Building, 0f, 0f, 180f, 180f, 2,
-      8f, 5f, 6f, 0, 0, false);
+      8f, 5f, 6f, 300, 5, false);
 
     // ============================================================
     // CAPTURE POINTS - side flanks (no flags in no man's land)
@@ -168,6 +168,7 @@ public static partial class Module
       AffectedAbilityIds = new List<ulong>(),
       Targeting = TargetingMode.Projectile,
       ProjectileSpeed = 80f,
+      DropRate = 0.3f,
     });
 
     var fireSmg = ctx.Db.ability_def.Insert(new AbilityDef
@@ -180,16 +181,14 @@ public static partial class Module
       BasePower = 15,
       BaseRange = 18f,
       BaseRadius = 0f,
-      CooldownMs = 250,
-      ResourceCosts = new List<ResourceCost>
-      {
-        new ResourceCost { Kind = ResourceKind.Supplies, Amount = 1 },
-      },
+      CooldownMs = 120,
+      ResourceCosts = new List<ResourceCost>(),
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       Targeting = TargetingMode.Projectile,
       ProjectileSpeed = 70f,
+      DropRate = 0.25f,
     });
 
     var fireRifle = ctx.Db.ability_def.Insert(new AbilityDef
@@ -202,17 +201,15 @@ public static partial class Module
       BasePower = 30,
       BaseRange = 45f,
       BaseRadius = 0f,
-      CooldownMs = 1200,
-      ResourceCosts = new List<ResourceCost>
-      {
-        new ResourceCost { Kind = ResourceKind.Supplies, Amount = 1 },
-      },
+      CooldownMs = 1800,
+      ResourceCosts = new List<ResourceCost>(),
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       AllowSubSquadTargeting = true,
       Targeting = TargetingMode.Projectile,
       ProjectileSpeed = 120f,
+      DropRate = 0.06f,
     });
 
     var fireTrenchGun = ctx.Db.ability_def.Insert(new AbilityDef
@@ -226,16 +223,14 @@ public static partial class Module
       BaseRange = 8f,
       BaseRadius = 0f,
       CooldownMs = 1500,
-      ResourceCosts = new List<ResourceCost>
-      {
-        new ResourceCost { Kind = ResourceKind.Supplies, Amount = 2 },
-      },
+      ResourceCosts = new List<ResourceCost>(),
       GrantedMods = new List<AbilityMod>(),
       EffectDurationMs = 0,
       AffectedAbilityIds = new List<ulong>(),
       Distribution = DamageDistribution.ProximityFalloff,
       Targeting = TargetingMode.Projectile,
       ProjectileSpeed = 50f,
+      DropRate = 0.4f,
     });
 
     // ================================================================
@@ -248,6 +243,11 @@ public static partial class Module
       Description = "A reliable sidearm with infinite ammo",
       PrimaryAbilityId = firePistol.Id,
       GrantsSupplies = false,
+      Mode = FireMode.SemiAuto,
+      PelletCount = 1,
+      SpreadAngleDeg = 0f,
+      ClipSize = 12,
+      ReloadTimeMs = 1500,
     });
 
     ctx.Db.weapon_def.Insert(new WeaponDef
@@ -256,6 +256,11 @@ public static partial class Module
       Description = "Rapid-fire submachine gun for close engagements",
       PrimaryAbilityId = fireSmg.Id,
       GrantsSupplies = true,
+      Mode = FireMode.Auto,
+      PelletCount = 1,
+      SpreadAngleDeg = 0f,
+      ClipSize = 30,
+      ReloadTimeMs = 2500,
     });
 
     ctx.Db.weapon_def.Insert(new WeaponDef
@@ -264,6 +269,11 @@ public static partial class Module
       Description = "Standard-issue bolt-action rifle with long range",
       PrimaryAbilityId = fireRifle.Id,
       GrantsSupplies = true,
+      Mode = FireMode.Single,
+      PelletCount = 1,
+      SpreadAngleDeg = 0f,
+      ClipSize = 5,
+      ReloadTimeMs = 3000,
     });
 
     ctx.Db.weapon_def.Insert(new WeaponDef
@@ -272,6 +282,11 @@ public static partial class Module
       Description = "Devastating close-range shotgun built for trench warfare",
       PrimaryAbilityId = fireTrenchGun.Id,
       GrantsSupplies = true,
+      Mode = FireMode.Spread,
+      PelletCount = 8,
+      SpreadAngleDeg = 15f,
+      ClipSize = 6,
+      ReloadTimeMs = 3500,
     });
 
     // ================================================================

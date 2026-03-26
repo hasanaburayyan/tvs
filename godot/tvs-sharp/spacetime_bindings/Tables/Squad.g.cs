@@ -72,7 +72,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Squad, ulong> Id { get; }
         public global::SpacetimeDB.Col<Squad, ulong> GameSessionId { get; }
         public global::SpacetimeDB.Col<Squad, ulong> ParentSquadId { get; }
-        public global::SpacetimeDB.NullableCol<Squad, ulong> OwnerPlayerId { get; }
+        public global::SpacetimeDB.Col<Squad, ulong> OwnerPlayerId { get; }
         public global::SpacetimeDB.Col<Squad, float> CohesionRadius { get; }
         public global::SpacetimeDB.Col<Squad, DbVector3> CenterPosition { get; }
         public global::SpacetimeDB.Col<Squad, ulong> EntityId { get; }
@@ -82,7 +82,7 @@ namespace SpacetimeDB.Types
             Id = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "id");
             GameSessionId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "game_session_id");
             ParentSquadId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "parent_squad_id");
-            OwnerPlayerId = new global::SpacetimeDB.NullableCol<Squad, ulong>(tableName, "owner_player_id");
+            OwnerPlayerId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "owner_player_id");
             CohesionRadius = new global::SpacetimeDB.Col<Squad, float>(tableName, "cohesion_radius");
             CenterPosition = new global::SpacetimeDB.Col<Squad, DbVector3>(tableName, "center_position");
             EntityId = new global::SpacetimeDB.Col<Squad, ulong>(tableName, "entity_id");

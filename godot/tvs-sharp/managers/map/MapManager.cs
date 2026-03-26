@@ -73,10 +73,8 @@ public partial class MapManager : Node
 	foreach (var entity in conn.Db.Entity.GameSessionId.Filter(GameId))
 	{
 	  if (entity.Type != EntityType.Terrain) continue;
-	  var feature = conn.Db.TerrainFeature.EntityId.Find(entity.EntityId);
-	  if (feature == null || feature.Type != TerrainType.CommandCenter) continue;
 	  var targetable = conn.Db.Targetable.EntityId.Find(entity.EntityId);
-	  if (targetable != null)
+	  if (targetable != null && targetable.MaxHealth > 0)
 		CreateOrUpdateHpIndicator(entity.EntityId);
 	}
 
@@ -169,6 +167,17 @@ public partial class MapManager : Node
 	{
 	  node.Scale = new Vector3(feature.SizeX, feature.SizeY, feature.SizeZ);
 	  AddChild(node);
+	}
+
+	var conn = SpacetimeNetworkManager.Instance?.Conn;
+	var targetable = conn?.Db.Targetable.EntityId.Find(entity.EntityId);
+	if (targetable != null && targetable.MaxHealth > 0)
+	{
+	  var t = new Targetable { EntityId = entity.EntityId, Type = EntityType.Terrain };
+	  node.AddChild(t);
+
+	  if (node is StaticBody3D sb)
+		sb.CollisionLayer |= 0b0000_0010;
 	}
   }
 
@@ -348,10 +357,10 @@ public partial class MapManager : Node
 	if (entity == null) return;
 
 	var feature = conn.Db.TerrainFeature.EntityId.Find(entityId);
-	if (feature == null || feature.Type != TerrainType.CommandCenter) return;
+	if (feature == null) return;
 
 	var targetable = conn.Db.Targetable.EntityId.Find(entityId);
-	if (targetable == null) return;
+	if (targetable == null || targetable.MaxHealth <= 0) return;
 
 	if (!_hpIndicators.TryGetValue(entityId, out var label))
 	{
@@ -380,8 +389,9 @@ public partial class MapManager : Node
 	int filled = (int)(ratio * barLen);
 	string bar = new string('\u2588', filled) + new string('\u2591', barLen - filled);
 
+	string typeName = feature.Type.ToString();
 	string status = targetable.Dead ? "DESTROYED" : $"{targetable.Health}/{targetable.MaxHealth}";
-	label.Text = $"BASE HP\n{bar} {status}";
+	label.Text = $"{typeName} HP\n{bar} {status}";
 
 	if (targetable.Dead)
 	  label.Modulate = new Color(0.5f, 0.5f, 0.5f);

@@ -126,6 +126,9 @@ public static partial class Module
     kinds.Remove(ResourceKind.Health);
     kinds.Add(ResourceKind.Stamina);
 
+    if (weapon.ClipSize > 0)
+      kinds.Add(ResourceKind.Supplies);
+
     return kinds;
   }
 
@@ -684,8 +687,55 @@ public static partial class Module
         if (targetPosition is not DbVector3 aimPoint)
           throw new Exception("Projectile ability requires an aim point");
 
+        var weapon = ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId);
+        bool isWeaponPrimary = weapon is WeaponDef w && w.PrimaryAbilityId == abilityId;
+
+        if (isWeaponPrimary && weapon is WeaponDef wpn && wpn.ClipSize > 0)
+        {
+          var ws = ctx.Db.weapon_state.EntityId.Find(gp.EntityId);
+          if (ws is WeaponState state)
+          {
+            if (state.ReloadingUntil is Timestamp reloadEnd
+                && reloadEnd.MicrosecondsSinceUnixEpoch > ctx.Timestamp.MicrosecondsSinceUnixEpoch)
+              throw new Exception("Cannot fire while reloading");
+            if (state.AmmoInClip <= 0)
+              throw new Exception("Clip empty — reload required");
+          }
+        }
+
         PayResourceCosts(ctx, ability, gp.EntityId, ref gpTarget);
         SetAbilityCooldown(ctx, gp.EntityId, abilityId, (ulong)resolved.CooldownMs);
+
+        if (isWeaponPrimary && weapon is WeaponDef wpn2 && wpn2.ClipSize > 0)
+        {
+          var ws = ctx.Db.weapon_state.EntityId.Find(gp.EntityId);
+          if (ws is WeaponState state)
+          {
+            int newAmmo = state.AmmoInClip - 1;
+            if (newAmmo <= 0)
+            {
+              var reloadPool = FindResourcePool(ctx, gp.EntityId, ResourceKind.Supplies);
+              int affordable = reloadPool != null ? Math.Min(wpn2.ClipSize, (int)reloadPool.Value.Current) : 0;
+              if (affordable > 0)
+              {
+                ctx.Db.resource_pool.Id.Update(reloadPool!.Value with { Current = reloadPool.Value.Current - affordable });
+                ctx.Db.weapon_state.EntityId.Update(state with
+                {
+                  AmmoInClip = affordable,
+                  ReloadingUntil = ctx.Timestamp + TimeSpan.FromMilliseconds(wpn2.ReloadTimeMs),
+                });
+              }
+              else
+              {
+                ctx.Db.weapon_state.EntityId.Update(state with { AmmoInClip = 0 });
+              }
+            }
+            else
+            {
+              ctx.Db.weapon_state.EntityId.Update(state with { AmmoInClip = newAmmo });
+            }
+          }
+        }
 
         const float MAX_BARREL_OFFSET = 5f;
         var origin = gpEnt.Position;
@@ -713,12 +763,56 @@ public static partial class Module
         float inv = 1f / len;
         dx *= inv; dy *= inv; dz *= inv;
 
-        SpawnProjectile(ctx, gameId, gp.EntityId, abilityId,
-          origin, dx, dy, dz,
-          ability.ProjectileSpeed > 0 ? ability.ProjectileSpeed : 60f,
-          ability.BaseRadius, resolved.Range,
-          gpEnt.TeamSlot, resolved.Power,
-          ability.AllowSubSquadTargeting, ability.Distribution);
+        float speed = ability.ProjectileSpeed > 0 ? ability.ProjectileSpeed : 60f;
+        bool detonateAtRange = ability.BaseRadius > 0;
+        float maxRange = detonateAtRange ? resolved.Range : 500f;
+        float dropRate = ability.DropRate;
+
+        int pelletCount = (isWeaponPrimary && weapon is WeaponDef wpn3 && wpn3.Mode == FireMode.Spread)
+          ? Math.Max(1, (int)wpn3.PelletCount)
+          : 1;
+        float spreadAngle = (isWeaponPrimary && weapon is WeaponDef wpn4)
+          ? wpn4.SpreadAngleDeg
+          : 0f;
+
+        int powerPerPellet = pelletCount > 1 ? resolved.Power / pelletCount : resolved.Power;
+        int powerRemainder = pelletCount > 1 ? resolved.Power % pelletCount : 0;
+
+        for (int i = 0; i < pelletCount; i++)
+        {
+          float pdx = dx, pdy = dy, pdz = dz;
+          if (spreadAngle > 0f && pelletCount > 1)
+          {
+            float angleRad = spreadAngle * ((float)Math.PI / 180f);
+            ulong tickSeed = (ulong)ctx.Timestamp.MicrosecondsSinceUnixEpoch;
+            float hash1 = (projectileSpreadSeed(proj: (ulong)i, tick: tickSeed) % 10000) / 10000f;
+            float hash2 = (projectileSpreadSeed(proj: (ulong)(i + pelletCount), tick: tickSeed) % 10000) / 10000f;
+            float offYaw = (hash1 * 2f - 1f) * angleRad;
+            float offPitch = (hash2 * 2f - 1f) * angleRad * 0.5f;
+
+            float cosYaw = (float)Math.Cos(offYaw);
+            float sinYaw = (float)Math.Sin(offYaw);
+            float newDx = pdx * cosYaw + pdz * sinYaw;
+            float newDz = -pdx * sinYaw + pdz * cosYaw;
+            pdx = newDx; pdz = newDz;
+
+            float cosPitch = (float)Math.Cos(offPitch);
+            float sinPitch = (float)Math.Sin(offPitch);
+            float newDy = pdy * cosPitch - (float)Math.Sqrt(pdx * pdx + pdz * pdz) * sinPitch;
+            pdy = newDy;
+
+            float pMag = (float)Math.Sqrt(pdx * pdx + pdy * pdy + pdz * pdz);
+            if (pMag > 1e-6f) { float pInv = 1f / pMag; pdx *= pInv; pdy *= pInv; pdz *= pInv; }
+          }
+
+          int pelletPower = powerPerPellet + (i < powerRemainder ? 1 : 0);
+          SpawnProjectile(ctx, gameId, gp.EntityId, abilityId,
+            origin, pdx, pdy, pdz,
+            speed, ability.BaseRadius, maxRange,
+            gpEnt.TeamSlot, pelletPower,
+            ability.AllowSubSquadTargeting, ability.Distribution,
+            dropRate, detonateAtRange);
+        }
 
         var eventType = ability.Type switch
         {
@@ -738,7 +832,7 @@ public static partial class Module
           ResolvedPower = resolved.Power,
         });
 
-        Log.Info($"Player {player.Name} fired {ability.Name} (power: {resolved.Power}, speed: {ability.ProjectileSpeed})");
+        Log.Info($"Player {player.Name} fired {ability.Name} (power: {resolved.Power}, speed: {ability.ProjectileSpeed}, pellets: {pelletCount})");
         break;
       }
 
@@ -1079,6 +1173,79 @@ public static partial class Module
     ClearResourcePools(ctx, gp.EntityId);
     SeedResourcePools(ctx, gp.EntityId, archetype, weapon, skill);
 
+    if (weapon.ClipSize > 0)
+    {
+      var existingWs = ctx.Db.weapon_state.EntityId.Find(gp.EntityId);
+      if (existingWs is WeaponState ws)
+        ctx.Db.weapon_state.EntityId.Update(ws with { AmmoInClip = weapon.ClipSize, ReloadingUntil = null });
+      else
+        ctx.Db.weapon_state.Insert(new WeaponState { EntityId = gp.EntityId, AmmoInClip = weapon.ClipSize, ReloadingUntil = null });
+    }
+    else
+    {
+      var existingWs = ctx.Db.weapon_state.EntityId.Find(gp.EntityId);
+      if (existingWs is WeaponState ws)
+        ctx.Db.weapon_state.EntityId.Delete(ws.EntityId);
+    }
+
     Log.Info($"Player {player.Name} set loadout for game {gameId}: {archetype.Name} / {weapon.Name} / {skill.Name}");
+  }
+
+  static ulong projectileSpreadSeed(ulong proj, ulong tick)
+  {
+    ulong h = proj * 2654435761UL + tick;
+    h ^= h >> 16;
+    h *= 0x45d9f3bUL;
+    h ^= h >> 16;
+    return h;
+  }
+
+  [SpacetimeDB.Reducer]
+  public static void Reload(ReducerContext ctx, ulong gameId)
+  {
+    var player = GetPlayerForSender(ctx);
+    var gp = FindActiveGamePlayer(ctx, player.Id) ?? throw new Exception("No active game player");
+
+    var gpEnt = ctx.Db.entity.EntityId.Find(gp.EntityId)!.Value;
+    if (gpEnt.GameSessionId != gameId)
+      throw new Exception("Game session mismatch");
+
+    var gpTarget = ctx.Db.targetable.EntityId.Find(gp.EntityId)!.Value;
+    if (gpTarget.Dead)
+      throw new Exception("Cannot reload while dead");
+
+    var loadout = FindLoadout(ctx, gameId, player.Id)
+      ?? throw new Exception("No loadout set");
+    var weapon = ctx.Db.weapon_def.Id.Find(loadout.WeaponDefId)
+      ?? throw new Exception("Weapon not found");
+
+    if (weapon.ClipSize <= 0)
+      throw new Exception("Weapon does not use magazines");
+
+    var ws = ctx.Db.weapon_state.EntityId.Find(gp.EntityId);
+    if (ws is not WeaponState state)
+      throw new Exception("No weapon state");
+
+    if (state.ReloadingUntil is Timestamp reloadEnd
+        && reloadEnd.MicrosecondsSinceUnixEpoch > ctx.Timestamp.MicrosecondsSinceUnixEpoch)
+      throw new Exception("Already reloading");
+
+    if (state.AmmoInClip >= weapon.ClipSize)
+      throw new Exception("Clip is already full");
+
+    int roundsNeeded = weapon.ClipSize - state.AmmoInClip;
+    var pool = FindResourcePool(ctx, gp.EntityId, ResourceKind.Supplies);
+    int affordable = pool != null ? Math.Min(roundsNeeded, (int)pool.Value.Current) : 0;
+    if (affordable <= 0)
+      throw new Exception("No ammo available");
+
+    if (pool != null)
+      ctx.Db.resource_pool.Id.Update(pool.Value with { Current = pool.Value.Current - affordable });
+
+    ctx.Db.weapon_state.EntityId.Update(state with
+    {
+      ReloadingUntil = ctx.Timestamp + TimeSpan.FromMilliseconds(weapon.ReloadTimeMs),
+      AmmoInClip = state.AmmoInClip + affordable,
+    });
   }
 }

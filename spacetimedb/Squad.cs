@@ -10,7 +10,10 @@ public static partial class Module
 
   public static ulong CreatePlayerSquad(ReducerContext ctx, ulong gameSessionId, ulong playerId, ulong playerEntityId, DbVector3 spawnPosition)
   {
-    var ent0 = CreateEntity(ctx, gameSessionId, EntityType.Soldier, spawnPosition + DeterministicFormationOffset(0, 0f), 0f, 0);
+    var playerEnt = ctx.Db.entity.EntityId.Find(playerEntityId);
+    byte teamSlot = (playerEnt is Entity pe) ? pe.TeamSlot : (byte)0;
+
+    var ent0 = CreateEntity(ctx, gameSessionId, EntityType.Soldier, spawnPosition + DeterministicFormationOffset(0, 0f), 0f, teamSlot);
     CreateTargetable(ctx, ent0.EntityId, SOLDIER_HEALTH, SOLDIER_HEALTH, SOLDIER_ARMOR);
     ctx.Db.soldier.Insert(new Soldier
     {
@@ -19,7 +22,7 @@ public static partial class Module
       FormationIndex = 0,
     });
 
-    var ent1 = CreateEntity(ctx, gameSessionId, EntityType.Soldier, spawnPosition + DeterministicFormationOffset(1, 0f), 0f, 0);
+    var ent1 = CreateEntity(ctx, gameSessionId, EntityType.Soldier, spawnPosition + DeterministicFormationOffset(1, 0f), 0f, teamSlot);
     CreateTargetable(ctx, ent1.EntityId, SOLDIER_HEALTH, SOLDIER_HEALTH, SOLDIER_ARMOR);
     ctx.Db.soldier.Insert(new Soldier
     {
